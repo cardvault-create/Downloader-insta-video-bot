@@ -79,54 +79,82 @@ class InstaDownloader:
                 formats = info.get('formats', [])
                 has_video_format = any(f.get('vcodec') != 'none' for f in formats)
                 
-                # ─── VIDEO (WITH AUDIO) ───
+                # ─── VIDEO (FORCE WITH AUDIO) ───
                 if is_video or has_video_format or ext in ['mp4', 'mov', 'webm']:
                     print(f"🎬 Downloading video with audio: {url}")
                     
-                    # Force best quality with audio
-                    video_opts = {
-                        'quiet': True,
-                        'no_warnings': True,
-                        'ignoreerrors': True,
-                        'outtmpl': os.path.join(DOWNLOAD_DIR, '%(id)s.%(ext)s'),
-                        'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
-                        'merge_output_format': 'mp4',
-                        'cookiefile': 'cookies.txt',
-                        'postprocessors': [{
-                            'key': 'FFmpegVideoConvertor',
-                            'preferedformat': 'mp4',
-                        }],
-                    }
+                    # Try multiple formats to get audio
+                    formats_to_try = [
+                        'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+                        'bestvideo+bestaudio/best',
+                        'best[ext=mp4]/best',
+                    ]
                     
-                    with yt_dlp.YoutubeDL(video_opts) as ydl2:
-                        info2 = ydl2.extract_info(url, download=True)
-                        if info2:
-                            file_id = info2.get('id', 'unknown')
-                            file_path = None
+                    file_path = None
+                    for fmt in formats_to_try:
+                        try:
+                            video_opts = {
+                                'quiet': True,
+                                'no_warnings': True,
+                                'ignoreerrors': True,
+                                'outtmpl': os.path.join(DOWNLOAD_DIR, '%(id)s.%(ext)s'),
+                                'format': fmt,
+                                'merge_output_format': 'mp4',
+                                'cookiefile': 'cookies.txt',
+                                'postprocessors': [{
+                                    'key': 'FFmpegVideoConvertor',
+                                    'preferedformat': 'mp4',
+                                }],
+                            }
                             
-                            # Find downloaded file
-                            for f in os.listdir(DOWNLOAD_DIR):
-                                if file_id in f and f.endswith('.mp4'):
-                                    file_path = os.path.join(DOWNLOAD_DIR, f)
-                                    break
-                            
-                            # If not found, check any video file
-                            if not file_path:
+                            with yt_dlp.YoutubeDL(video_opts) as ydl2:
+                                info2 = ydl2.extract_info(url, download=True)
+                                if info2:
+                                    file_id = info2.get('id', 'unknown')
+                                    # Find downloaded file
+                                    for f in os.listdir(DOWNLOAD_DIR):
+                                        if file_id in f and f.endswith('.mp4'):
+                                            file_path = os.path.join(DOWNLOAD_DIR, f)
+                                            break
+                                    if file_path and os.path.getsize(file_path) > 1000:
+                                        # Check if audio exists
+                                        probe_cmd = ['ffprobe', '-v', 'error', '-select_streams', 'a:0', '-show_entries', 'stream=codec_type', '-of', 'csv=p=0', file_path]
+                                        probe_result = subprocess.run(probe_cmd, capture_output=True, text=True, timeout=30)
+                                        if probe_result.stdout.strip():
+                                            print(f"✅ Video with audio found: {file_path}")
+                                            return {"success": True, "file_path": file_path, "is_video": True}
+                                        else:
+                                            print(f"⚠️ Video without audio, trying next format...")
+                                            # Cleanup and try next format
+                                            InstaDownloader.cleanup(file_path)
+                                            file_path = None
+                        except Exception as e:
+                            print(f"⚠️ Format {fmt} failed: {e}")
+                            continue
+                    
+                    # If we reached here, try one more time with best format
+                    try:
+                        video_opts = {
+                            'quiet': True,
+                            'no_warnings': True,
+                            'ignoreerrors': True,
+                            'outtmpl': os.path.join(DOWNLOAD_DIR, '%(id)s.%(ext)s'),
+                            'format': 'best',
+                            'cookiefile': 'cookies.txt',
+                        }
+                        with yt_dlp.YoutubeDL(video_opts) as ydl3:
+                            info3 = ydl3.extract_info(url, download=True)
+                            if info3:
+                                file_id = info3.get('id', 'unknown')
                                 for f in os.listdir(DOWNLOAD_DIR):
                                     if file_id in f and f.endswith(('.mp4', '.mov', '.webm')):
                                         file_path = os.path.join(DOWNLOAD_DIR, f)
                                         break
-                            
-                            if file_path and os.path.getsize(file_path) > 1000:
-                                print(f"✅ Video downloaded with audio: {file_path}")
-                                # Verify audio exists
-                                probe_cmd = ['ffprobe', '-v', 'error', '-select_streams', 'a:0', '-show_entries', 'stream=codec_type', '-of', 'csv=p=0', file_path]
-                                probe_result = subprocess.run(probe_cmd, capture_output=True, text=True, timeout=30)
-                                if probe_result.stdout.strip():
-                                    print("✅ Audio track found in video")
-                                else:
-                                    print("⚠️ No audio track found in video, but sending anyway")
-                                return {"success": True, "file_path": file_path, "is_video": True}
+                                if file_path and os.path.getsize(file_path) > 1000:
+                                    print(f"✅ Video downloaded (may or may not have audio): {file_path}")
+                                    return {"success": True, "file_path": file_path, "is_video": True}
+                    except Exception as e:
+                        print(f"❌ Final attempt failed: {e}")
                 
                 # ─── PHOTO(S) ───
                 print(f"📸 Downloading photo(s): {url}")
@@ -150,7 +178,6 @@ class InstaDownloader:
                             with yt_dlp.YoutubeDL(photo_opts) as ydl_photo:
                                 ydl_photo.extract_info(f"https://www.instagram.com/p/{file_id}/", download=True)
                             
-                            # Find downloaded file
                             for f in os.listdir(DOWNLOAD_DIR):
                                 if file_id in f and f.endswith(('.jpg', '.jpeg', '.png', '.webp')):
                                     fp = os.path.join(DOWNLOAD_DIR, f)
@@ -206,7 +233,6 @@ class InstaDownloader:
                 'Upgrade-Insecure-Requests': '1',
             }
             
-            # Use cookies from file
             cookies = {}
             if os.path.exists('cookies.txt'):
                 with open('cookies.txt', 'r') as f:
@@ -315,9 +341,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await update.message.reply_text(
         "📥 **Instagram Downloader Bot**\n\n"
-        "✅ Video link bhejo → Video with Audio (Direct Instagram)\n"
-        "✅ Photo link bhejo → High Quality Photo (Direct Instagram)\n"
-        "✅ Multiple photos → Sabhi 1-1 karke bhejunga\n"
+        "✅ Video link bhejo → Video with Audio\n"
+        "✅ Photo link bhejo → High Quality Photo\n"
+        "✅ Multiple photos → Sabhi 1-1 karke\n"
         "✅ Audio button → Name do → Audio aayega\n\n"
         "**Example:**\n"
         "`https://www.instagram.com/reel/xyz/`\n"
@@ -522,12 +548,10 @@ def main():
     # Check cookies.txt
     if os.path.exists('cookies.txt'):
         print("✅ cookies.txt found")
-        # Check if valid by reading
         try:
             with open('cookies.txt', 'r') as f:
                 lines = f.readlines()
                 print(f"📄 cookies.txt has {len(lines)} lines")
-                # Check if it has sessionid
                 has_session = any('sessionid' in line for line in lines)
                 if has_session:
                     print("✅ cookies.txt has sessionid (valid)")
