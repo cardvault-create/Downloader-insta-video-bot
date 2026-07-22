@@ -13,8 +13,8 @@ import browser_cookie3
 # 🔐 CONFIG
 # ═══════════════════════════════════
 
-BOT_TOKEN = "YOUR_BOT_TOKEN_HERE"
-AUTHORIZED_USERS = [123456789]
+BOT_TOKEN = "8518787964:AAHGimBKXfdtrI6UaASGsoI8Aj5Rj_WxF5I"
+AUTHORIZED_USERS = [1987818347]
 
 DOWNLOAD_DIR = "downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
