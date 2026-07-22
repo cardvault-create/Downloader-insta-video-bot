@@ -283,9 +283,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     try:
         if is_video:
-            # Store URL in context
-            context.user_data['audio_url'] = url
-            keyboard = [[InlineKeyboardButton("🎵 Download Audio", callback_data="audio_request")]]
+            keyboard = [[InlineKeyboardButton("🎵 Download Video Audio", callback_data=f"audio_{url}")]]
             with open(fp, 'rb') as f:
                 await update.message.reply_video(
                     video=f,
@@ -312,44 +310,36 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     
     data = query.data
+    if not data.startswith("audio_"):
+        return
     
-    if data == "audio_request":
-        url = context.user_data.get('audio_url')
-        if not url:
-            await query.message.reply_text("❌ URL not found. Please send video again.")
-            return
-        
-        await query.edit_message_reply_markup(reply_markup=None)
-        status_msg = await query.message.reply_text("🎵 Audio extract ho raha hai...")
-        
-        # Download video again
-        result = InstaDownloader.download_media(url)
-        if not result.get("success"):
-            await status_msg.edit_text("❌ Video download failed. Audio extract nahi ho paya.")
-            return
-        
-        vp = result["file_path"]
-        audio_result = InstaDownloader.extract_audio(vp)
-        
-        if audio_result.get("success"):
-            ap = audio_result["file_path"]
-            try:
-                with open(ap, 'rb') as f:
-                    await query.message.reply_audio(
-                        audio=f,
-                        title="Instagram Audio",
-                        performer="Instagram",
-                        caption="🎵 Audio extracted ✅"
-                    )
-                await status_msg.edit_text("✅ Audio sent! 🎵")
-            except Exception as e:
-                await status_msg.edit_text(f"❌ Error: {str(e)}")
-            try: os.remove(ap)
-            except: pass
-        else:
-            await status_msg.edit_text(f"❌ {audio_result.get('error')}")
-        
-        InstaDownloader.cleanup(vp)
+    url = data.replace("audio_", "")
+    await query.edit_message_reply_markup(reply_markup=None)
+    status_msg = await query.message.reply_text("🎵 Audio extract ho raha hai...")
+    
+    # Video download karo
+    result = InstaDownloader.download_media(url)
+    if not result.get("success") or not (result.get("is_video") or result.get("file_path", '').endswith(('.mp4', '.mov'))):
+        await status_msg.edit_text("❌ Video download failed. Audio extract nahi ho paya.")
+        return
+    
+    vp = result["file_path"]
+    audio_result = InstaDownloader.extract_audio(vp)
+    
+    if audio_result.get("success"):
+        ap = audio_result["file_path"]
+        try:
+            with open(ap, 'rb') as f:
+                await query.message.reply_audio(audio=f, title="Instagram Audio", performer="Instagram", caption="🎵 Audio extracted ✅")
+            await status_msg.edit_text("✅ Audio sent! 🎵")
+        except Exception as e:
+            await status_msg.edit_text(f"❌ Error: {str(e)}")
+        try: os.remove(ap)
+        except: pass
+    else:
+        await status_msg.edit_text(f"❌ {audio_result.get('error')}\n\n💡 FFmpeg install karo: `sudo apt install ffmpeg`", parse_mode="Markdown")
+    
+    InstaDownloader.cleanup(vp)
 
 def main():
     logging.basicConfig(level=logging.INFO)
