@@ -1,7 +1,2 @@
-pyrogram==2.0.106
-tgcrypto==1.2.5
-instaloader==4.15.2
-yt-dlp>=2024.7.25
-aiohttp>=3.9.0
-aiofiles>=24.1.0
-flask>=3.0.0
+python-telegram-bot==20.7
+yt-dlp==2024.12.13
