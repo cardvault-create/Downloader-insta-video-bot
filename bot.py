@@ -4,12 +4,12 @@ import re
 import subprocess
 import shutil
 import time
+import json
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 from telegram.error import TimedOut
 import yt_dlp
 import requests
-import json
 
 # ══════════════════════════════════════
 # 🔐 CONFIG
@@ -38,10 +38,53 @@ class InstaDownloader:
             return 'https://' + url if not url.startswith('http') else url
         return None
 
-    # --- NEW: Dedicated photo downloader using scrape ---
+    @staticmethod
+    def download_media(url, status_callback=None):
+        """Main function to download media."""
+        
+        # Check if it's a video (Reel) using yt-dlp
+        is_video = InstaDownloader._is_video(url)
+        
+        if is_video:
+            if status_callback:
+                await status_callback("📥 **Downloading Video From Instagram...**")
+            result = InstaDownloader._download_video_ytdlp(url)
+            if result.get("success"):
+                return result
+            else:
+                return InstaDownloader._download_scrape(url)
+        else:
+            if status_callback:
+                await status_callback("📸 **Downloading Photo From Instagram...**")
+            return InstaDownloader._download_photo_scrape(url)
+
+    @staticmethod
+    def _is_video(url):
+        """Check if the URL is a video using yt-dlp info."""
+        try:
+            opts = {
+                'quiet': True,
+                'no_warnings': True,
+                'ignoreerrors': True,
+                'cookiefile': 'cookies.txt' if os.path.exists('cookies.txt') else None,
+            }
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                info = ydl.extract_info(url, download=False)
+                if info:
+                    is_video = info.get('is_video', False)
+                    ext = info.get('ext', '')
+                    formats = info.get('formats', [])
+                    has_video_format = any(f.get('vcodec') != 'none' for f in formats)
+                    
+                    if is_video or has_video_format or ext in ['mp4', 'mov', 'webm']:
+                        return True
+        except Exception as e:
+            print(f"⚠️ Error in video detection: {e}")
+        return False
+
     @staticmethod
     def _download_photo_scrape(url):
-        """Scrapes Instagram page for direct image URLs and downloads them."""
+        """Scrapes Instagram page for image URLs using JSON data."""
         print(f"📸 Downloading photo via scrape: {url}")
         try:
             headers = {
@@ -64,59 +107,76 @@ class InstaDownloader:
                             cookies[parts[5]] = parts[6]
                 print("✅ Loaded cookies for photo scrape.")
             else:
-                return {"success": False, "error": "cookies.txt not found for photo download."}
+                return {"success": False, "error": "cookies.txt not found"}
             
             response = requests.get(url, headers=headers, cookies=cookies, timeout=15)
             html = response.text
             
-            # --- Find all image URLs from the page ---
+            # ─── METHOD 1: Extract from JSON data ───
+            # Look for the JSON data in script tags
+            json_patterns = [
+                r'<script type="text/javascript">window\._sharedData = (.*?);</script>',
+                r'<script type="application/json" id="__NEXT_DATA__">(.*?)</script>',
+                r'<script type="text/javascript">window\.__additionalDataLoaded\(".*?",(.*?)\);</script>'
+            ]
+            
             image_urls = []
+            shortcode = re.search(r'/(p|reel)/([^/]+)', url).group(2)
             
-            # 1. Look for "display_url" (most reliable for single posts)
-            display_urls = re.findall(r'"display_url":"([^"]+)"', html)
-            if display_urls:
-                # Remove duplicates and add to list
-                for img_url in display_urls:
-                    img_url = img_url.replace('\\u0026', '&')
-                    if img_url not in image_urls:
-                        image_urls.append(img_url)
-                print(f"✅ Found {len(image_urls)} image(s) via 'display_url'.")
+            for pattern in json_patterns:
+                match = re.search(pattern, html, re.DOTALL)
+                if match:
+                    try:
+                        data = json.loads(match.group(1))
+                        # Navigate to find image URLs
+                        image_urls = InstaDownloader._extract_images_from_json(data, shortcode)
+                        if image_urls:
+                            print(f"✅ Found {len(image_urls)} images from JSON data")
+                            break
+                    except:
+                        continue
             
-            # 2. If no "display_url", look for image URLs in meta tags or img tags (fallback)
+            # ─── METHOD 2: Fallback to display_url ───
+            if not image_urls:
+                display_urls = re.findall(r'"display_url":"([^"]+)"', html)
+                if display_urls:
+                    for img_url in display_urls:
+                        img_url = img_url.replace('\\u0026', '&')
+                        if img_url not in image_urls:
+                            image_urls.append(img_url)
+                    print(f"✅ Found {len(image_urls)} images from display_url")
+            
+            # ─── METHOD 3: Fallback to og:image ───
             if not image_urls:
                 meta_img_urls = re.findall(r'<meta property="og:image" content="([^"]+)"', html)
                 for img_url in meta_img_urls:
                     if img_url not in image_urls:
                         image_urls.append(img_url)
-                print(f"✅ Found {len(image_urls)} image(s) via 'og:image'.")
+                print(f"✅ Found {len(image_urls)} images from og:image")
             
             if not image_urls:
-                return {"success": False, "error": "No images found in the post."}
+                return {"success": False, "error": "No images found in the post"}
             
-            # --- Download each unique image ---
-            shortcode = re.search(r'/(p|reel)/([^/]+)', url).group(2)
+            # ─── Download each image ───
             downloaded_paths = []
             
             for i, img_url in enumerate(image_urls):
                 try:
-                    # Ensure URL is absolute
                     if img_url.startswith('//'):
                         img_url = 'https:' + img_url
-                    elif img_url.startswith('/'):
-                        img_url = 'https://www.instagram.com' + img_url
                     
-                    # Clean the URL (remove query params if any)
+                    # Clean URL
                     img_url = img_url.split('?')[0]
                     
-                    # Determine extension from URL
-                    ext = img_url.split('.')[-1].split('?')[0]
+                    # Determine extension
+                    ext = img_url.split('.')[-1]
                     if ext not in ['jpg', 'jpeg', 'png', 'webp']:
-                        ext = 'jpg'  # default
+                        ext = 'jpg'
                     
                     file_name = f"{shortcode}_{i+1}.{ext}"
                     file_path = os.path.join(DOWNLOAD_DIR, file_name)
                     
-                    # Download image
+                    # Download
                     img_response = requests.get(img_url, headers=headers, stream=True, timeout=30)
                     if img_response.status_code == 200:
                         with open(file_path, 'wb') as f:
@@ -126,14 +186,14 @@ class InstaDownloader:
                         
                         if os.path.getsize(file_path) > 1000:
                             downloaded_paths.append(file_path)
-                            print(f"✅ Downloaded image {i+1}: {file_name}")
+                            print(f"✅ Downloaded image {i+1}")
                         else:
-                            print(f"⚠️ Downloaded file too small: {file_name}")
+                            print(f"⚠️ File too small: {file_name}")
                     else:
-                        print(f"⚠️ Failed to download image {i+1}: Status {img_response.status_code}")
+                        print(f"⚠️ Failed to download {i+1}: Status {img_response.status_code}")
                         
                 except Exception as e:
-                    print(f"⚠️ Exception while downloading image {i+1}: {e}")
+                    print(f"⚠️ Exception downloading image {i+1}: {e}")
                     continue
             
             if downloaded_paths:
@@ -142,62 +202,64 @@ class InstaDownloader:
                 else:
                     return {"success": True, "file_paths": downloaded_paths, "is_video": False, "is_multiple": True}
             else:
-                return {"success": False, "error": "Failed to download any images."}
+                return {"success": False, "error": "Failed to download images"}
                 
         except Exception as e:
             print(f"❌ Photo scrape error: {e}")
             return {"success": False, "error": f"Photo scrape failed: {str(e)}"}
 
     @staticmethod
-    def download_media(url):
-        """Main function to download media."""
+    def _extract_images_from_json(data, shortcode):
+        """Recursively extract image URLs from JSON data."""
+        image_urls = []
         
-        # Check if it's a video (Reel) first using yt-dlp without download
-        is_video = InstaDownloader._is_video(url)
+        if isinstance(data, dict):
+            # Check for edge_media_to_caption (Instagram's graphql structure)
+            if 'graphql' in data:
+                data = data['graphql']
+            
+            if 'shortcode_media' in data:
+                media = data['shortcode_media']
+                if media.get('__typename') == 'GraphImage':
+                    if media.get('display_url'):
+                        image_urls.append(media['display_url'])
+                elif media.get('__typename') == 'GraphSidecar':
+                    if 'edge_sidecar_to_children' in media:
+                        edges = media['edge_sidecar_to_children'].get('edges', [])
+                        for edge in edges:
+                            node = edge.get('node', {})
+                            if node.get('display_url'):
+                                image_urls.append(node['display_url'])
+            elif 'edge_sidecar_to_children' in data:
+                edges = data['edge_sidecar_to_children'].get('edges', [])
+                for edge in edges:
+                    node = edge.get('node', {})
+                    if node.get('display_url'):
+                        image_urls.append(node['display_url'])
+            elif 'display_url' in data:
+                image_urls.append(data['display_url'])
+            
+            # If not found, search deeper
+            if not image_urls:
+                for value in data.values():
+                    result = InstaDownloader._extract_images_from_json(value, shortcode)
+                    if result:
+                        image_urls.extend(result)
+                        
+        elif isinstance(data, list):
+            for item in data:
+                result = InstaDownloader._extract_images_from_json(item, shortcode)
+                if result:
+                    image_urls.extend(result)
         
-        if is_video:
-            print(f"🎬 Detected video, using yt-dlp: {url}")
-            result = InstaDownloader._download_video_ytdlp(url)
-            if result.get("success"):
-                return result
-            else:
-                # If yt-dlp fails for video, try scraping as fallback
-                return InstaDownloader._download_scrape(url)
-        else:
-            # It's a photo, use the dedicated photo scraper
-            return InstaDownloader._download_photo_scrape(url)
-
-    @staticmethod
-    def _is_video(url):
-        """Check if the URL is a video using yt-dlp info."""
-        try:
-            opts = {
-                'quiet': True,
-                'no_warnings': True,
-                'ignoreerrors': True,
-                'cookiefile': 'cookies.txt' if os.path.exists('cookies.txt') else None,
-            }
-            with yt_dlp.YoutubeDL(opts) as ydl:
-                info = ydl.extract_info(url, download=False)
-                if info:
-                    # Check if the entry is a video or has video formats
-                    is_video = info.get('is_video', False)
-                    ext = info.get('ext', '')
-                    formats = info.get('formats', [])
-                    has_video_format = any(f.get('vcodec') != 'none' for f in formats)
-                    
-                    if is_video or has_video_format or ext in ['mp4', 'mov', 'webm']:
-                        return True
-        except Exception as e:
-            print(f"⚠️ Error in video detection: {e}")
-        return False
+        return image_urls
 
     @staticmethod
     def _download_video_ytdlp(url):
         """Download video with audio using yt-dlp."""
         try:
             if not os.path.exists('cookies.txt'):
-                return {"success": False, "error": "cookies.txt not found for video download."}
+                return {"success": False, "error": "cookies.txt not found"}
             
             video_opts = {
                 'quiet': True,
@@ -224,13 +286,7 @@ class InstaDownloader:
                             break
                     
                     if file_path and os.path.getsize(file_path) > 1000:
-                        # Verify audio exists
-                        probe_cmd = ['ffprobe', '-v', 'error', '-select_streams', 'a:0', '-show_entries', 'stream=codec_type', '-of', 'csv=p=0', file_path]
-                        probe_result = subprocess.run(probe_cmd, capture_output=True, text=True, timeout=30)
-                        if probe_result.stdout.strip():
-                            print(f"✅ Video with audio: {file_path}")
-                        else:
-                            print(f"⚠️ Video without audio, but sending anyway")
+                        print(f"✅ Video with audio: {file_path}")
                         return {"success": True, "file_path": file_path, "is_video": True}
             
             return {"success": False, "error": "Video download failed"}
@@ -240,10 +296,10 @@ class InstaDownloader:
 
     @staticmethod
     def _download_scrape(url):
-        """Fallback scrape for videos (if yt-dlp fails)."""
+        """Fallback scrape for videos."""
         try:
             headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
                 'Accept-Language': 'en-US,en;q=0.9',
                 'Accept-Encoding': 'gzip, deflate, br',
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
@@ -259,13 +315,10 @@ class InstaDownloader:
                         parts = line.strip().split('\t')
                         if len(parts) >= 7:
                             cookies[parts[5]] = parts[6]
-            else:
-                return {"success": False, "error": "cookies.txt not found."}
             
             response = requests.get(url, headers=headers, cookies=cookies, timeout=15)
             html = response.text
             
-            # Find video URL
             v = re.search(r'"video_url":"([^"]+)"', html)
             if v:
                 shortcode = re.search(r'/(p|reel)/([^/]+)', url).group(2)
@@ -277,7 +330,7 @@ class InstaDownloader:
                         if chunk: f.write(chunk)
                 if os.path.getsize(fp) > 1000:
                     return {"success": True, "file_path": fp, "is_video": True}
-            return {"success": False, "error": "Video URL not found in scrape"}
+            return {"success": False, "error": "Video URL not found"}
         except Exception as e:
             print(f"❌ Video scrape error: {e}")
             return {"success": False, "error": str(e)}
@@ -294,14 +347,12 @@ class InstaDownloader:
             else:
                 audio_path = video_path.rsplit('.', 1)[0] + '.mp3'
             
-            # Check if video has audio
             probe_cmd = ['ffprobe', '-v', 'error', '-select_streams', 'a:0', '-show_entries', 'stream=codec_type', '-of', 'csv=p=0', video_path]
             probe_result = subprocess.run(probe_cmd, capture_output=True, text=True, timeout=30)
             
             if not probe_result.stdout.strip():
                 return {"success": False, "error": "❌ Is video main audio nahi hai!"}
             
-            # Extract audio
             cmd = ['ffmpeg', '-i', video_path, '-vn', '-acodec', 'libmp3lame', '-ab', '192k', '-y', audio_path]
             subprocess.run(cmd, capture_output=True, timeout=180)
             
@@ -337,16 +388,21 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await update.message.reply_text(
         "📥 **Instagram Downloader Bot**\n\n"
-        "✅ Video link bhejo → Video with Audio\n"
-        "✅ Photo link bhejo → High Quality Photo(s)\n"
-        "✅ Multiple photos → Sabhi 1-1 karke\n"
-        "✅ Audio button → Name do → Audio aayega\n\n"
+        "✅ Video link bhejo → **Video with Audio**\n"
+        "✅ Photo link bhejo → **High Quality Photo(s)**\n"
+        "✅ Multiple photos → **1-1 karke**\n"
+        "✅ Audio button → **Custom name**\n\n"
         "**Example:**\n"
         "`https://www.instagram.com/reel/xyz/`\n"
-        "`https://www.instagram.com/p/xyz/`\n\n"
-        "**⚠️ Note:** cookies.txt must be valid!",
+        "`https://www.instagram.com/p/xyz/`",
         parse_mode="Markdown"
     )
+
+async def update_status(msg, text):
+    try:
+        await msg.edit_text(text, parse_mode="Markdown")
+    except:
+        pass
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user.id
@@ -376,9 +432,17 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Invalid URL")
         return
     
-    msg = await update.message.reply_text("⏳ Downloading from Instagram...")
+    msg = await update.message.reply_text("⏳ **Checking...**", parse_mode="Markdown")
     
     try:
+        # First check if it's video or photo
+        is_video = InstaDownloader._is_video(url)
+        
+        if is_video:
+            await update_status(msg, "📥 **Downloading Video From Instagram...**")
+        else:
+            await update_status(msg, "📸 **Downloading Photo From Instagram...**")
+        
         result = InstaDownloader.download_media(url)
         
         if not result.get("success"):
@@ -398,7 +462,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if result.get("is_multiple"):
             photo_paths = result.get("file_paths", [])
             if photo_paths:
-                await msg.edit_text(f"📸 Sending {len(photo_paths)} photos...")
+                await update_status(msg, f"📸 **Uploading {len(photo_paths)} Photos...**")
                 for i, fp in enumerate(photo_paths):
                     if os.path.exists(fp) and os.path.getsize(fp) > 1000:
                         try:
@@ -429,6 +493,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         try:
             if is_video:
+                await update_status(msg, "📤 **Uploading Video...**")
                 context.user_data['audio_url'] = url
                 keyboard = [[InlineKeyboardButton("🎵 Download Audio", callback_data="audio_request")]]
                 with open(fp, 'rb') as f:
@@ -440,6 +505,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         supports_streaming=True
                     )
             else:
+                await update_status(msg, "📤 **Uploading Photo...**")
                 with open(fp, 'rb') as f:
                     await update.message.reply_photo(
                         photo=f,
@@ -485,7 +551,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         
         await query.edit_message_reply_markup(reply_markup=None)
-        status_msg = await query.message.reply_text("🎵 Audio extract ho raha hai...")
+        status_msg = await query.message.reply_text("🎵 **Extracting Audio...**", parse_mode="Markdown")
         
         try:
             result = InstaDownloader.download_media(url)
@@ -500,6 +566,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 ap = audio_result["file_path"]
                 try:
                     audio_name = custom_name if custom_name else "Instagram Audio"
+                    await update_status(status_msg, "📤 **Uploading Audio...**")
                     with open(ap, 'rb') as f:
                         await query.message.reply_audio(
                             audio=f,
