@@ -34,7 +34,15 @@ API_HASH = os.environ.get("API_HASH")
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 
 app = Client("bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN, workers=50)
-loader = instaloader.Instaloader(download_pictures=False, download_videos=False, download_video_thumbnails=False, save_metadata=False, max_connection_attempts=3)
+
+# Updated instaloader initialization
+loader = instaloader.Instaloader(
+    download_pictures=False,
+    download_videos=False,
+    download_video_thumbnails=False,
+    save_metadata=False,
+    max_connection_attempts=3
+)
 
 DOWNLOAD_PATH = "/tmp/downloads"
 os.makedirs(DOWNLOAD_PATH, exist_ok=True)
@@ -44,7 +52,17 @@ user_states = {}
 
 @app.on_message(filters.command("start"))
 async def start(client, message):
-    await message.reply_text("**🎬 Instagram Downloader Bot**\n\nSend Instagram reel/post link to download!\n\nVideo/Photo/Reels supported ✅")
+    await message.reply_text(
+        "**🎬 Instagram Downloader Bot**\n\n"
+        "Send Instagram reel/post link to download!\n"
+        "Video/Photo/Reels supported ✅\n\n"
+        "**Features:**\n"
+        "• 📹 HD Video Download\n"
+        "• 📸 Original Quality Photos\n"
+        "• 🎵 Audio Extraction\n"
+        "• 📥 Download Button\n\n"
+        "Made with ❤️"
+    )
 
 @app.on_message(filters.regex(r'https?://(?:www\.)?instagram\.com/(?:p|reel|tv)/[^/]+'))
 async def download(client, message):
@@ -61,8 +79,9 @@ async def download(client, message):
         
         try:
             post = instaloader.Post.from_shortcode(loader.context, shortcode)
-        except:
+        except Exception as e:
             await status.edit_text("❌ Failed to fetch post. May be private or invalid.")
+            logger.error(f"Instaloader error: {e}")
             return
         
         if post.is_video:
@@ -120,6 +139,7 @@ async def download(client, message):
     except FloodWait as e:
         await asyncio.sleep(e.value)
     except Exception as e:
+        logger.error(f"Download error: {e}")
         if status:
             await status.edit_text(f"❌ Error: {str(e)[:200]}")
 
@@ -133,8 +153,8 @@ async def dl_video(client, callback):
             return
         await callback.message.reply_document(document=v['video_path'], caption=f"📹 Video | 👤 @{v['owner_id']}", file_name=f"video_{file_id}.mp4")
         await callback.answer("✅ Sent!")
-    except:
-        pass
+    except Exception as e:
+        logger.error(f"Download callback error: {e}")
 
 @app.on_callback_query(filters.regex(r'^au_'))
 async def audio_name(client, callback):
@@ -147,8 +167,8 @@ async def audio_name(client, callback):
         user_states[callback.from_user.id] = {'file_id': file_id, 'ts': datetime.now().timestamp()}
         await callback.message.reply_text("🎵 **Audio filename bhejo:**\nExample: my_song")
         await callback.answer()
-    except:
-        pass
+    except Exception as e:
+        logger.error(f"Audio callback error: {e}")
 
 @app.on_message(filters.text & filters.private & ~filters.command(["start"]))
 async def get_audio_name(client, message):
@@ -174,7 +194,7 @@ async def get_audio_name(client, message):
         status = await message.reply_text("🔄 Extracting audio...")
         
         temp = os.path.join(DOWNLOAD_PATH, f"audio_{file_id}")
-        opts = {'format': 'bestaudio/best', 'outtmpl': temp, 'postprocessors': [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3', 'preferredquality': '192'}], 'quiet': True}
+        opts = {'format': 'bestaudio/best', 'outtmpl': temp, 'postprocessors': [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3', 'preferredquality': '192'}], 'quiet': True, 'no_warnings': True}
         
         with yt_dlp.YoutubeDL(opts) as ydl:
             ydl.download([v['video_url']])
@@ -194,10 +214,12 @@ async def get_audio_name(client, message):
             pass
         del user_states[uid]
     except Exception as e:
+        logger.error(f"Audio extraction error: {e}")
         await message.reply_text(f"❌ {str(e)[:100]}")
         if uid in user_states:
             del user_states[uid]
 
 if __name__ == "__main__":
+    logger.info("Bot starting...")
     keep_alive()
     app.run()
