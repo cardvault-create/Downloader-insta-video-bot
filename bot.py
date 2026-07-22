@@ -7,13 +7,14 @@ from datetime import datetime
 import aiohttp
 import aiofiles
 from pyrogram import Client, filters
-from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from pyrogram.errors import FloodWait
 from flask import Flask
 import threading
 import time
 import json
 import subprocess
+import shutil
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -41,120 +42,108 @@ os.makedirs(DOWNLOAD_PATH, exist_ok=True)
 video_cache = {}
 user_states = {}
 
-# ============ BETTER APIS ============
-
-APIS = [
-    "https://api.davidcyriltech.my.id/instagram?url={}",
-    "https://www.instagramsave.com/instagram-video-downloader?url={}",
-    "https://api.hybrids.id/api/instagram?url={}",
-]
-
-# New reliable APIs
-RELIABLE_APIS = [
-    "https://tikwm.com/api/instagram/?url={}",
-    "https://api.azhar32.net/instagram?url={}",
-]
-
-async def get_instagram_media(url):
-    """Get Instagram media using multiple APIs"""
-    
-    # Method 1: Using instagram-save.com
+# Check if yt-dlp is installed
+def check_ytdlp():
     try:
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
-        
-        # Try Instagram Save
-        async with aiohttp.ClientSession() as session:
-            # Get cookies first
-            async with session.get("https://www.instagramsave.com/", headers=headers) as resp:
-                html = await resp.text()
-                # Extract token
-                token_match = re.search(r'name="csrf_token" value="([^"]+)"', html)
-                csrf_token = token_match.group(1) if token_match else ""
-            
-            # Post request
-            post_data = {
-                'url': url,
-                'action': 'post',
-                'csrf_token': csrf_token
-            }
-            
-            async with session.post(
-                "https://www.instagramsave.com/instagram-video-downloader",
-                data=post_data,
-                headers=headers
-            ) as resp:
-                html = await resp.text()
-                # Extract download URLs
-                video_matches = re.findall(r'href="([^"]+\.mp4[^"]*)"', html)
-                if video_matches:
-                    return video_matches[0]
-                
-                image_matches = re.findall(r'href="([^"]+\.jpg[^"]*)"', html)
-                if image_matches:
-                    return image_matches[0]
-    
-    except Exception as e:
-        logger.error(f"Instagram Save error: {e}")
-    
-    # Method 2: Using davidcyriltech
-    try:
-        async with aiohttp.ClientSession() as session:
-            response = await session.get(
-                f"https://api.davidcyriltech.my.id/instagram?url={url}",
-                timeout=aiohttp.ClientTimeout(total=10)
-            )
-            if response.status == 200:
-                data = await response.json()
-                if data.get('success') and data.get('download_url'):
-                    return data['download_url']
+        subprocess.run(['yt-dlp', '--version'], capture_output=True, check=True)
+        return True
     except:
-        pass
-    
-    # Method 3: Using alternative API
-    try:
-        async with aiohttp.ClientSession() as session:
-            response = await session.get(
-                f"https://api.azhar32.net/instagram?url={url}",
-                timeout=aiohttp.ClientTimeout(total=10)
-            )
-            if response.status == 200:
-                data = await response.json()
-                if data.get('result'):
-                    return data['result']
-    except:
-        pass
-    
-    return None
+        return False
 
-async def download_media(download_url, file_path):
-    """Download media file with progress"""
+# Install yt-dlp if not present
+if not check_ytdlp():
+    logger.info("Installing yt-dlp...")
+    subprocess.run(['pip', 'install', 'yt-dlp'], check=True)
+
+async def download_instagram_with_ytdlp(url):
+    """Download Instagram media using yt-dlp (best quality)"""
     try:
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Accept': 'video/mp4,image/jpeg,*/*',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Connection': 'keep-alive'
-        }
+        file_id = str(uuid.uuid4())[:12]
+        output_template = os.path.join(DOWNLOAD_PATH, f"instagram_{file_id}.%(ext)s")
         
-        async with aiohttp.ClientSession() as session:
-            async with session.get(download_url, headers=headers, timeout=aiohttp.ClientTimeout(total=120)) as resp:
-                if resp.status == 200:
-                    async with aiofiles.open(file_path, 'wb') as f:
-                        downloaded = 0
-                        async for chunk in resp.content.iter_chunked(1024 * 1024):  # 1MB chunks
-                            await f.write(chunk)
-                            downloaded += len(chunk)
-                    
-                    if os.path.exists(file_path) and os.path.getsize(file_path) > 10000:
-                        logger.info(f"Downloaded: {os.path.getsize(file_path)} bytes")
-                        return True
-                    
+        # yt-dlp command for best quality
+        cmd = [
+            'yt-dlp',
+            '-f', 'best[ext=mp4]/best',  # Best quality
+            '--no-playlist',
+            '--no-warnings',
+            '--ignore-errors',
+            '--no-check-certificate',
+            '-o', output_template,
+            url
+        ]
+        
+        logger.info(f"Running yt-dlp: {' '.join(cmd)}")
+        
+        # Run yt-dlp
+        process = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        
+        stdout, stderr = await process.communicate()
+        
+        if process.returncode != 0:
+            logger.error(f"yt-dlp error: {stderr.decode()}")
+            return None, None
+        
+        # Find downloaded file
+        for file in os.listdir(DOWNLOAD_PATH):
+            if file.startswith(f"instagram_{file_id}"):
+                file_path = os.path.join(DOWNLOAD_PATH, file)
+                ext = file.split('.')[-1].lower()
+                return file_path, ext
+        
+        return None, None
+        
     except Exception as e:
-        logger.error(f"Download error: {e}")
-    
-    return False
+        logger.error(f"yt-dlp error: {e}")
+        return None, None
+
+async def download_instagram_with_cookies(url):
+    """Alternative method using cookies for better success rate"""
+    try:
+        # Create cookies file
+        cookies_file = os.path.join(DOWNLOAD_PATH, "cookies.txt")
+        
+        # Add some default cookies (optional - you can add your own)
+        with open(cookies_file, 'w') as f:
+            f.write("# Netscape HTTP Cookie File\n")
+            f.write(".instagram.com\tTRUE\t/\tFALSE\t0\tmid\tYOUR_MID_HERE\n")
+        
+        file_id = str(uuid.uuid4())[:12]
+        output_template = os.path.join(DOWNLOAD_PATH, f"insta_{file_id}.%(ext)s")
+        
+        cmd = [
+            'yt-dlp',
+            '--cookies', cookies_file,
+            '-f', 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+            '--no-playlist',
+            '-o', output_template,
+            url
+        ]
+        
+        process = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        
+        stdout, stderr = await process.communicate()
+        
+        if process.returncode == 0:
+            for file in os.listdir(DOWNLOAD_PATH):
+                if file.startswith(f"insta_{file_id}"):
+                    file_path = os.path.join(DOWNLOAD_PATH, file)
+                    ext = file.split('.')[-1].lower()
+                    return file_path, ext
+        
+        return None, None
+        
+    except Exception as e:
+        logger.error(f"Cookie method error: {e}")
+        return None, None
 
 # ============ COMMANDS ============
 
@@ -162,124 +151,143 @@ async def download_media(download_url, file_path):
 async def start(client, message):
     await message.reply_text(
         "**🎬 Instagram Downloader Bot**\n\n"
-        "Send any public Instagram reel/post link!\n\n"
-        "✅ HD Quality Video\n"
-        "✅ Original Photos\n"
-        "✅ Audio Extraction\n\n"
-        "🚀 Send link now!"
+        "Send any Instagram post/reel/story link!\n\n"
+        "✅ **Best Quality** (Original)\n"
+        "✅ **Fast Download**\n"
+        "✅ **Audio Extraction**\n"
+        "✅ **Photos & Videos**\n\n"
+        "📌 Works with:\n"
+        "• Posts (p/)\n"
+        "• Reels (reel/)\n"
+        "• Stories (stories/)\n"
+        "• TV (tv/)\n\n"
+        "🚀 **Send link now!**"
     )
 
 @app.on_message(filters.command("ping"))
 async def ping(client, message):
-    await message.reply_text("✅ Bot is working! Send Instagram link.")
+    await message.reply_text("✅ **Bot is active!** Send Instagram link.")
 
-@app.on_message(filters.regex(r'https?://(?:www\.)?instagram\.com/(?:p|reel|tv|stories)/[^/?]+'))
+@app.on_message(filters.regex(r'instagram\.com/(?:p|reel|tv|stories)/'))
 async def handle_instagram(client, message):
     status_msg = None
     try:
-        url = message.text.strip().split('?')[0]
+        url = message.text.strip()
+        # Clean URL
+        url = re.sub(r'\?.*$', '', url)
+        url = re.sub(r'#.*$', '', url)
+        
         logger.info(f"Processing: {url}")
         
-        status_msg = await message.reply_text("🔍 **Searching for media...**")
+        status_msg = await message.reply_text("🔍 **Fetching media...**")
         
-        # Get download URL
-        download_url = await get_instagram_media(url)
+        # Try yt-dlp first
+        file_path, ext = await download_instagram_with_ytdlp(url)
         
-        if not download_url:
+        # If failed, try with cookies
+        if not file_path:
+            await status_msg.edit_text("🔄 **Trying alternative method...**")
+            file_path, ext = await download_instagram_with_cookies(url)
+        
+        if not file_path or not os.path.exists(file_path):
             await status_msg.edit_text(
-                "❌ **Could not fetch media!**\n\n"
+                "❌ **Could not download!**\n\n"
                 "Possible reasons:\n"
                 "• Post is private\n"
-                "• Instagram blocked the request\n"
+                "• Account is private\n"
                 "• Invalid URL\n\n"
-                "Try:\n"
-                "1. Make sure post is public\n"
-                "2. Use a different link\n"
-                "3. Try again later"
+                "💡 **Try:**\n"
+                "• Make sure post is public\n"
+                "• Send exact link from browser\n"
+                "• Check URL format"
             )
-            return
-        
-        # Generate file name
-        file_id = str(uuid.uuid4())[:12]
-        ext = '.mp4' if 'mp4' in download_url else '.jpg'
-        file_path = os.path.join(DOWNLOAD_PATH, f"{file_id}{ext}")
-        
-        await status_msg.edit_text("📥 **Downloading media...**")
-        
-        # Download
-        success = await download_media(download_url, file_path)
-        
-        if not success or not os.path.exists(file_path):
-            await status_msg.edit_text("❌ **Download failed!** Please try again.")
             return
         
         file_size = os.path.getsize(file_path)
         size_mb = file_size / (1024 * 1024)
         
         if size_mb < 0.01:
-            await status_msg.edit_text("❌ **Empty file received!** Try again.")
+            await status_msg.edit_text("❌ **Empty file!** Try again.")
             os.remove(file_path)
             return
         
-        # Determine if video or photo
-        is_video = file_path.endswith('.mp4') or size_mb > 0.5
+        # Generate file ID for cache
+        file_id = str(uuid.uuid4())[:12]
         
-        if is_video:
-            # Store for buttons
-            video_cache[file_id] = {
-                'video_path': file_path,
-                'owner_id': 'instagram',
-                'timestamp': time.time()
-            }
+        # Store in cache
+        video_cache[file_id] = {
+            'path': file_path,
+            'ext': ext,
+            'size': file_size,
+            'timestamp': time.time()
+        }
+        
+        # Prepare keyboard
+        keyboard = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("📥 Download", callback_data=f"dl_{file_id}"),
+                InlineKeyboardButton("🎵 Audio", callback_data=f"au_{file_id}")
+            ]
+        ])
+        
+        await status_msg.delete()
+        
+        # Send based on file type
+        if ext in ['mp4', 'mov', 'avi', 'mkv']:
+            # Video
+            caption = f"🎬 **Instagram Video**\n📦 {size_mb:.1f} MB\n✨ **Original Quality**"
             
-            keyboard = InlineKeyboardMarkup([
-                [
-                    InlineKeyboardButton("📥 Download", callback_data=f"dl_{file_id}"),
-                    InlineKeyboardButton("🎵 Audio", callback_data=f"au_{file_id}")
-                ]
-            ])
-            
-            await status_msg.delete()
-            
-            # Send based on size
             if size_mb > 50:
+                # Send as document if too large
                 await message.reply_document(
                     document=file_path,
-                    caption=f"🎬 **Instagram Video**\n📦 {size_mb:.1f}MB\n✨ HD Quality",
+                    caption=caption,
                     reply_markup=keyboard,
-                    file_name=f"instagram_{file_id}.mp4"
+                    file_name=f"instagram_{file_id}.{ext}"
                 )
             else:
+                # Send as video with streaming
                 await message.reply_video(
                     video=file_path,
-                    caption=f"🎬 **Instagram Video**\n📦 {size_mb:.1f}MB\n✨ HD Quality",
+                    caption=caption,
                     reply_markup=keyboard,
                     supports_streaming=True,
                     width=720,
                     height=1280
                 )
+            logger.info(f"✅ Video sent: {size_mb:.1f} MB")
             
-            logger.info(f"✅ Video sent: {size_mb:.1f}MB")
-            
-        else:
-            await status_msg.delete()
+        elif ext in ['jpg', 'jpeg', 'png', 'gif', 'webp']:
+            # Photo
             await message.reply_photo(
                 photo=file_path,
-                caption="📸 **Instagram Photo**\n✨ Original Quality"
+                caption=f"📸 **Instagram Photo**\n✨ **Original Quality**",
+                reply_markup=keyboard
             )
-            os.remove(file_path)
             logger.info("✅ Photo sent")
+            # Remove photo immediately (not needed in cache)
+            os.remove(file_path)
+            
+        else:
+            # Other files
+            await message.reply_document(
+                document=file_path,
+                caption=f"📎 **Instagram Media**\n📦 {size_mb:.1f} MB",
+                reply_markup=keyboard,
+                file_name=f"instagram_{file_id}.{ext}"
+            )
+            logger.info(f"✅ Document sent: {size_mb:.1f} MB")
             
     except FloodWait as e:
         logger.warning(f"Flood: {e.value}s")
         await asyncio.sleep(e.value + 1)
         if status_msg:
-            await status_msg.edit_text("⏳ Rate limited. Please wait...")
+            await status_msg.edit_text("⏳ **Rate limited. Please wait...**")
     except Exception as e:
         logger.error(f"Error: {e}", exc_info=True)
         if status_msg:
             try:
-                await status_msg.edit_text("❌ **Error!** Please try again later.")
+                await status_msg.edit_text("❌ **Error occurred!** Please try again.")
             except:
                 pass
 
@@ -289,18 +297,21 @@ async def handle_instagram(client, message):
 async def download_video(client, callback):
     try:
         file_id = callback.data.replace('dl_', '')
-        v = video_cache.get(file_id)
+        data = video_cache.get(file_id)
         
-        if not v or not os.path.exists(v['video_path']):
-            await callback.answer("❌ Expired! Send again.", show_alert=True)
+        if not data or not os.path.exists(data['path']):
+            await callback.answer("❌ **Expired!** Send again.", show_alert=True)
             return
         
+        file_path = data['path']
+        ext = data['ext']
+        
         await callback.message.reply_document(
-            document=v['video_path'],
-            caption="📹 Instagram Video",
-            file_name=f"instagram_{file_id}.mp4"
+            document=file_path,
+            caption="📹 **Instagram Video**\n✨ Original Quality",
+            file_name=f"instagram_{file_id}.{ext}"
         )
-        await callback.answer("✅ Download started!")
+        await callback.answer("✅ **Download started!**")
     except Exception as e:
         logger.error(f"DL error: {e}")
         await callback.answer("❌ Failed!", show_alert=True)
@@ -309,82 +320,94 @@ async def download_video(client, callback):
 async def audio_request(client, callback):
     try:
         file_id = callback.data.replace('au_', '')
-        v = video_cache.get(file_id)
-        if not v:
-            await callback.answer("❌ Expired!", show_alert=True)
+        data = video_cache.get(file_id)
+        
+        if not data or not os.path.exists(data['path']):
+            await callback.answer("❌ **Expired!** Send again.", show_alert=True)
             return
         
-        user_states[callback.from_user.id] = {
-            'file_id': file_id,
-            'ts': time.time()
-        }
-        await callback.message.reply_text("🎵 **Enter filename for audio:**\nExample: my_song")
-        await callback.answer()
-    except:
-        pass
-
-@app.on_message(filters.text & filters.private & ~filters.command(["start", "ping"]))
-async def audio_extract(client, message):
-    try:
-        uid = message.from_user.id
-        if uid not in user_states:
-            return
+        file_path = data['path']
         
-        if time.time() - user_states[uid]['ts'] > 120:
-            del user_states[uid]
-            return
-        
-        file_id = user_states[uid]['file_id']
-        v = video_cache.get(file_id)
-        if not v or not os.path.exists(v['video_path']):
-            del user_states[uid]
-            await message.reply_text("❌ Video expired!")
-            return
-        
-        name = message.text.strip().replace(' ', '_')[:50]
-        if not name.endswith('.mp3'):
-            name += '.mp3'
-        
-        status = await message.reply_text("🔄 **Extracting audio...**")
-        
+        # Check if video contains audio
         audio_file = os.path.join(DOWNLOAD_PATH, f"audio_{file_id}.mp3")
+        
+        status = await callback.message.reply_text("🎵 **Extracting audio...**")
         
         # Extract audio using ffmpeg
         cmd = [
-            'ffmpeg', '-i', v['video_path'],
-            '-vn', '-acodec', 'libmp3lame',
-            '-ab', '192k', '-ar', '44100',
+            'ffmpeg',
+            '-i', file_path,
+            '-vn',  # No video
+            '-acodec', 'libmp3lame',
+            '-ab', '192k',
+            '-ar', '44100',
             '-y', audio_file
         ]
         
-        proc = await asyncio.create_subprocess_exec(
+        process = await asyncio.create_subprocess_exec(
             *cmd,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE
         )
-        await proc.communicate()
+        await process.communicate()
         
         if os.path.exists(audio_file) and os.path.getsize(audio_file) > 1000:
             await status.edit_text("📤 **Uploading audio...**")
+            
             await client.send_audio(
-                chat_id=message.chat.id,
+                chat_id=callback.message.chat.id,
                 audio=audio_file,
-                caption=f"🎵 {name.replace('.mp3','')}\n📱 Instagram Audio",
-                file_name=name,
-                title=name.replace('.mp3','')
+                caption="🎵 **Instagram Audio**\n✨ Extracted from video",
+                file_name=f"instagram_audio_{file_id}.mp3",
+                title="Instagram Audio"
             )
             await status.delete()
-            try:
-                await message.delete()
-            except:
-                pass
             os.remove(audio_file)
+            await callback.answer("✅ **Audio sent!**")
         else:
-            await status.edit_text("❌ No audio found in video!")
-        
-        del user_states[uid]
+            await status.edit_text("❌ **No audio found in this video!**")
+            await callback.answer("❌ No audio found", show_alert=True)
+            
     except Exception as e:
         logger.error(f"Audio error: {e}")
+        await callback.answer("❌ Failed!", show_alert=True)
+
+# ============ CLEANUP ============
+
+async def cleanup_old_files():
+    """Remove old files from cache"""
+    while True:
+        try:
+            current_time = time.time()
+            to_remove = []
+            
+            for file_id, data in video_cache.items():
+                if current_time - data['timestamp'] > 3600:  # 1 hour
+                    to_remove.append(file_id)
+                    if os.path.exists(data['path']):
+                        try:
+                            os.remove(data['path'])
+                            logger.info(f"Removed old file: {data['path']}")
+                        except:
+                            pass
+            
+            for file_id in to_remove:
+                del video_cache[file_id]
+            
+            # Also clean orphan files
+            for file in os.listdir(DOWNLOAD_PATH):
+                if file.startswith('instagram_') or file.startswith('insta_') or file.startswith('audio_'):
+                    file_path = os.path.join(DOWNLOAD_PATH, file)
+                    try:
+                        if time.time() - os.path.getctime(file_path) > 7200:  # 2 hours
+                            os.remove(file_path)
+                            logger.info(f"Removed orphan file: {file}")
+                    except:
+                        pass
+            
+            await asyncio.sleep(3600)  # Run every hour
+        except:
+            await asyncio.sleep(60)
 
 # ============ RUN ============
 
@@ -393,7 +416,17 @@ def start_flask():
     web_app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
 
 if __name__ == "__main__":
-    logger.info("Starting Instagram Downloader Bot...")
+    logger.info("🚀 Starting Instagram Downloader Bot...")
+    
+    # Start cleanup task
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.create_task(cleanup_old_files())
+    
+    # Start Flask
     threading.Thread(target=start_flask, daemon=True).start()
-    time.sleep(3)
+    time.sleep(2)
+    
+    # Start bot
+    logger.info("✅ Bot started successfully!")
     app.run()
