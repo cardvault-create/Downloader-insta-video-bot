@@ -40,12 +40,18 @@ class InstaDownloader:
     
     @staticmethod
     def download_media(url):
+        """Download video ya photo"""
+        
+        # Method 1: yt-dlp
         result = InstaDownloader._download_ytdlp(url)
         if result.get("success"):
             return result
+        
+        # Method 2: Scrape
         result = InstaDownloader._download_scrape(url)
         if result.get("success"):
             return result
+        
         return {"success": False, "error": "Download failed. cookies.txt check karo."}
     
     @staticmethod
@@ -71,6 +77,7 @@ class InstaDownloader:
                 formats = info.get('formats', [])
                 has_video_format = any(f.get('vcodec') != 'none' for f in formats)
                 
+                # VIDEO DOWNLOAD
                 if is_video or has_video_format or ext in ['mp4', 'mov', 'webm']:
                     ydl_opts_dl = {
                         'quiet': True,
@@ -97,12 +104,13 @@ class InstaDownloader:
                             if os.path.exists(file_path) and os.path.getsize(file_path) > 1000:
                                 return {"success": True, "file_path": file_path, "is_video": True}
                 
+                # PHOTO DOWNLOAD - HIGH QUALITY
                 ydl_opts_photo = {
                     'quiet': True,
                     'no_warnings': True,
                     'ignoreerrors': True,
                     'outtmpl': os.path.join(DOWNLOAD_DIR, '%(id)s.%(ext)s'),
-                    'format': 'best',
+                    'format': 'best',  # BEST QUALITY
                 }
                 if os.path.exists('cookies.txt'):
                     ydl_opts_photo['cookiefile'] = 'cookies.txt'
@@ -127,6 +135,7 @@ class InstaDownloader:
     
     @staticmethod
     def _download_scrape(url):
+        """Backup method for photos"""
         try:
             headers = {
                 'User-Agent': 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36',
@@ -135,6 +144,7 @@ class InstaDownloader:
             
             resp = requests.get(url, headers=headers, timeout=15)
             
+            # Video
             v = re.search(r'"video_url":"([^"]+)"', resp.text)
             if v:
                 shortcode = re.search(r'/(p|reel)/([^/]+)', url).group(2)
@@ -146,6 +156,7 @@ class InstaDownloader:
                 if os.path.getsize(fp) > 1000:
                     return {"success": True, "file_path": fp, "is_video": True}
             
+            # Photo
             im = re.search(r'"display_url":"([^"]+)"', resp.text)
             if im:
                 shortcode = re.search(r'/(p|reel)/([^/]+)', url).group(2)
@@ -217,11 +228,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await update.message.reply_text(
         "📥 **Instagram Downloader Bot**\n\n"
-        "✅ Sirf Instagram link bhejo\n"
-        "✅ Video → **Video + Audio dono ke saath**\n"
-        "✅ Photo → **High Quality Photo**\n"
-        "✅ Audio button → **Pehle audio ka naam likhein**\n"
-        "✅ Phir audio usi naam se aayega\n\n"
+        "✅ Video link bhejo → Video + Audio\n"
+        "✅ Photo link bhejo → High Quality Photo\n"
+        "✅ Audio button → Audio extract karega\n\n"
         "**Example:**\n"
         "`https://www.instagram.com/reel/xyz/`\n"
         "`https://www.instagram.com/p/xyz/`",
@@ -265,17 +274,19 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         try:
             if is_video:
+                # Video send karo + Audio button
                 context.user_data['audio_url'] = url
-                keyboard = [[InlineKeyboardButton("🎵 Download Video Audio", callback_data="audio_request")]]
+                keyboard = [[InlineKeyboardButton("🎵 Download Audio", callback_data="audio_request")]]
                 with open(fp, 'rb') as f:
                     await update.message.reply_video(
                         video=f,
-                        caption=f"✅ **Downloaded** ✅\n🔗 [Instagram Link]({url})\n\n📌 Audio ke liye neeche button click karein",
+                        caption=f"✅ **Downloaded** ✅\n🔗 [Instagram Link]({url})\n\n📌 Audio ke liye button click karein",
                         parse_mode="Markdown",
                         reply_markup=InlineKeyboardMarkup(keyboard),
                         supports_streaming=True
                     )
             else:
+                # Photo send karo (HIGH QUALITY)
                 with open(fp, 'rb') as f:
                     await update.message.reply_photo(
                         photo=f,
@@ -321,12 +332,12 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         
         await query.edit_message_reply_markup(reply_markup=None)
-        status_msg = await query.message.reply_text("🎵 Audio extract ho raha hai... (wait 1-2 min)")
+        status_msg = await query.message.reply_text("🎵 Audio extract ho raha hai...")
         
         try:
             result = InstaDownloader.download_media(url)
             if not result.get("success"):
-                await status_msg.edit_text("❌ Video download failed. Audio extract nahi ho paya.")
+                await status_msg.edit_text("❌ Video download failed.")
                 return
             
             vp = result["file_path"]
@@ -345,7 +356,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         )
                     await status_msg.edit_text("✅ Audio sent! 🎵")
                 except TimedOut:
-                    await status_msg.edit_text("⏰ Timeout! Audio bhejne mein time lag raha hai. Try again.")
+                    await status_msg.edit_text("⏰ Timeout! Try again.")
                 except Exception as e:
                     await status_msg.edit_text(f"❌ Error: {str(e)}")
                 try: 
@@ -371,9 +382,9 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text = update.message.text.strip()
         context.user_data['awaiting_audio_name'] = False
         
-        keyboard = [[InlineKeyboardButton("✅ Confirm Audio Name", callback_data=f"audio_confirm_{text}")]]
+        keyboard = [[InlineKeyboardButton("✅ Confirm", callback_data=f"audio_confirm_{text}")]]
         await update.message.reply_text(
-            f"🎵 Audio Name: **{text}**\n\nClick confirm to extract audio.",
+            f"🎵 Audio Name: **{text}**\n\nClick confirm to extract.",
             parse_mode="Markdown",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
@@ -389,26 +400,22 @@ def main():
     if ffmpeg_path:
         print(f"✅ FFmpeg found: {ffmpeg_path}")
     else:
-        print("⚠️ FFmpeg not found! Audio extract kaam nahi karega.")
-        print("   Install: sudo apt install ffmpeg")
+        print("⚠️ FFmpeg not found!")
     
     if os.path.exists('cookies.txt'):
         print("✅ cookies.txt found")
     else:
-        print("⚠️ cookies.txt not found — limited functionality")
+        print("⚠️ cookies.txt not found")
     
     print("✅ Bot Started!")
     
-    try:
-        app = Application.builder().token(BOT_TOKEN).build()
-        app.add_handler(CommandHandler("start", start))
-        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
-        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-        app.add_handler(CallbackQueryHandler(button_handler))
-        
-        app.run_polling()
-    except Exception as e:
-        print(f"❌ Error: {e}")
+    app = Application.builder().token(BOT_TOKEN).build()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    app.add_handler(CallbackQueryHandler(button_handler))
+    
+    app.run_polling()
 
 if __name__ == "__main__":
     main()
