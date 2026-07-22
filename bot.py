@@ -1,5 +1,3 @@
-# Flask ke saath proper startup sequence
-
 import os
 import re
 import uuid
@@ -20,7 +18,6 @@ import time
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Create Flask app
 web_app = Flask(__name__)
 
 @web_app.route('/')
@@ -31,12 +28,12 @@ def home():
 def health():
     return {"status": "ok"}, 200
 
-# Bot config
-API_ID = int(os.environ.get("35140329"))
-API_HASH = os.environ.get("011f638e4acadee178c59afffc80193d")
-BOT_TOKEN = os.environ.get("8952730755:AAHhor54jekn60e8NflgIJa50cMHwPQ3dbU")
+# ============ CORRECT CONFIG ============
+API_ID = int(os.environ.get("API_ID", "35140329"))
+API_HASH = os.environ.get("API_HASH", "011f638e4acadee178c59afffc80193d")
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "8952730755:AAHhor54jekn60e8NflgIJa50cMHwPQ3dbU")
 
-# Initialize Pyrogram
+# ============ BOT SETUP ============
 app = Client(
     "bot_session",
     api_id=API_ID,
@@ -45,7 +42,6 @@ app = Client(
     in_memory=True
 )
 
-# Initialize Instaloader
 loader = instaloader.Instaloader(
     download_pictures=False,
     download_videos=False,
@@ -59,7 +55,7 @@ os.makedirs(DOWNLOAD_PATH, exist_ok=True)
 video_cache = {}
 user_states = {}
 
-# ============ BOT COMMANDS ============
+# ============ COMMANDS ============
 
 @app.on_message(filters.command("start"))
 async def start(client, message):
@@ -73,7 +69,7 @@ async def start(client, message):
 
 @app.on_message(filters.command("ping"))
 async def ping(client, message):
-    await message.reply_text("🏓 Pong!")
+    await message.reply_text("🏓 Pong! Bot is working!")
 
 @app.on_message(filters.regex(r'https?://(?:www\.)?instagram\.com/(?:p|reel|tv)/[^/]+'))
 async def download(client, message):
@@ -99,7 +95,7 @@ async def download(client, message):
             file_id = str(uuid.uuid4())[:12]
             file_path = os.path.join(DOWNLOAD_PATH, f"{file_id}.mp4")
             
-            await status.edit_text("📥 Downloading...")
+            await status.edit_text("📥 Downloading video...")
             
             async with aiohttp.ClientSession() as session:
                 async with session.get(video_url, timeout=aiohttp.ClientTimeout(300)) as resp:
@@ -220,27 +216,14 @@ async def get_audio_name(client, message):
     except Exception as e:
         logger.error(f"Audio error: {e}")
 
-# ============ RUNNER ============
-
 def start_flask():
-    """Start Flask server"""
     port = int(os.environ.get('PORT', 8080))
     logger.info(f"Flask starting on port {port}")
     web_app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
 
 if __name__ == "__main__":
-    logger.info("=" * 50)
-    logger.info("Starting Bot + Web Server...")
-    logger.info("=" * 50)
-    
-    # Start Flask in thread FIRST
-    flask_thread = threading.Thread(target=start_flask, daemon=True)
-    flask_thread.start()
-    
-    # Give Flask time to start
+    logger.info("Starting...")
+    threading.Thread(target=start_flask, daemon=True).start()
     time.sleep(3)
-    logger.info("✅ Web server should be ready")
-    
-    # Run bot (this blocks)
-    logger.info("🤖 Starting bot...")
+    logger.info("Bot starting...")
     app.run()
