@@ -7,12 +7,12 @@ import time
 import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
-from telegram.error import TimedOut, NetworkError
+from telegram.error import TimedOut, NetworkError, RetryAfter
 import yt_dlp
 import requests
 
 # ══════════════════════════════════════
-# 🔐 CONFIG — YAHI DALO
+# 🔐 CONFIG
 # ══════════════════════════════════════
 
 BOT_TOKEN = "8518787964:AAHGimBKXfdtrI6UaASGsoI8Aj5Rj_WxF5I"
@@ -22,7 +22,7 @@ DOWNLOAD_DIR = "downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
 # ══════════════════════════════════════
-# 📥 FIXED DOWNLOAD ENGINE
+# 📥 DOWNLOAD ENGINE
 # ══════════════════════════════════════
 
 class InstaDownloader:
@@ -40,23 +40,16 @@ class InstaDownloader:
     
     @staticmethod
     def download_media(url):
-        """Yeh function teeno problems fix karta hai"""
-        
-        # ─── Method 1: yt-dlp with best quality ───
         result = InstaDownloader._download_ytdlp(url)
         if result.get("success"):
             return result
-        
-        # ─── Method 2: Direct scrape ───
         result = InstaDownloader._download_scrape(url)
         if result.get("success"):
             return result
-        
         return {"success": False, "error": "Download failed. cookies.txt check karo."}
     
     @staticmethod
     def _download_ytdlp(url):
-        """yt-dlp with proper format for both video+audio and photos"""
         try:
             ydl_opts_info = {
                 'quiet': True,
@@ -78,7 +71,6 @@ class InstaDownloader:
                 formats = info.get('formats', [])
                 has_video_format = any(f.get('vcodec') != 'none' for f in formats)
                 
-                # VIDEO DOWNLOAD
                 if is_video or has_video_format or ext in ['mp4', 'mov', 'webm']:
                     ydl_opts_dl = {
                         'quiet': True,
@@ -105,7 +97,6 @@ class InstaDownloader:
                             if os.path.exists(file_path) and os.path.getsize(file_path) > 1000:
                                 return {"success": True, "file_path": file_path, "is_video": True}
                 
-                # PHOTO DOWNLOAD
                 ydl_opts_photo = {
                     'quiet': True,
                     'no_warnings': True,
@@ -136,7 +127,6 @@ class InstaDownloader:
     
     @staticmethod
     def _download_scrape(url):
-        """Direct page scrape — photo ke liye backup method"""
         try:
             headers = {
                 'User-Agent': 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36',
@@ -145,7 +135,6 @@ class InstaDownloader:
             
             resp = requests.get(url, headers=headers, timeout=15)
             
-            # Video search
             v = re.search(r'"video_url":"([^"]+)"', resp.text)
             if v:
                 shortcode = re.search(r'/(p|reel)/([^/]+)', url).group(2)
@@ -157,7 +146,6 @@ class InstaDownloader:
                 if os.path.getsize(fp) > 1000:
                     return {"success": True, "file_path": fp, "is_video": True}
             
-            # Photo search
             im = re.search(r'"display_url":"([^"]+)"', resp.text)
             if im:
                 shortcode = re.search(r'/(p|reel)/([^/]+)', url).group(2)
@@ -174,7 +162,6 @@ class InstaDownloader:
     
     @staticmethod
     def extract_audio(video_path, custom_name=None):
-        """Audio extract with custom name support"""
         try:
             if custom_name:
                 audio_path = os.path.join(DOWNLOAD_DIR, f"{custom_name}.mp3")
@@ -257,58 +244,54 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     msg = await update.message.reply_text("⏳ Downloading...")
     
-    result = InstaDownloader.download_media(url)
-    
-    if not result.get("success"):
-        await msg.edit_text(f"❌ **Failed:** {result.get('error')}\n\n💡 cookies.txt file banao aur upload karo", parse_mode="Markdown")
-        return
-    
-    fp = result["file_path"]
-    if not os.path.exists(fp) or os.path.getsize(fp) < 1000:
-        await msg.edit_text("❌ Download incomplete")
-        return
-    
-    if os.path.getsize(fp) > 50 * 1024 * 1024:
-        await msg.edit_text("❌ File >50MB (Telegram limit)")
-        InstaDownloader.cleanup(fp)
-        return
-    
-    is_video = result.get("is_video", False) or fp.endswith(('.mp4', '.mov', '.webm'))
-    
     try:
-        if is_video:
-            context.user_data['audio_url'] = url
-            keyboard = [[InlineKeyboardButton("🎵 Download Video Audio", callback_data="audio_request")]]
-            with open(fp, 'rb') as f:
-                await update.message.reply_video(
-                    video=f,
-                    caption=f"✅ **Downloaded** ✅\n🔗 [Instagram Link]({url})\n\n📌 Audio ke liye neeche button click karein",
-                    parse_mode="Markdown",
-                    reply_markup=InlineKeyboardMarkup(keyboard),
-                    supports_streaming=True,
-                    write_timeout=60,
-                    read_timeout=60,
-                    connect_timeout=60,
-                    pool_timeout=60
-                )
-        else:
-            with open(fp, 'rb') as f:
-                await update.message.reply_photo(
-                    photo=f,
-                    caption=f"✅ **Downloaded** ✅\n🔗 [Instagram Link]({url})",
-                    parse_mode="Markdown",
-                    write_timeout=60,
-                    read_timeout=60,
-                    connect_timeout=60,
-                    pool_timeout=60
-                )
-        await msg.delete()
-    except TimedOut:
-        await msg.edit_text("⏰ **Timeout!** File bhejne mein zyada time lag raha hai. Try again.")
+        result = InstaDownloader.download_media(url)
+        
+        if not result.get("success"):
+            await msg.edit_text(f"❌ **Failed:** {result.get('error')}\n\n💡 cookies.txt file banao aur upload karo", parse_mode="Markdown")
+            return
+        
+        fp = result["file_path"]
+        if not os.path.exists(fp) or os.path.getsize(fp) < 1000:
+            await msg.edit_text("❌ Download incomplete")
+            return
+        
+        if os.path.getsize(fp) > 50 * 1024 * 1024:
+            await msg.edit_text("❌ File >50MB (Telegram limit)")
+            InstaDownloader.cleanup(fp)
+            return
+        
+        is_video = result.get("is_video", False) or fp.endswith(('.mp4', '.mov', '.webm'))
+        
+        try:
+            if is_video:
+                context.user_data['audio_url'] = url
+                keyboard = [[InlineKeyboardButton("🎵 Download Video Audio", callback_data="audio_request")]]
+                with open(fp, 'rb') as f:
+                    await update.message.reply_video(
+                        video=f,
+                        caption=f"✅ **Downloaded** ✅\n🔗 [Instagram Link]({url})\n\n📌 Audio ke liye neeche button click karein",
+                        parse_mode="Markdown",
+                        reply_markup=InlineKeyboardMarkup(keyboard),
+                        supports_streaming=True
+                    )
+            else:
+                with open(fp, 'rb') as f:
+                    await update.message.reply_photo(
+                        photo=f,
+                        caption=f"✅ **Downloaded** ✅\n🔗 [Instagram Link]({url})",
+                        parse_mode="Markdown"
+                    )
+            await msg.delete()
+        except TimedOut:
+            await msg.edit_text("⏰ **Timeout!** File bhejne mein zyada time lag raha hai. Try again.")
+        except Exception as e:
+            await msg.edit_text(f"❌ Send error: {str(e)}")
+        
+        InstaDownloader.cleanup(fp)
+        
     except Exception as e:
-        await msg.edit_text(f"❌ Send error: {str(e)}")
-    
-    InstaDownloader.cleanup(fp)
+        await msg.edit_text(f"❌ Error: {str(e)}")
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -340,42 +323,43 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_reply_markup(reply_markup=None)
         status_msg = await query.message.reply_text("🎵 Audio extract ho raha hai... (wait 1-2 min)")
         
-        result = InstaDownloader.download_media(url)
-        if not result.get("success"):
-            await status_msg.edit_text("❌ Video download failed. Audio extract nahi ho paya.")
-            return
+        try:
+            result = InstaDownloader.download_media(url)
+            if not result.get("success"):
+                await status_msg.edit_text("❌ Video download failed. Audio extract nahi ho paya.")
+                return
+            
+            vp = result["file_path"]
+            audio_result = InstaDownloader.extract_audio(vp, custom_name)
+            
+            if audio_result.get("success"):
+                ap = audio_result["file_path"]
+                try:
+                    audio_name = custom_name if custom_name else "Instagram Audio"
+                    with open(ap, 'rb') as f:
+                        await query.message.reply_audio(
+                            audio=f,
+                            title=audio_name,
+                            performer="Instagram",
+                            caption=f"🎵 **{audio_name}** ✅"
+                        )
+                    await status_msg.edit_text("✅ Audio sent! 🎵")
+                except TimedOut:
+                    await status_msg.edit_text("⏰ Timeout! Audio bhejne mein time lag raha hai. Try again.")
+                except Exception as e:
+                    await status_msg.edit_text(f"❌ Error: {str(e)}")
+                try: 
+                    os.remove(ap)
+                except: 
+                    pass
+            else:
+                await status_msg.edit_text(f"❌ {audio_result.get('error')}")
+            
+            InstaDownloader.cleanup(vp)
+            
+        except Exception as e:
+            await status_msg.edit_text(f"❌ Error: {str(e)}")
         
-        vp = result["file_path"]
-        audio_result = InstaDownloader.extract_audio(vp, custom_name)
-        
-        if audio_result.get("success"):
-            ap = audio_result["file_path"]
-            try:
-                audio_name = custom_name if custom_name else "Instagram Audio"
-                with open(ap, 'rb') as f:
-                    await query.message.reply_audio(
-                        audio=f,
-                        title=audio_name,
-                        performer="Instagram",
-                        caption=f"🎵 **{audio_name}** ✅",
-                        write_timeout=60,
-                        read_timeout=60,
-                        connect_timeout=60,
-                        pool_timeout=60
-                    )
-                await status_msg.edit_text("✅ Audio sent! 🎵")
-            except TimedOut:
-                await status_msg.edit_text("⏰ Timeout! Audio bhejne mein time lag raha hai. Try again.")
-            except Exception as e:
-                await status_msg.edit_text(f"❌ Error: {str(e)}")
-            try: 
-                os.remove(ap)
-            except: 
-                pass
-        else:
-            await status_msg.edit_text(f"❌ {audio_result.get('error')}")
-        
-        InstaDownloader.cleanup(vp)
         context.user_data['awaiting_audio_name'] = False
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -394,6 +378,10 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
+# ══════════════════════════════════════
+# 🚀 MAIN
+# ══════════════════════════════════════
+
 def main():
     logging.basicConfig(level=logging.INFO)
     
@@ -411,13 +399,16 @@ def main():
     
     print("✅ Bot Started!")
     
-    app = Application.builder().token(BOT_TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    app.add_handler(CallbackQueryHandler(button_handler))
-    
-    app.run_polling()
+    try:
+        app = Application.builder().token(BOT_TOKEN).build()
+        app.add_handler(CommandHandler("start", start))
+        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
+        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+        app.add_handler(CallbackQueryHandler(button_handler))
+        
+        app.run_polling()
+    except Exception as e:
+        print(f"❌ Error: {e}")
 
 if __name__ == "__main__":
     main()
