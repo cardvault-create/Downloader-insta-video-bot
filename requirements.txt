@@ -5,4 +5,3 @@ yt-dlp==2024.7.25
 aiohttp==3.9.5
 aiofiles==24.1.0
 flask==3.0.3
-gunicorn==22.0.0
