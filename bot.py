@@ -10,7 +10,6 @@ from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 # ============ CONFIG ============
 API_ID = 35140329
@@ -23,26 +22,22 @@ DOWNLOAD_PATH = "./downloads"
 os.makedirs(DOWNLOAD_PATH, exist_ok=True)
 
 video_cache = {}
-user_cooldown = {}
 
 # ============ INSTAGRAM API ============
 
 async def get_instagram_video(url):
     """Get Instagram video download URL"""
     try:
-        # Using public API
         api_url = f"https://api.davidcyriltech.my.id/instagram?url={url}"
         
         async with aiohttp.ClientSession() as session:
-            async with session.get(api_url, timeout=10) as resp:
+            async with session.get(api_url, timeout=15) as resp:
                 if resp.status == 200:
                     data = await resp.json()
-                    logger.info(f"API Response: {data}")
-                    
                     if data.get("success") and data.get("download_url"):
                         return data["download_url"]
     except Exception as e:
-        logger.error(f"API error: {e}")
+        logging.error(f"API error: {e}")
     
     return None
 
@@ -50,14 +45,14 @@ async def download_file(url, file_path):
     """Download file"""
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.get(url, timeout=60) as resp:
+            async with session.get(url, timeout=120) as resp:
                 if resp.status == 200:
                     async with aiofiles.open(file_path, 'wb') as f:
                         async for chunk in resp.content.iter_chunked(1024*1024):
                             await f.write(chunk)
                     return True
     except Exception as e:
-        logger.error(f"Download error: {e}")
+        logging.error(f"Download error: {e}")
     return False
 
 # ============ COMMANDS ============
@@ -82,18 +77,8 @@ async def handle_instagram(client, message):
     # Check if Instagram link
     if not re.search(r'instagram\.com/(?:p|reel|tv)/', message.text):
         if not message.text.startswith('/'):
-            await message.reply_text("❌ Please send an Instagram link!\n\nExample: https://www.instagram.com/reel/xxxxx/")
+            await message.reply_text("❌ Please send an Instagram link!")
         return
-    
-    user_id = message.from_user.id
-    
-    # Cooldown
-    if user_id in user_cooldown:
-        if time.time() - user_cooldown[user_id] < 10:
-            await message.reply_text("⏳ Please wait 10 seconds!")
-            return
-    
-    user_cooldown[user_id] = time.time()
     
     status = await message.reply_text("🔍 **Processing...**")
     
@@ -101,7 +86,7 @@ async def handle_instagram(client, message):
         url = message.text.strip()
         url = url.split('?')[0]
         
-        logger.info(f"Processing: {url}")
+        logging.info(f"Processing: {url}")
         
         # Get download URL
         download_url = await get_instagram_video(url)
@@ -160,10 +145,10 @@ async def handle_instagram(client, message):
                 supports_streaming=True
             )
         
-        logger.info(f"✅ Video sent: {file_size:.1f} MB")
+        logging.info(f"✅ Video sent: {file_size:.1f} MB")
         
     except Exception as e:
-        logger.error(f"Error: {e}")
+        logging.error(f"Error: {e}")
         await status.edit_text("❌ **Error! Please try again**")
 
 # ============ BUTTONS ============
@@ -207,12 +192,9 @@ async def cleanup():
 
 # ============ RUN ============
 
-async def main():
-    print("🚀 Starting Instagram Downloader Bot...")
-    asyncio.create_task(cleanup())
-    print("✅ Bot is running! Send /start")
-    await app.start()
-    await app.idle()
-
 if __name__ == "__main__":
-    asyncio.run(main())
+    print("🚀 Starting Instagram Downloader Bot...")
+    print("✅ Bot is running! Send /start")
+    
+    # Simple run - no event loop issues
+    app.run()
