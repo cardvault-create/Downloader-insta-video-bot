@@ -13,6 +13,7 @@ import yt_dlp
 from flask import Flask
 import threading
 import time
+import subprocess
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -27,7 +28,7 @@ def home():
 def health():
     return {"status": "ok"}, 200
 
-# ============ CONFIG - FIXED ============
+# ============ CONFIG ============
 API_ID = int(os.environ.get("API_ID", "35140329"))
 API_HASH = os.environ.get("API_HASH", "011f638e4acadee178c59afffc80193d")
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8952730755:AAHhor54jekn60e8NflgIJa50cMHwPQ3dbU")
@@ -40,122 +41,111 @@ os.makedirs(DOWNLOAD_PATH, exist_ok=True)
 video_cache = {}
 user_states = {}
 
-# ============ INSTAGRAM DOWNLOAD FUNCTIONS ============
+# ============ DOWNLOAD USING SUBPROCESS ============
 
-async def fetch_instagram(url):
-    """Get Instagram media URL from public APIs"""
-    
-    # API 1: David Cyril
+def download_instagram_media(url, output_path):
+    """Download Instagram using yt-dlp subprocess (most reliable)"""
     try:
-        api_url = "https://api.davidcyriltech.my.id/instagram"
-        async with aiohttp.ClientSession() as session:
-            async with session.get(api_url, params={"url": url}, timeout=aiohttp.ClientTimeout(total=20)) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    if data.get("success") and data.get("download_url"):
-                        return {
-                            "download_url": data["download_url"],
-                            "type": "video",
-                            "username": data.get("username", "unknown"),
-                            "caption": data.get("caption", "")
-                        }
-    except:
-        pass
-    
-    # API 2: Ahmmikun
-    try:
-        api_url = f"https://api.ahmmikun.lol/api/ig?url={url}"
-        async with aiohttp.ClientSession() as session:
-            async with session.get(api_url, timeout=aiohttp.ClientTimeout(total=20)) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    if data.get("status") == 200:
-                        return {
-                            "download_url": data.get("url") or data.get("download_url", ""),
-                            "type": "video",
-                            "username": data.get("username", "unknown"),
-                            "caption": data.get("title", "")
-                        }
-    except:
-        pass
-    
-    return None
-
-async def download_file(url, file_path):
-    """Download file from URL"""
-    try:
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36'
-        }
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=300)) as resp:
-                if resp.status == 200:
-                    async with aiofiles.open(file_path, 'wb') as f:
-                        async for chunk in resp.content.iter_chunked(1024 * 1024):
-                            await f.write(chunk)
-                    return True
+        cmd = [
+            'yt-dlp',
+            '-f', 'best[ext=mp4]/best',
+            '--merge-output-format', 'mp4',
+            '-o', output_path,
+            '--no-check-certificate',
+            '--no-warnings',
+            '--quiet',
+            '--ignore-errors',
+            url
+        ]
+        
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        
+        # Check if file exists
+        for ext in ['.mp4', '.webm', '.mkv', '.jpg', '.jpeg', '.png']:
+            test_path = output_path + ext
+            if os.path.exists(test_path) and os.path.getsize(test_path) > 10000:
+                return test_path
+        
+        # Check for partial filename match
+        base_dir = os.path.dirname(output_path)
+        base_name = os.path.basename(output_path)
+        for f in os.listdir(base_dir):
+            if f.startswith(base_name) and not f.endswith('.part'):
+                full_path = os.path.join(base_dir, f)
+                if os.path.getsize(full_path) > 10000:
+                    return full_path
+        
+        logger.error(f"yt-dlp stderr: {result.stderr}")
+        return None
+        
     except Exception as e:
         logger.error(f"Download error: {e}")
-    return False
+        return None
 
-# ============ BOT COMMANDS ============
+# ============ COMMANDS ============
 
 @app.on_message(filters.command("start"))
 async def start(client, message):
     await message.reply_text(
         "**🎬 Instagram Downloader Bot**\n\n"
-        "Send Instagram reel/post link!\n\n"
+        "Send any Instagram reel/post link!\n\n"
         "✅ HD Video + Audio\n"
         "✅ Original Photos\n"
         "✅ Audio Extraction\n\n"
-        "🚀 Paste any link!"
+        "🚀 Paste link now!"
     )
 
 @app.on_message(filters.command("ping"))
 async def ping(client, message):
-    await message.reply_text("🏓 Pong!")
+    await message.reply_text("🏓 Pong! Ready!")
 
 @app.on_message(filters.regex(r'https?://(?:www\.)?instagram\.com/(?:p|reel|tv)/[^/?]+'))
 async def download(client, message):
     status = None
     try:
         url = message.text.strip().split('?')[0]
-        status = await message.reply_text("🔄 **Fetching...**")
         
-        media = await fetch_instagram(url)
-        
-        if not media or not media.get("download_url"):
-            await status.edit_text("❌ **Failed!**\n\nTry another public post/reel.\nSometimes Instagram blocks - wait and retry.")
-            return
+        status = await message.reply_text("🔄 **Downloading...**\n⏳ This may take 10-20 seconds...")
         
         file_id = str(uuid.uuid4())[:12]
+        output_template = os.path.join(DOWNLOAD_PATH, file_id)
         
-        if media["type"] == "video":
-            file_path = os.path.join(DOWNLOAD_PATH, f"{file_id}.mp4")
-            
-            await status.edit_text("📥 **Downloading video...**")
-            
-            if not await download_file(media["download_url"], file_path):
-                await status.edit_text("❌ Download failed! Retry.")
-                return
-            
-            if not os.path.exists(file_path):
-                await status.edit_text("❌ File not found!")
-                return
-            
-            size_mb = os.path.getsize(file_path) / (1024 * 1024)
-            owner = media.get("username", "unknown")
-            caption_text = media.get("caption", "Instagram Video")[:200]
+        # Download using subprocess
+        downloaded_file = await asyncio.get_event_loop().run_in_executor(
+            None, download_instagram_media, url, output_template
+        )
+        
+        if not downloaded_file:
+            await status.edit_text(
+                "❌ **Download Failed!**\n\n"
+                "**Possible reasons:**\n"
+                "• Post is private\n"
+                "• Invalid link\n"
+                "• Instagram rate limit\n\n"
+                "Please try another public post/reel."
+            )
+            return
+        
+        file_size = os.path.getsize(downloaded_file)
+        if file_size < 5000:  # Less than 5KB = probably error
+            await status.edit_text("❌ **Downloaded file is empty!** Try another link.")
+            os.remove(downloaded_file)
+            return
+        
+        is_video = downloaded_file.endswith(('.mp4', '.webm', '.mkv'))
+        
+        if is_video:
+            size_mb = file_size / (1024 * 1024)
             
             video_cache[file_id] = {
-                'video_path': file_path,
-                'owner_id': owner
+                'video_path': downloaded_file,
+                'owner_id': 'instagram'
             }
             
             keyboard = InlineKeyboardMarkup([
                 [
-                    InlineKeyboardButton("📥 Download", callback_data=f"dl_{file_id}"),
-                    InlineKeyboardButton("🎵 Audio", callback_data=f"au_{file_id}")
+                    InlineKeyboardButton("📥 Download Video", callback_data=f"dl_{file_id}"),
+                    InlineKeyboardButton("🎵 Extract Audio", callback_data=f"au_{file_id}")
                 ]
             ])
             
@@ -163,50 +153,42 @@ async def download(client, message):
             
             if size_mb > 50:
                 await message.reply_document(
-                    document=file_path,
-                    caption=f"🎬 {caption_text}\n👤 @{owner}",
+                    document=downloaded_file,
+                    caption=f"🎬 **Instagram Video**\n📦 {size_mb:.1f}MB",
                     reply_markup=keyboard,
                     file_name=f"instagram_{file_id}.mp4"
                 )
             else:
                 await message.reply_video(
-                    video=file_path,
-                    caption=f"🎬 {caption_text}\n👤 @{owner}",
+                    video=downloaded_file,
+                    caption=f"🎬 **Instagram Video**\n📦 {size_mb:.1f}MB",
                     reply_markup=keyboard,
                     supports_streaming=True
                 )
             
-            logger.info(f"Sent: {file_id}")
+            logger.info(f"Video sent: {file_id} ({size_mb:.1f}MB)")
             
         else:
-            file_path = os.path.join(DOWNLOAD_PATH, f"{file_id}.jpg")
-            await status.edit_text("📥 **Downloading photo...**")
-            
-            if not await download_file(media["download_url"], file_path):
-                await status.edit_text("❌ Failed!")
-                return
-            
-            owner = media.get("username", "unknown")
-            caption_text = media.get("caption", "Instagram Photo")[:300]
-            
+            # Photo
             await status.delete()
             await message.reply_photo(
-                photo=file_path,
-                caption=f"📸 **Instagram Photo**\n\n👤 @{owner}\n📝 {caption_text}"
+                photo=downloaded_file,
+                caption="📸 **Instagram Photo**"
             )
-            os.remove(file_path)
+            os.remove(downloaded_file)
+            logger.info(f"Photo sent: {file_id}")
             
     except FloodWait as e:
         await asyncio.sleep(e.value + 1)
     except Exception as e:
-        logger.error(f"Error: {e}")
+        logger.error(f"Error: {e}", exc_info=True)
         if status:
             try:
-                await status.edit_text("❌ Error! Try again.")
+                await status.edit_text(f"❌ **Error!** Try again later.")
             except:
                 pass
 
-# ============ BUTTON HANDLERS ============
+# ============ BUTTONS ============
 
 @app.on_callback_query(filters.regex(r'^dl_'))
 async def dl_video(client, callback):
@@ -215,17 +197,17 @@ async def dl_video(client, callback):
         v = video_cache.get(file_id)
         
         if not v or not os.path.exists(v['video_path']):
-            await callback.answer("❌ Expired! Send again.", show_alert=True)
+            await callback.answer("❌ File expired! Send link again.", show_alert=True)
             return
         
         await callback.message.reply_document(
             document=v['video_path'],
-            caption=f"📹 @{v['owner_id']}",
+            caption="📹 Instagram Video",
             file_name=f"instagram_{file_id}.mp4"
         )
         await callback.answer("✅ Sent!")
-    except:
-        pass
+    except Exception as e:
+        logger.error(f"DL error: {e}")
 
 @app.on_callback_query(filters.regex(r'^au_'))
 async def audio_name(client, callback):
@@ -240,7 +222,7 @@ async def audio_name(client, callback):
             'file_id': file_id,
             'ts': time.time()
         }
-        await callback.message.reply_text("🎵 **Filename:**\nExample: my_song")
+        await callback.message.reply_text("🎵 **Enter filename:**\nExample: my_song")
         await callback.answer()
     except:
         pass
@@ -257,7 +239,7 @@ async def get_audio_name(client, message):
         
         file_id = user_states[uid]['file_id']
         v = video_cache.get(file_id)
-        if not v:
+        if not v or not os.path.exists(v['video_path']):
             del user_states[uid]
             return
         
@@ -265,27 +247,26 @@ async def get_audio_name(client, message):
         if not name.endswith('.mp3'):
             name += '.mp3'
         
-        status = await message.reply_text("🔄 Extracting audio...")
+        status = await message.reply_text("🔄 **Extracting audio...**")
         
-        audio_out = os.path.join(DOWNLOAD_PATH, f"audio_{file_id}")
-        ydl_opts = {
-            'format': 'bestaudio/best',
-            'outtmpl': audio_out,
-            'postprocessors': [{
-                'key': 'FFmpegExtractAudio',
-                'preferredcodec': 'mp3',
-                'preferredquality': '192',
-            }],
-            'quiet': True,
-        }
+        audio_output = os.path.join(DOWNLOAD_PATH, f"audio_{file_id}")
         
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([v['video_path']])
+        # Extract audio using FFmpeg directly
+        cmd = [
+            'ffmpeg', '-i', v['video_path'],
+            '-vn', '-acodec', 'libmp3lame',
+            '-ab', '192k', '-ar', '44100',
+            '-y', audio_output + '.mp3'
+        ]
         
-        audio_file = audio_out + '.mp3'
+        result = await asyncio.get_event_loop().run_in_executor(
+            None, lambda: subprocess.run(cmd, capture_output=True, text=True)
+        )
         
-        if os.path.exists(audio_file):
-            await status.edit_text("📤 Uploading...")
+        audio_file = audio_output + '.mp3'
+        
+        if os.path.exists(audio_file) and os.path.getsize(audio_file) > 1000:
+            await status.edit_text("📤 **Uploading...**")
             await client.send_audio(
                 chat_id=message.chat.id,
                 audio=audio_file,
@@ -301,7 +282,7 @@ async def get_audio_name(client, message):
                 pass
             os.remove(audio_file)
         else:
-            await status.edit_text("❌ Failed!")
+            await status.edit_text("❌ **Extraction failed!** No audio in video.")
         
         del user_states[uid]
     except Exception as e:
@@ -314,7 +295,7 @@ def start_flask():
     web_app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
 
 if __name__ == "__main__":
-    logger.info("Starting...")
+    logger.info("Starting bot with subprocess yt-dlp...")
     threading.Thread(target=start_flask, daemon=True).start()
     time.sleep(3)
     app.run()
