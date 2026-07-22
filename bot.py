@@ -4,6 +4,7 @@ import re
 import subprocess
 import shutil
 import time
+import json
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 from telegram.error import TimedOut
@@ -51,23 +52,38 @@ class InstaDownloader:
         if result.get("success"):
             return result
         
-        return {"success": False, "error": "Download failed. Make sure cookies.txt is valid."}
+        return {"success": False, "error": "Download failed. Make sure cookies.txt is valid and not expired."}
     
     @staticmethod
     def _download_ytdlp(url):
         try:
+            # First, get info without downloading
             ydl_opts = {
                 'quiet': True,
                 'no_warnings': True,
                 'ignoreerrors': True,
-                'outtmpl': os.path.join(DOWNLOAD_DIR, '%(id)s.%(ext)s'),
             }
             
             if os.path.exists('cookies.txt'):
                 ydl_opts['cookiefile'] = 'cookies.txt'
                 print("✅ Using cookies.txt for authentication")
+                
+                # Verify cookies are valid by trying to get a small request
+                try:
+                    test_opts = {
+                        'quiet': True,
+                        'no_warnings': True,
+                        'ignoreerrors': True,
+                        'cookiefile': 'cookies.txt',
+                    }
+                    with yt_dlp.YoutubeDL(test_opts) as test_ydl:
+                        test_info = test_ydl.extract_info('https://www.instagram.com/', download=False)
+                        print("✅ Cookies are valid!")
+                except Exception as e:
+                    print(f"⚠️ Cookies might be expired: {e}")
             else:
-                print("⚠️ cookies.txt not found")
+                print("⚠️ cookies.txt not found!")
+                return {"success": False, "error": "cookies.txt not found. Please add valid cookies.txt"}
             
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=False)
@@ -91,10 +107,8 @@ class InstaDownloader:
                         'outtmpl': os.path.join(DOWNLOAD_DIR, '%(id)s.%(ext)s'),
                         'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
                         'merge_output_format': 'mp4',
+                        'cookiefile': 'cookies.txt' if os.path.exists('cookies.txt') else None,
                     }
-                    
-                    if os.path.exists('cookies.txt'):
-                        video_opts['cookiefile'] = 'cookies.txt'
                     
                     with yt_dlp.YoutubeDL(video_opts) as ydl2:
                         info2 = ydl2.extract_info(url, download=True)
@@ -116,26 +130,22 @@ class InstaDownloader:
                 # Check if multiple photos (carousel)
                 entries = info.get('entries', [])
                 if entries:
-                    # Multiple photos in one post
                     photo_paths = []
                     for entry in entries:
                         if entry:
                             file_id = entry.get('id', 'unknown')
-                            # Download each photo
                             photo_opts = {
                                 'quiet': True,
                                 'no_warnings': True,
                                 'ignoreerrors': True,
                                 'outtmpl': os.path.join(DOWNLOAD_DIR, f"{file_id}.%(ext)s"),
                                 'format': 'best',
+                                'cookiefile': 'cookies.txt' if os.path.exists('cookies.txt') else None,
                             }
-                            if os.path.exists('cookies.txt'):
-                                photo_opts['cookiefile'] = 'cookies.txt'
                             
                             with yt_dlp.YoutubeDL(photo_opts) as ydl_photo:
                                 ydl_photo.extract_info(f"https://www.instagram.com/p/{file_id}/", download=True)
                             
-                            # Find downloaded file
                             for f in os.listdir(DOWNLOAD_DIR):
                                 if file_id in f and f.endswith(('.jpg', '.jpeg', '.png', '.webp')):
                                     fp = os.path.join(DOWNLOAD_DIR, f)
@@ -153,10 +163,8 @@ class InstaDownloader:
                     'ignoreerrors': True,
                     'outtmpl': os.path.join(DOWNLOAD_DIR, '%(id)s.%(ext)s'),
                     'format': 'best',
+                    'cookiefile': 'cookies.txt' if os.path.exists('cookies.txt') else None,
                 }
-                
-                if os.path.exists('cookies.txt'):
-                    photo_opts['cookiefile'] = 'cookies.txt'
                 
                 with yt_dlp.YoutubeDL(photo_opts) as ydl3:
                     info3 = ydl3.extract_info(url, download=True)
@@ -180,7 +188,7 @@ class InstaDownloader:
     
     @staticmethod
     def _download_scrape(url):
-        """Backup method for photos"""
+        """Backup method using direct scrape"""
         try:
             headers = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -202,6 +210,7 @@ class InstaDownloader:
                         parts = line.strip().split('\t')
                         if len(parts) >= 7:
                             cookies[parts[5]] = parts[6]
+                print("✅ Using cookies for scrape backup")
             
             resp = requests.get(url, headers=headers, cookies=cookies, timeout=15)
             
@@ -298,13 +307,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await update.message.reply_text(
         "📥 **Instagram Downloader Bot**\n\n"
-        "✅ Video link bhejo → Video with Audio\n"
-        "✅ Photo link bhejo → High Quality Photo(s)\n"
+        "✅ Video link bhejo → Video with Audio (Direct Instagram)\n"
+        "✅ Photo link bhejo → High Quality Photo (Direct Instagram)\n"
         "✅ Multiple photos → Sabhi 1-1 karke bhejunga\n"
         "✅ Audio button → Name do → Audio aayega\n\n"
         "**Example:**\n"
         "`https://www.instagram.com/reel/xyz/`\n"
-        "`https://www.instagram.com/p/xyz/`",
+        "`https://www.instagram.com/p/xyz/`\n\n"
+        "**Note:** cookies.txt must be valid and not expired!",
         parse_mode="Markdown"
     )
 
@@ -336,13 +346,21 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Invalid URL")
         return
     
-    msg = await update.message.reply_text("⏳ Downloading...")
+    msg = await update.message.reply_text("⏳ Downloading from Instagram...")
     
     try:
         result = InstaDownloader.download_media(url)
         
         if not result.get("success"):
-            await msg.edit_text(f"❌ **Failed:** {result.get('error')}\n\n💡 Make sure cookies.txt is valid", parse_mode="Markdown")
+            await msg.edit_text(
+                f"❌ **Failed:** {result.get('error')}\n\n"
+                f"💡 **Solution:**\n"
+                f"1. cookies.txt expire ho gayi hai\n"
+                f"2. Fresh cookies export karein\n"
+                f"3. GitHub par update karein\n"
+                f"4. Railway redeploy karein",
+                parse_mode="Markdown"
+            )
             return
         
         # Check for multiple photos
@@ -385,7 +403,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 with open(fp, 'rb') as f:
                     await update.message.reply_video(
                         video=f,
-                        caption=f"✅ **Downloaded** ✅\n🔗 [Instagram Link]({url})\n\n📌 Audio ke liye button click karein",
+                        caption=f"✅ **Video Downloaded with Audio** ✅\n🔗 [Instagram Link]({url})\n\n📌 Audio ke liye button click karein",
                         parse_mode="Markdown",
                         reply_markup=InlineKeyboardMarkup(keyboard),
                         supports_streaming=True
@@ -394,7 +412,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 with open(fp, 'rb') as f:
                     await update.message.reply_photo(
                         photo=f,
-                        caption=f"✅ **Downloaded** ✅\n🔗 [Instagram Link]({url})",
+                        caption=f"✅ **Photo Downloaded** ✅\n🔗 [Instagram Link]({url})",
                         parse_mode="Markdown"
                     )
             await msg.delete()
@@ -495,6 +513,10 @@ def main():
     # Check cookies.txt
     if os.path.exists('cookies.txt'):
         print("✅ cookies.txt found")
+        # Show first few lines for debugging
+        with open('cookies.txt', 'r') as f:
+            lines = f.readlines()
+            print(f"📄 cookies.txt has {len(lines)} lines")
     else:
         print("⚠️ cookies.txt not found!")
     
