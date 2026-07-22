@@ -52,7 +52,7 @@ class InstaDownloader:
         if result.get("success"):
             return result
         
-        return {"success": False, "error": "Download failed. Make sure cookies.txt is valid and not expired."}
+        return {"success": False, "error": "Download failed. cookies.txt expired? Fresh export karein."}
     
     @staticmethod
     def _download_ytdlp(url):
@@ -110,73 +110,19 @@ class InstaDownloader:
                                     break
                             
                             if file_path and os.path.getsize(file_path) > 1000:
-                                print(f"✅ Video with audio: {file_path}")
+                                # Verify audio exists
+                                probe_cmd = ['ffprobe', '-v', 'error', '-select_streams', 'a:0', '-show_entries', 'stream=codec_type', '-of', 'csv=p=0', file_path]
+                                probe_result = subprocess.run(probe_cmd, capture_output=True, text=True, timeout=30)
+                                if probe_result.stdout.strip():
+                                    print(f"✅ Video with audio: {file_path}")
+                                else:
+                                    print(f"⚠️ Video without audio, but sending anyway")
                                 return {"success": True, "file_path": file_path, "is_video": True}
                 
                 # ─── PHOTO(S) ───
                 print(f"📸 Downloading photo(s): {url}")
                 
-                # Method 1: Direct photo download from info
-                if info.get('url'):
-                    photo_opts = {
-                        'quiet': True,
-                        'no_warnings': True,
-                        'ignoreerrors': True,
-                        'outtmpl': os.path.join(DOWNLOAD_DIR, '%(id)s.%(ext)s'),
-                        'format': 'best',
-                        'cookiefile': 'cookies.txt',
-                    }
-                    with yt_dlp.YoutubeDL(photo_opts) as ydl_photo:
-                        ydl_photo.extract_info(url, download=True)
-                    
-                    file_id = info.get('id', 'unknown')
-                    file_path = None
-                    for f in os.listdir(DOWNLOAD_DIR):
-                        if file_id in f and f.endswith(('.jpg', '.jpeg', '.png', '.webp')):
-                            file_path = os.path.join(DOWNLOAD_DIR, f)
-                            break
-                    
-                    if file_path and os.path.getsize(file_path) > 1000:
-                        print(f"✅ Photo: {file_path}")
-                        return {"success": True, "file_path": file_path, "is_video": False, "is_multiple": False}
-                
-                # Method 2: Multiple photos (carousel)
-                entries = info.get('entries', [])
-                if entries:
-                    photo_paths = []
-                    for entry in entries:
-                        if entry:
-                            file_id = entry.get('id', 'unknown')
-                            photo_opts = {
-                                'quiet': True,
-                                'no_warnings': True,
-                                'ignoreerrors': True,
-                                'outtmpl': os.path.join(DOWNLOAD_DIR, f"{file_id}.%(ext)s"),
-                                'format': 'best',
-                                'cookiefile': 'cookies.txt',
-                            }
-                            
-                            with yt_dlp.YoutubeDL(photo_opts) as ydl_photo:
-                                try:
-                                    ydl_photo.extract_info(f"https://www.instagram.com/p/{file_id}/", download=True)
-                                except:
-                                    pass
-                            
-                            for f in os.listdir(DOWNLOAD_DIR):
-                                if file_id in f and f.endswith(('.jpg', '.jpeg', '.png', '.webp')):
-                                    fp = os.path.join(DOWNLOAD_DIR, f)
-                                    if os.path.getsize(fp) > 1000:
-                                        photo_paths.append(fp)
-                                        break
-                    
-                    if photo_paths:
-                        print(f"✅ {len(photo_paths)} photos")
-                        if len(photo_paths) == 1:
-                            return {"success": True, "file_path": photo_paths[0], "is_video": False, "is_multiple": False}
-                        else:
-                            return {"success": True, "file_paths": photo_paths, "is_video": False, "is_multiple": True}
-                
-                # Method 3: Try direct download with best format
+                # Try direct download
                 photo_opts = {
                     'quiet': True,
                     'no_warnings': True,
@@ -235,11 +181,10 @@ class InstaDownloader:
             html = resp.text
             
             # ─── FIND IMAGES ───
-            # Method 1: display_url
+            # display_url
             image_urls = re.findall(r'"display_url":"([^"]+)"', html)
             if image_urls:
                 print(f"📸 Found {len(image_urls)} images via display_url")
-                # Remove duplicates
                 image_urls = list(dict.fromkeys(image_urls))
                 shortcode = re.search(r'/(p|reel)/([^/]+)', url).group(2)
                 photo_paths = []
@@ -256,33 +201,6 @@ class InstaDownloader:
                             print(f"✅ Downloaded image {i+1}")
                     except Exception as e:
                         print(f"⚠️ Failed to download image {i+1}: {e}")
-                        continue
-                
-                if photo_paths:
-                    if len(photo_paths) == 1:
-                        return {"success": True, "file_path": photo_paths[0], "is_video": False, "is_multiple": False}
-                    else:
-                        return {"success": True, "file_paths": photo_paths, "is_video": False, "is_multiple": True}
-            
-            # Method 2: src attribute in img tags
-            img_urls = re.findall(r'<img[^>]+src="([^"]+)"', html)
-            if img_urls:
-                print(f"📸 Found {len(img_urls)} images via img tags")
-                shortcode = re.search(r'/(p|reel)/([^/]+)', url).group(2)
-                photo_paths = []
-                for i, img_url in enumerate(img_urls[:10]):  # Max 10 photos
-                    try:
-                        if 'cdninstagram.com' in img_url or 'fbcdn' in img_url:
-                            fp = os.path.join(DOWNLOAD_DIR, f"{shortcode}_{i+1}.jpg")
-                            img_url = img_url.replace('\\u0026', '&')
-                            ir = requests.get(img_url, headers=headers, stream=True, timeout=30)
-                            with open(fp, 'wb') as f:
-                                for chunk in ir.iter_content(chunk_size=8192):
-                                    if chunk: f.write(chunk)
-                            if os.path.getsize(fp) > 1000:
-                                photo_paths.append(fp)
-                                print(f"✅ Downloaded image {i+1}")
-                    except Exception as e:
                         continue
                 
                 if photo_paths:
