@@ -13,6 +13,7 @@ from flask import Flask
 import threading
 import time
 import json
+import subprocess
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -40,66 +41,101 @@ os.makedirs(DOWNLOAD_PATH, exist_ok=True)
 video_cache = {}
 user_states = {}
 
-# ============ API ENDPOINTS ============
+# ============ BETTER APIS ============
 
 APIS = [
     "https://api.davidcyriltech.my.id/instagram?url={}",
-    "https://api.ahmmikun.lol/api/ig?url={}",
-    "https://api.nyxs.pw/dl/ig?url={}",
+    "https://www.instagramsave.com/instagram-video-downloader?url={}",
+    "https://api.hybrids.id/api/instagram?url={}",
 ]
 
-async def try_all_apis(url):
-    """Try multiple APIs until one works"""
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36',
-        'Accept': 'application/json'
-    }
+# New reliable APIs
+RELIABLE_APIS = [
+    "https://tikwm.com/api/instagram/?url={}",
+    "https://api.azhar32.net/instagram?url={}",
+]
+
+async def get_instagram_media(url):
+    """Get Instagram media using multiple APIs"""
     
-    for api_url in APIS:
-        try:
-            full_url = api_url.format(url)
-            logger.info(f"Trying: {full_url}")
+    # Method 1: Using instagram-save.com
+    try:
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+        
+        # Try Instagram Save
+        async with aiohttp.ClientSession() as session:
+            # Get cookies first
+            async with session.get("https://www.instagramsave.com/", headers=headers) as resp:
+                html = await resp.text()
+                # Extract token
+                token_match = re.search(r'name="csrf_token" value="([^"]+)"', html)
+                csrf_token = token_match.group(1) if token_match else ""
             
-            async with aiohttp.ClientSession() as session:
-                async with session.get(full_url, headers=headers, timeout=aiohttp.ClientTimeout(total=15)) as resp:
-                    if resp.status == 200:
-                        text = await resp.text()
-                        data = json.loads(text)
-                        
-                        # Different API response formats
-                        download_url = None
-                        
-                        if isinstance(data, dict):
-                            # API 1: davidcyriltech
-                            if data.get("success") and data.get("download_url"):
-                                download_url = data["download_url"]
-                            # API 2: ahmmikun
-                            elif data.get("status") == 200:
-                                download_url = data.get("url") or data.get("download_url")
-                            # API 3: nyxs
-                            elif data.get("result"):
-                                download_url = data["result"].get("download_url") or data["result"].get("url")
-                            # Generic
-                            else:
-                                download_url = data.get("url") or data.get("download_url") or data.get("link")
-                        
-                        if download_url:
-                            logger.info(f"Got download URL: {download_url[:50]}...")
-                            return download_url
-                            
-        except asyncio.TimeoutError:
-            logger.warning(f"Timeout for {api_url}")
-        except Exception as e:
-            logger.error(f"API error: {e}")
+            # Post request
+            post_data = {
+                'url': url,
+                'action': 'post',
+                'csrf_token': csrf_token
+            }
+            
+            async with session.post(
+                "https://www.instagramsave.com/instagram-video-downloader",
+                data=post_data,
+                headers=headers
+            ) as resp:
+                html = await resp.text()
+                # Extract download URLs
+                video_matches = re.findall(r'href="([^"]+\.mp4[^"]*)"', html)
+                if video_matches:
+                    return video_matches[0]
+                
+                image_matches = re.findall(r'href="([^"]+\.jpg[^"]*)"', html)
+                if image_matches:
+                    return image_matches[0]
+    
+    except Exception as e:
+        logger.error(f"Instagram Save error: {e}")
+    
+    # Method 2: Using davidcyriltech
+    try:
+        async with aiohttp.ClientSession() as session:
+            response = await session.get(
+                f"https://api.davidcyriltech.my.id/instagram?url={url}",
+                timeout=aiohttp.ClientTimeout(total=10)
+            )
+            if response.status == 200:
+                data = await response.json()
+                if data.get('success') and data.get('download_url'):
+                    return data['download_url']
+    except:
+        pass
+    
+    # Method 3: Using alternative API
+    try:
+        async with aiohttp.ClientSession() as session:
+            response = await session.get(
+                f"https://api.azhar32.net/instagram?url={url}",
+                timeout=aiohttp.ClientTimeout(total=10)
+            )
+            if response.status == 200:
+                data = await response.json()
+                if data.get('result'):
+                    return data['result']
+    except:
+        pass
     
     return None
 
 async def download_media(download_url, file_path):
-    """Download media file"""
+    """Download media file with progress"""
     try:
         headers = {
-            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)',
-            'Accept': '*/*'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'video/mp4,image/jpeg,*/*',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Connection': 'keep-alive'
         }
         
         async with aiohttp.ClientSession() as session:
@@ -107,7 +143,7 @@ async def download_media(download_url, file_path):
                 if resp.status == 200:
                     async with aiofiles.open(file_path, 'wb') as f:
                         downloaded = 0
-                        async for chunk in resp.content.iter_chunked(512 * 1024):  # 512KB chunks
+                        async for chunk in resp.content.iter_chunked(1024 * 1024):  # 1MB chunks
                             await f.write(chunk)
                             downloaded += len(chunk)
                     
@@ -115,10 +151,10 @@ async def download_media(download_url, file_path):
                         logger.info(f"Downloaded: {os.path.getsize(file_path)} bytes")
                         return True
                     
-        return False
     except Exception as e:
         logger.error(f"Download error: {e}")
-        return False
+    
+    return False
 
 # ============ COMMANDS ============
 
@@ -137,54 +173,63 @@ async def start(client, message):
 async def ping(client, message):
     await message.reply_text("✅ Bot is working! Send Instagram link.")
 
-@app.on_message(filters.regex(r'https?://(?:www\.)?instagram\.com/(?:p|reel|tv)/[^/?]+'))
+@app.on_message(filters.regex(r'https?://(?:www\.)?instagram\.com/(?:p|reel|tv|stories)/[^/?]+'))
 async def handle_instagram(client, message):
-    status = None
+    status_msg = None
     try:
         url = message.text.strip().split('?')[0]
+        logger.info(f"Processing: {url}")
         
-        status = await message.reply_text("🔍 **Searching...**")
+        status_msg = await message.reply_text("🔍 **Searching for media...**")
         
-        # Try all APIs
-        download_url = await try_all_apis(url)
+        # Get download URL
+        download_url = await get_instagram_media(url)
         
         if not download_url:
-            await status.edit_text(
-                "❌ **No download URL found!**\n\n"
-                "Make sure the post is **public**.\n"
-                "Private accounts won't work.\n\n"
-                "Try another link."
+            await status_msg.edit_text(
+                "❌ **Could not fetch media!**\n\n"
+                "Possible reasons:\n"
+                "• Post is private\n"
+                "• Instagram blocked the request\n"
+                "• Invalid URL\n\n"
+                "Try:\n"
+                "1. Make sure post is public\n"
+                "2. Use a different link\n"
+                "3. Try again later"
             )
             return
         
+        # Generate file name
         file_id = str(uuid.uuid4())[:12]
-        file_path = os.path.join(DOWNLOAD_PATH, f"{file_id}.mp4")
+        ext = '.mp4' if 'mp4' in download_url else '.jpg'
+        file_path = os.path.join(DOWNLOAD_PATH, f"{file_id}{ext}")
         
-        await status.edit_text("📥 **Downloading...**")
+        await status_msg.edit_text("📥 **Downloading media...**")
         
-        # Download the media
+        # Download
         success = await download_media(download_url, file_path)
         
         if not success or not os.path.exists(file_path):
-            await status.edit_text("❌ **Download failed!** Server issue. Try again.")
+            await status_msg.edit_text("❌ **Download failed!** Please try again.")
             return
         
         file_size = os.path.getsize(file_path)
         size_mb = file_size / (1024 * 1024)
         
-        if size_mb < 0.01:  # Less than 10KB
-            await status.edit_text("❌ **Empty file!** Instagram blocked. Try later.")
+        if size_mb < 0.01:
+            await status_msg.edit_text("❌ **Empty file received!** Try again.")
             os.remove(file_path)
             return
         
-        # Check if video or photo
+        # Determine if video or photo
         is_video = file_path.endswith('.mp4') or size_mb > 0.5
         
         if is_video:
             # Store for buttons
             video_cache[file_id] = {
                 'video_path': file_path,
-                'owner_id': 'instagram'
+                'owner_id': 'instagram',
+                'timestamp': time.time()
             }
             
             keyboard = InlineKeyboardMarkup([
@@ -194,8 +239,9 @@ async def handle_instagram(client, message):
                 ]
             ])
             
-            await status.delete()
+            await status_msg.delete()
             
+            # Send based on size
             if size_mb > 50:
                 await message.reply_document(
                     document=file_path,
@@ -208,13 +254,15 @@ async def handle_instagram(client, message):
                     video=file_path,
                     caption=f"🎬 **Instagram Video**\n📦 {size_mb:.1f}MB\n✨ HD Quality",
                     reply_markup=keyboard,
-                    supports_streaming=True
+                    supports_streaming=True,
+                    width=720,
+                    height=1280
                 )
             
             logger.info(f"✅ Video sent: {size_mb:.1f}MB")
             
         else:
-            await status.delete()
+            await status_msg.delete()
             await message.reply_photo(
                 photo=file_path,
                 caption="📸 **Instagram Photo**\n✨ Original Quality"
@@ -225,11 +273,13 @@ async def handle_instagram(client, message):
     except FloodWait as e:
         logger.warning(f"Flood: {e.value}s")
         await asyncio.sleep(e.value + 1)
+        if status_msg:
+            await status_msg.edit_text("⏳ Rate limited. Please wait...")
     except Exception as e:
         logger.error(f"Error: {e}", exc_info=True)
-        if status:
+        if status_msg:
             try:
-                await status.edit_text("❌ **Error!** Please try again.")
+                await status_msg.edit_text("❌ **Error!** Please try again later.")
             except:
                 pass
 
@@ -250,7 +300,7 @@ async def download_video(client, callback):
             caption="📹 Instagram Video",
             file_name=f"instagram_{file_id}.mp4"
         )
-        await callback.answer("✅ Sent!")
+        await callback.answer("✅ Download started!")
     except Exception as e:
         logger.error(f"DL error: {e}")
         await callback.answer("❌ Failed!", show_alert=True)
@@ -268,7 +318,7 @@ async def audio_request(client, callback):
             'file_id': file_id,
             'ts': time.time()
         }
-        await callback.message.reply_text("🎵 **Enter filename:**\nExample: my_song")
+        await callback.message.reply_text("🎵 **Enter filename for audio:**\nExample: my_song")
         await callback.answer()
     except:
         pass
@@ -279,6 +329,7 @@ async def audio_extract(client, message):
         uid = message.from_user.id
         if uid not in user_states:
             return
+        
         if time.time() - user_states[uid]['ts'] > 120:
             del user_states[uid]
             return
@@ -287,7 +338,7 @@ async def audio_extract(client, message):
         v = video_cache.get(file_id)
         if not v or not os.path.exists(v['video_path']):
             del user_states[uid]
-            await message.reply_text("❌ Expired!")
+            await message.reply_text("❌ Video expired!")
             return
         
         name = message.text.strip().replace(' ', '_')[:50]
@@ -298,8 +349,7 @@ async def audio_extract(client, message):
         
         audio_file = os.path.join(DOWNLOAD_PATH, f"audio_{file_id}.mp3")
         
-        # Use subprocess ffmpeg
-        import subprocess
+        # Extract audio using ffmpeg
         cmd = [
             'ffmpeg', '-i', v['video_path'],
             '-vn', '-acodec', 'libmp3lame',
@@ -315,7 +365,7 @@ async def audio_extract(client, message):
         await proc.communicate()
         
         if os.path.exists(audio_file) and os.path.getsize(audio_file) > 1000:
-            await status.edit_text("📤 **Uploading...**")
+            await status.edit_text("📤 **Uploading audio...**")
             await client.send_audio(
                 chat_id=message.chat.id,
                 audio=audio_file,
