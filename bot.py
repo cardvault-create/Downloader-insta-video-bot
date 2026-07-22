@@ -22,7 +22,7 @@ DOWNLOAD_DIR = "downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
 # ══════════════════════════════════════
-# 📥 DOWNLOAD ENGINE - API BASED
+# 📥 DOWNLOAD ENGINE - OFFICIAL API
 # ══════════════════════════════════════
 
 class InstaDownloader:
@@ -55,7 +55,7 @@ class InstaDownloader:
 
     @staticmethod
     def download_media(url):
-        """Main download function - API based"""
+        """Main download function"""
         
         # Check if it's video
         is_video = InstaDownloader._check_if_video(url)
@@ -119,7 +119,7 @@ class InstaDownloader:
 
     @staticmethod
     def _download_photo_api(url):
-        """Download photo using Instagram API"""
+        """Download photo using Instagram Official API"""
         try:
             # Get shortcode
             shortcode_match = re.search(r'/(p|reel)/([^/]+)', url)
@@ -129,72 +129,166 @@ class InstaDownloader:
             
             print(f"🔍 Fetching photo info for: {shortcode}")
             
-            # Use Instagram API
-            api_url = f"https://www.instagram.com/p/{shortcode}/?__a=1&__d=dis"
-            
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'application/json',
-                'Accept-Language': 'en-US,en;q=0.9',
-                'Accept-Encoding': 'gzip, deflate, br',
-                'DNT': '1',
-                'Connection': 'keep-alive',
-                'Cache-Control': 'max-age=0',
-            }
-            
-            # Load cookies
+            # Get cookies
             cookies = InstaDownloader._get_cookies()
             if not cookies:
                 return {"success": False, "error": "cookies.txt not found"}
             
-            # Get media info
-            response = requests.get(api_url, headers=headers, cookies=cookies, timeout=15)
+            # Step 1: Get CSRF token from page
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'DNT': '1',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1',
+                'Cache-Control': 'max-age=0',
+            }
             
-            if response.status_code != 200:
-                print(f"❌ API error: {response.status_code}")
-                # Try backup method
-                return InstaDownloader._download_photo_backup(url, shortcode)
+            # Get page to extract CSRF token
+            page_url = f"https://www.instagram.com/p/{shortcode}/"
+            response = requests.get(page_url, headers=headers, cookies=cookies, timeout=15)
+            html = response.text
             
-            try:
+            # Extract CSRF token
+            csrf_match = re.search(r'"csrf_token":"([^"]+)"', html)
+            csrf_token = csrf_match.group(1) if csrf_match else ""
+            
+            # Extract JSON data
+            json_pattern = r'<script type="text/javascript">window\._sharedData = (.*?);</script>'
+            json_match = re.search(json_pattern, html, re.DOTALL)
+            
+            if json_match:
+                try:
+                    data = json.loads(json_match.group(1))
+                    
+                    # Navigate to media
+                    if 'entry_data' in data:
+                        for entry in data['entry_data'].get('PostPage', []):
+                            if 'graphql' in entry:
+                                media = entry['graphql'].get('shortcode_media', {})
+                                
+                                if media:
+                                    # Check if video
+                                    if media.get('is_video'):
+                                        return InstaDownloader._download_video(url)
+                                    
+                                    # Get image URLs
+                                    image_urls = []
+                                    
+                                    # Single photo
+                                    if media.get('display_url'):
+                                        image_urls.append(media['display_url'])
+                                        print("📸 Single photo found")
+                                    
+                                    # Carousel
+                                    if media.get('__typename') == 'GraphSidecar':
+                                        edges = media.get('edge_sidecar_to_children', {}).get('edges', [])
+                                        print(f"📸 Found {len(edges)} photos in carousel")
+                                        for edge in edges:
+                                            node = edge.get('node', {})
+                                            if node.get('display_url'):
+                                                image_urls.append(node['display_url'])
+                                    
+                                    if image_urls:
+                                        return InstaDownloader._download_images(image_urls, shortcode, url)
+                except Exception as e:
+                    print(f"⚠️ JSON parsing error: {e}")
+            
+            # If JSON method fails, try direct API
+            print("🔄 Trying direct API method...")
+            return InstaDownloader._download_photo_direct_api(shortcode, cookies, url)
+            
+        except Exception as e:
+            print(f"❌ API error: {e}")
+            return {"success": False, "error": str(e)}
+
+    @staticmethod
+    def _download_photo_direct_api(shortcode, cookies, url):
+        """Direct API call to Instagram"""
+        try:
+            # Use Instagram's GraphQL API
+            api_url = "https://www.instagram.com/graphql/query/"
+            
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Accept': 'application/json',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Content-Type': 'application/json',
+                'DNT': '1',
+                'Connection': 'keep-alive',
+                'Cache-Control': 'max-age=0',
+                'X-Requested-With': 'XMLHttpRequest',
+            }
+            
+            # GraphQL query
+            query = {
+                "query": """
+                {
+                    shortcode_media(shortcode: "%s") {
+                        __typename
+                        display_url
+                        is_video
+                        edge_sidecar_to_children {
+                            edges {
+                                node {
+                                    display_url
+                                }
+                            }
+                        }
+                    }
+                }
+                """ % shortcode
+            }
+            
+            response = requests.post(
+                api_url,
+                headers=headers,
+                cookies=cookies,
+                json=query,
+                timeout=15
+            )
+            
+            if response.status_code == 200:
                 data = response.json()
-            except:
-                return InstaDownloader._download_photo_backup(url, shortcode)
+                media = data.get('data', {}).get('shortcode_media', {})
+                
+                if media:
+                    image_urls = []
+                    
+                    # Single photo
+                    if media.get('display_url'):
+                        image_urls.append(media['display_url'])
+                    
+                    # Carousel
+                    if media.get('__typename') == 'GraphSidecar':
+                        edges = media.get('edge_sidecar_to_children', {}).get('edges', [])
+                        for edge in edges:
+                            node = edge.get('node', {})
+                            if node.get('display_url'):
+                                image_urls.append(node['display_url'])
+                    
+                    if image_urls:
+                        return InstaDownloader._download_images(image_urls, shortcode, url)
             
-            # Extract media
-            if 'graphql' in data:
-                media = data['graphql'].get('shortcode_media', {})
-            else:
-                media = data.get('graphql', {}).get('shortcode_media', {})
+            return {"success": False, "error": "No images found"}
             
-            if not media:
-                return InstaDownloader._download_photo_backup(url, shortcode)
+        except Exception as e:
+            print(f"❌ Direct API error: {e}")
+            return {"success": False, "error": str(e)}
+
+    @staticmethod
+    def _download_images(image_urls, shortcode, url):
+        """Download images from URLs"""
+        try:
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            }
             
-            # Check if it's video
-            if media.get('is_video'):
-                return InstaDownloader._download_video(url)
-            
-            # Get image URLs
-            image_urls = []
-            
-            # Single photo
-            if media.get('display_url'):
-                image_urls.append(media['display_url'])
-                print("📸 Single photo found")
-            
-            # Carousel (multiple photos)
-            if media.get('__typename') == 'GraphSidecar':
-                edges = media.get('edge_sidecar_to_children', {}).get('edges', [])
-                print(f"📸 Found {len(edges)} photos in carousel")
-                for edge in edges:
-                    node = edge.get('node', {})
-                    if node.get('display_url'):
-                        image_urls.append(node['display_url'])
-            
-            if not image_urls:
-                return {"success": False, "error": "No images found"}
-            
-            # Download images
             downloaded_paths = []
+            
             for i, img_url in enumerate(image_urls):
                 try:
                     img_url = img_url.split('?')[0]
@@ -228,114 +322,7 @@ class InstaDownloader:
                 return {"success": False, "error": "Failed to download images"}
                 
         except Exception as e:
-            print(f"❌ API error: {e}")
-            return InstaDownloader._download_photo_backup(url, shortcode)
-
-    @staticmethod
-    def _download_photo_backup(url, shortcode):
-        """Backup method using direct scrape"""
-        try:
-            print("🔄 Trying backup method...")
-            
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.9',
-                'Accept-Encoding': 'gzip, deflate, br',
-                'DNT': '1',
-                'Connection': 'keep-alive',
-                'Upgrade-Insecure-Requests': '1',
-            }
-            
-            cookies = InstaDownloader._get_cookies()
-            if not cookies:
-                return {"success": False, "error": "cookies.txt not found"}
-            
-            response = requests.get(url, headers=headers, cookies=cookies, timeout=15)
-            html = response.text
-            
-            # Find image URLs
-            image_urls = []
-            
-            # Method 1: JSON data
-            json_pattern = r'<script type="text/javascript">window\._sharedData = (.*?);</script>'
-            json_match = re.search(json_pattern, html, re.DOTALL)
-            
-            if json_match:
-                try:
-                    data = json.loads(json_match.group(1))
-                    if 'entry_data' in data:
-                        for entry in data['entry_data'].get('PostPage', []):
-                            if 'graphql' in entry:
-                                media = entry['graphql'].get('shortcode_media', {})
-                                if media.get('display_url'):
-                                    image_urls.append(media['display_url'])
-                                if media.get('__typename') == 'GraphSidecar':
-                                    edges = media.get('edge_sidecar_to_children', {}).get('edges', [])
-                                    for edge in edges:
-                                        node = edge.get('node', {})
-                                        if node.get('display_url'):
-                                            image_urls.append(node['display_url'])
-                except:
-                    pass
-            
-            # Method 2: display_url
-            if not image_urls:
-                display_urls = re.findall(r'"display_url":"([^"]+)"', html)
-                for img_url in display_urls:
-                    img_url = img_url.replace('\\u0026', '&')
-                    if img_url not in image_urls:
-                        image_urls.append(img_url)
-            
-            # Method 3: og:image
-            if not image_urls:
-                og_images = re.findall(r'<meta property="og:image" content="([^"]+)"', html)
-                for img_url in og_images:
-                    if img_url not in image_urls:
-                        image_urls.append(img_url)
-            
-            if not image_urls:
-                return {"success": False, "error": "No images found"}
-            
-            # Download images
-            downloaded_paths = []
-            for i, img_url in enumerate(image_urls[:10]):
-                try:
-                    if img_url.startswith('//'):
-                        img_url = 'https:' + img_url
-                    
-                    img_url = img_url.split('?')[0]
-                    ext = img_url.split('.')[-1]
-                    if ext not in ['jpg', 'jpeg', 'png', 'webp']:
-                        ext = 'jpg'
-                    
-                    file_name = f"{shortcode}_{i+1}.{ext}"
-                    file_path = os.path.join(DOWNLOAD_DIR, file_name)
-                    
-                    img_response = requests.get(img_url, headers=headers, stream=True, timeout=30)
-                    if img_response.status_code == 200:
-                        with open(file_path, 'wb') as f:
-                            for chunk in img_response.iter_content(chunk_size=8192):
-                                if chunk:
-                                    f.write(chunk)
-                        
-                        if os.path.getsize(file_path) > 1000:
-                            downloaded_paths.append(file_path)
-                            print(f"✅ Downloaded image {i+1}")
-                except Exception as e:
-                    print(f"⚠️ Error downloading image {i+1}: {e}")
-                    continue
-            
-            if downloaded_paths:
-                if len(downloaded_paths) == 1:
-                    return {"success": True, "file_path": downloaded_paths[0], "is_video": False}
-                else:
-                    return {"success": True, "file_paths": downloaded_paths, "is_video": False, "is_multiple": True}
-            else:
-                return {"success": False, "error": "Failed to download images"}
-                
-        except Exception as e:
-            print(f"❌ Backup error: {e}")
+            print(f"❌ Download error: {e}")
             return {"success": False, "error": str(e)}
 
     @staticmethod
@@ -350,14 +337,12 @@ class InstaDownloader:
             else:
                 audio_path = video_path.rsplit('.', 1)[0] + '.mp3'
             
-            # Check if video has audio
             probe_cmd = ['ffprobe', '-v', 'error', '-select_streams', 'a:0', '-show_entries', 'stream=codec_type', '-of', 'csv=p=0', video_path]
             probe_result = subprocess.run(probe_cmd, capture_output=True, text=True, timeout=30)
             
             if not probe_result.stdout.strip():
                 return {"success": False, "error": "❌ Is video main audio nahi hai!"}
             
-            # Extract audio
             cmd = ['ffmpeg', '-i', video_path, '-vn', '-acodec', 'libmp3lame', '-ab', '192k', '-y', audio_path]
             subprocess.run(cmd, capture_output=True, timeout=180)
             
