@@ -4,10 +4,9 @@ import re
 import subprocess
 import shutil
 import time
-import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
-from telegram.error import TimedOut, NetworkError, RetryAfter
+from telegram.error import TimedOut
 import yt_dlp
 import requests
 
@@ -40,18 +39,12 @@ class InstaDownloader:
     
     @staticmethod
     def download_media(url):
-        """Download video ya photo"""
-        
-        # Method 1: yt-dlp
         result = InstaDownloader._download_ytdlp(url)
         if result.get("success"):
             return result
-        
-        # Method 2: Scrape
         result = InstaDownloader._download_scrape(url)
         if result.get("success"):
             return result
-        
         return {"success": False, "error": "Download failed. cookies.txt check karo."}
     
     @staticmethod
@@ -77,7 +70,6 @@ class InstaDownloader:
                 formats = info.get('formats', [])
                 has_video_format = any(f.get('vcodec') != 'none' for f in formats)
                 
-                # VIDEO DOWNLOAD
                 if is_video or has_video_format or ext in ['mp4', 'mov', 'webm']:
                     ydl_opts_dl = {
                         'quiet': True,
@@ -104,13 +96,12 @@ class InstaDownloader:
                             if os.path.exists(file_path) and os.path.getsize(file_path) > 1000:
                                 return {"success": True, "file_path": file_path, "is_video": True}
                 
-                # PHOTO DOWNLOAD - HIGH QUALITY
                 ydl_opts_photo = {
                     'quiet': True,
                     'no_warnings': True,
                     'ignoreerrors': True,
                     'outtmpl': os.path.join(DOWNLOAD_DIR, '%(id)s.%(ext)s'),
-                    'format': 'best',  # BEST QUALITY
+                    'format': 'best',
                 }
                 if os.path.exists('cookies.txt'):
                     ydl_opts_photo['cookiefile'] = 'cookies.txt'
@@ -135,7 +126,6 @@ class InstaDownloader:
     
     @staticmethod
     def _download_scrape(url):
-        """Backup method for photos"""
         try:
             headers = {
                 'User-Agent': 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36',
@@ -144,7 +134,6 @@ class InstaDownloader:
             
             resp = requests.get(url, headers=headers, timeout=15)
             
-            # Video
             v = re.search(r'"video_url":"([^"]+)"', resp.text)
             if v:
                 shortcode = re.search(r'/(p|reel)/([^/]+)', url).group(2)
@@ -156,7 +145,6 @@ class InstaDownloader:
                 if os.path.getsize(fp) > 1000:
                     return {"success": True, "file_path": fp, "is_video": True}
             
-            # Photo
             im = re.search(r'"display_url":"([^"]+)"', resp.text)
             if im:
                 shortcode = re.search(r'/(p|reel)/([^/]+)', url).group(2)
@@ -200,7 +188,7 @@ class InstaDownloader:
             return {"success": False, "error": "Audio extract failed"}
             
         except subprocess.TimeoutExpired:
-            return {"success": False, "error": "⏰ Timeout! Audio extract mein zyada time lag raha hai."}
+            return {"success": False, "error": "⏰ Timeout!"}
         except Exception as e:
             return {"success": False, "error": f"FFmpeg error: {str(e)}"}
     
@@ -243,7 +231,21 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     text = update.message.text
-    if not text or not InstaDownloader.is_instagram_url(text):
+    
+    # Check if it's audio name input
+    if context.user_data.get('awaiting_audio_name'):
+        context.user_data['awaiting_audio_name'] = False
+        audio_name = text.strip()
+        keyboard = [[InlineKeyboardButton("✅ Confirm", callback_data=f"audio_confirm_{audio_name}")]]
+        await update.message.reply_text(
+            f"🎵 Audio Name: **{audio_name}**\n\nClick confirm to extract.",
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+        return
+    
+    # Check if it's Instagram URL
+    if not InstaDownloader.is_instagram_url(text):
         return
     
     url = InstaDownloader.extract_url(text)
@@ -274,7 +276,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         try:
             if is_video:
-                # Video send karo + Audio button
                 context.user_data['audio_url'] = url
                 keyboard = [[InlineKeyboardButton("🎵 Download Audio", callback_data="audio_request")]]
                 with open(fp, 'rb') as f:
@@ -286,7 +287,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         supports_streaming=True
                     )
             else:
-                # Photo send karo (HIGH QUALITY)
                 with open(fp, 'rb') as f:
                     await update.message.reply_photo(
                         photo=f,
@@ -295,7 +295,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     )
             await msg.delete()
         except TimedOut:
-            await msg.edit_text("⏰ **Timeout!** File bhejne mein zyada time lag raha hai. Try again.")
+            await msg.edit_text("⏰ **Timeout!** Try again.")
         except Exception as e:
             await msg.edit_text(f"❌ Send error: {str(e)}")
         
@@ -328,7 +328,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         url = context.user_data.get('audio_url')
         if not url:
-            await query.message.reply_text("❌ URL not found. Please send video again.")
+            await query.message.reply_text("❌ URL not found.")
             return
         
         await query.edit_message_reply_markup(reply_markup=None)
@@ -373,22 +373,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         context.user_data['awaiting_audio_name'] = False
 
-async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user.id
-    if user not in AUTHORIZED_USERS:
-        return
-    
-    if context.user_data.get('awaiting_audio_name'):
-        text = update.message.text.strip()
-        context.user_data['awaiting_audio_name'] = False
-        
-        keyboard = [[InlineKeyboardButton("✅ Confirm", callback_data=f"audio_confirm_{text}")]]
-        await update.message.reply_text(
-            f"🎵 Audio Name: **{text}**\n\nClick confirm to extract.",
-            parse_mode="Markdown",
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
-
 # ══════════════════════════════════════
 # 🚀 MAIN
 # ══════════════════════════════════════
@@ -411,7 +395,6 @@ def main():
     
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(CallbackQueryHandler(button_handler))
     
