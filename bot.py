@@ -37,135 +37,22 @@ class InstaDownloader:
             url = m.group(0)
             return 'https://' + url if not url.startswith('http') else url
         return None
-    
+
+    # --- NEW: Dedicated photo downloader using scrape ---
     @staticmethod
-    def download_media(url):
-        """Download video with audio OR photo(s) DIRECT from Instagram"""
-        
-        # Try yt-dlp with cookies
-        result = InstaDownloader._download_ytdlp(url)
-        if result.get("success"):
-            return result
-        
-        # Try scrape as backup
-        result = InstaDownloader._download_scrape(url)
-        if result.get("success"):
-            return result
-        
-        return {"success": False, "error": "Download failed. cookies.txt expired? Fresh export karein."}
-    
-    @staticmethod
-    def _download_ytdlp(url):
-        try:
-            # Check cookies
-            if not os.path.exists('cookies.txt'):
-                return {"success": False, "error": "cookies.txt not found! Please add valid cookies.txt"}
-            
-            # Get video/photo info
-            ydl_opts = {
-                'quiet': True,
-                'no_warnings': True,
-                'ignoreerrors': True,
-                'cookiefile': 'cookies.txt',
-            }
-            
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=False)
-                
-                if not info:
-                    return {"success": False, "error": "No info"}
-                
-                # ─── CHECK IF VIDEO ───
-                is_video = info.get('is_video', False)
-                ext = info.get('ext', '')
-                formats = info.get('formats', [])
-                has_video_format = any(f.get('vcodec') != 'none' for f in formats)
-                
-                # ─── VIDEO (WITH AUDIO) ───
-                if is_video or has_video_format or ext in ['mp4', 'mov', 'webm']:
-                    print(f"🎬 Downloading video with audio: {url}")
-                    
-                    video_opts = {
-                        'quiet': True,
-                        'no_warnings': True,
-                        'ignoreerrors': True,
-                        'outtmpl': os.path.join(DOWNLOAD_DIR, '%(id)s.%(ext)s'),
-                        'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
-                        'merge_output_format': 'mp4',
-                        'cookiefile': 'cookies.txt',
-                        'postprocessors': [{
-                            'key': 'FFmpegVideoConvertor',
-                            'preferedformat': 'mp4',
-                        }],
-                    }
-                    
-                    with yt_dlp.YoutubeDL(video_opts) as ydl2:
-                        info2 = ydl2.extract_info(url, download=True)
-                        if info2:
-                            file_id = info2.get('id', 'unknown')
-                            file_path = None
-                            for f in os.listdir(DOWNLOAD_DIR):
-                                if file_id in f and f.endswith('.mp4'):
-                                    file_path = os.path.join(DOWNLOAD_DIR, f)
-                                    break
-                            
-                            if file_path and os.path.getsize(file_path) > 1000:
-                                # Verify audio exists
-                                probe_cmd = ['ffprobe', '-v', 'error', '-select_streams', 'a:0', '-show_entries', 'stream=codec_type', '-of', 'csv=p=0', file_path]
-                                probe_result = subprocess.run(probe_cmd, capture_output=True, text=True, timeout=30)
-                                if probe_result.stdout.strip():
-                                    print(f"✅ Video with audio: {file_path}")
-                                else:
-                                    print(f"⚠️ Video without audio, but sending anyway")
-                                return {"success": True, "file_path": file_path, "is_video": True}
-                
-                # ─── PHOTO(S) ───
-                print(f"📸 Downloading photo(s): {url}")
-                
-                # Try direct download
-                photo_opts = {
-                    'quiet': True,
-                    'no_warnings': True,
-                    'ignoreerrors': True,
-                    'outtmpl': os.path.join(DOWNLOAD_DIR, '%(id)s.%(ext)s'),
-                    'format': 'best',
-                    'cookiefile': 'cookies.txt',
-                }
-                with yt_dlp.YoutubeDL(photo_opts) as ydl3:
-                    info3 = ydl3.extract_info(url, download=True)
-                    if info3:
-                        file_id = info3.get('id', 'unknown')
-                        file_path = None
-                        for f in os.listdir(DOWNLOAD_DIR):
-                            if file_id in f and f.endswith(('.jpg', '.jpeg', '.png', '.webp')):
-                                file_path = os.path.join(DOWNLOAD_DIR, f)
-                                break
-                        
-                        if file_path and os.path.getsize(file_path) > 1000:
-                            print(f"✅ Photo: {file_path}")
-                            return {"success": True, "file_path": file_path, "is_video": False, "is_multiple": False}
-            
-        except Exception as e:
-            print(f"❌ Download error: {e}")
-            return {"success": False, "error": str(e)}
-        
-        return {"success": False, "error": "Download failed"}
-    
-    @staticmethod
-    def _download_scrape(url):
-        """Backup method using direct scrape - WORKS FOR PHOTOS"""
+    def _download_photo_scrape(url):
+        """Scrapes Instagram page for direct image URLs and downloads them."""
+        print(f"📸 Downloading photo via scrape: {url}")
         try:
             headers = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.5',
+                'Accept-Language': 'en-US,en;q=0.9',
                 'Accept-Encoding': 'gzip, deflate, br',
-                'DNT': '1',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
                 'Connection': 'keep-alive',
-                'Upgrade-Insecure-Requests': '1',
             }
             
-            # Use cookies from file
+            # Load cookies from file
             cookies = {}
             if os.path.exists('cookies.txt'):
                 with open('cookies.txt', 'r') as f:
@@ -175,41 +62,210 @@ class InstaDownloader:
                         parts = line.strip().split('\t')
                         if len(parts) >= 7:
                             cookies[parts[5]] = parts[6]
-                print("✅ Using cookies for scrape backup")
+                print("✅ Loaded cookies for photo scrape.")
+            else:
+                return {"success": False, "error": "cookies.txt not found for photo download."}
             
-            resp = requests.get(url, headers=headers, cookies=cookies, timeout=15)
-            html = resp.text
+            response = requests.get(url, headers=headers, cookies=cookies, timeout=15)
+            html = response.text
             
-            # ─── FIND IMAGES ───
-            # display_url
-            image_urls = re.findall(r'"display_url":"([^"]+)"', html)
-            if image_urls:
-                print(f"📸 Found {len(image_urls)} images via display_url")
-                image_urls = list(dict.fromkeys(image_urls))
-                shortcode = re.search(r'/(p|reel)/([^/]+)', url).group(2)
-                photo_paths = []
-                for i, img_url in enumerate(image_urls):
-                    try:
-                        fp = os.path.join(DOWNLOAD_DIR, f"{shortcode}_{i+1}.jpg")
-                        img_url = img_url.replace('\\u0026', '&')
-                        ir = requests.get(img_url, headers=headers, stream=True, timeout=30)
-                        with open(fp, 'wb') as f:
-                            for chunk in ir.iter_content(chunk_size=8192):
-                                if chunk: f.write(chunk)
-                        if os.path.getsize(fp) > 1000:
-                            photo_paths.append(fp)
-                            print(f"✅ Downloaded image {i+1}")
-                    except Exception as e:
-                        print(f"⚠️ Failed to download image {i+1}: {e}")
-                        continue
-                
-                if photo_paths:
-                    if len(photo_paths) == 1:
-                        return {"success": True, "file_path": photo_paths[0], "is_video": False, "is_multiple": False}
+            # --- Find all image URLs from the page ---
+            image_urls = []
+            
+            # 1. Look for "display_url" (most reliable for single posts)
+            display_urls = re.findall(r'"display_url":"([^"]+)"', html)
+            if display_urls:
+                # Remove duplicates and add to list
+                for img_url in display_urls:
+                    img_url = img_url.replace('\\u0026', '&')
+                    if img_url not in image_urls:
+                        image_urls.append(img_url)
+                print(f"✅ Found {len(image_urls)} image(s) via 'display_url'.")
+            
+            # 2. If no "display_url", look for image URLs in meta tags or img tags (fallback)
+            if not image_urls:
+                meta_img_urls = re.findall(r'<meta property="og:image" content="([^"]+)"', html)
+                for img_url in meta_img_urls:
+                    if img_url not in image_urls:
+                        image_urls.append(img_url)
+                print(f"✅ Found {len(image_urls)} image(s) via 'og:image'.")
+            
+            if not image_urls:
+                return {"success": False, "error": "No images found in the post."}
+            
+            # --- Download each unique image ---
+            shortcode = re.search(r'/(p|reel)/([^/]+)', url).group(2)
+            downloaded_paths = []
+            
+            for i, img_url in enumerate(image_urls):
+                try:
+                    # Ensure URL is absolute
+                    if img_url.startswith('//'):
+                        img_url = 'https:' + img_url
+                    elif img_url.startswith('/'):
+                        img_url = 'https://www.instagram.com' + img_url
+                    
+                    # Clean the URL (remove query params if any)
+                    img_url = img_url.split('?')[0]
+                    
+                    # Determine extension from URL
+                    ext = img_url.split('.')[-1].split('?')[0]
+                    if ext not in ['jpg', 'jpeg', 'png', 'webp']:
+                        ext = 'jpg'  # default
+                    
+                    file_name = f"{shortcode}_{i+1}.{ext}"
+                    file_path = os.path.join(DOWNLOAD_DIR, file_name)
+                    
+                    # Download image
+                    img_response = requests.get(img_url, headers=headers, stream=True, timeout=30)
+                    if img_response.status_code == 200:
+                        with open(file_path, 'wb') as f:
+                            for chunk in img_response.iter_content(chunk_size=8192):
+                                if chunk:
+                                    f.write(chunk)
+                        
+                        if os.path.getsize(file_path) > 1000:
+                            downloaded_paths.append(file_path)
+                            print(f"✅ Downloaded image {i+1}: {file_name}")
+                        else:
+                            print(f"⚠️ Downloaded file too small: {file_name}")
                     else:
-                        return {"success": True, "file_paths": photo_paths, "is_video": False, "is_multiple": True}
+                        print(f"⚠️ Failed to download image {i+1}: Status {img_response.status_code}")
+                        
+                except Exception as e:
+                    print(f"⚠️ Exception while downloading image {i+1}: {e}")
+                    continue
             
-            # ─── VIDEO ───
+            if downloaded_paths:
+                if len(downloaded_paths) == 1:
+                    return {"success": True, "file_path": downloaded_paths[0], "is_video": False, "is_multiple": False}
+                else:
+                    return {"success": True, "file_paths": downloaded_paths, "is_video": False, "is_multiple": True}
+            else:
+                return {"success": False, "error": "Failed to download any images."}
+                
+        except Exception as e:
+            print(f"❌ Photo scrape error: {e}")
+            return {"success": False, "error": f"Photo scrape failed: {str(e)}"}
+
+    @staticmethod
+    def download_media(url):
+        """Main function to download media."""
+        
+        # Check if it's a video (Reel) first using yt-dlp without download
+        is_video = InstaDownloader._is_video(url)
+        
+        if is_video:
+            print(f"🎬 Detected video, using yt-dlp: {url}")
+            result = InstaDownloader._download_video_ytdlp(url)
+            if result.get("success"):
+                return result
+            else:
+                # If yt-dlp fails for video, try scraping as fallback
+                return InstaDownloader._download_scrape(url)
+        else:
+            # It's a photo, use the dedicated photo scraper
+            return InstaDownloader._download_photo_scrape(url)
+
+    @staticmethod
+    def _is_video(url):
+        """Check if the URL is a video using yt-dlp info."""
+        try:
+            opts = {
+                'quiet': True,
+                'no_warnings': True,
+                'ignoreerrors': True,
+                'cookiefile': 'cookies.txt' if os.path.exists('cookies.txt') else None,
+            }
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                info = ydl.extract_info(url, download=False)
+                if info:
+                    # Check if the entry is a video or has video formats
+                    is_video = info.get('is_video', False)
+                    ext = info.get('ext', '')
+                    formats = info.get('formats', [])
+                    has_video_format = any(f.get('vcodec') != 'none' for f in formats)
+                    
+                    if is_video or has_video_format or ext in ['mp4', 'mov', 'webm']:
+                        return True
+        except Exception as e:
+            print(f"⚠️ Error in video detection: {e}")
+        return False
+
+    @staticmethod
+    def _download_video_ytdlp(url):
+        """Download video with audio using yt-dlp."""
+        try:
+            if not os.path.exists('cookies.txt'):
+                return {"success": False, "error": "cookies.txt not found for video download."}
+            
+            video_opts = {
+                'quiet': True,
+                'no_warnings': True,
+                'ignoreerrors': True,
+                'outtmpl': os.path.join(DOWNLOAD_DIR, '%(id)s.%(ext)s'),
+                'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+                'merge_output_format': 'mp4',
+                'cookiefile': 'cookies.txt',
+                'postprocessors': [{
+                    'key': 'FFmpegVideoConvertor',
+                    'preferedformat': 'mp4',
+                }],
+            }
+            
+            with yt_dlp.YoutubeDL(video_opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+                if info:
+                    file_id = info.get('id', 'unknown')
+                    file_path = None
+                    for f in os.listdir(DOWNLOAD_DIR):
+                        if file_id in f and f.endswith('.mp4'):
+                            file_path = os.path.join(DOWNLOAD_DIR, f)
+                            break
+                    
+                    if file_path and os.path.getsize(file_path) > 1000:
+                        # Verify audio exists
+                        probe_cmd = ['ffprobe', '-v', 'error', '-select_streams', 'a:0', '-show_entries', 'stream=codec_type', '-of', 'csv=p=0', file_path]
+                        probe_result = subprocess.run(probe_cmd, capture_output=True, text=True, timeout=30)
+                        if probe_result.stdout.strip():
+                            print(f"✅ Video with audio: {file_path}")
+                        else:
+                            print(f"⚠️ Video without audio, but sending anyway")
+                        return {"success": True, "file_path": file_path, "is_video": True}
+            
+            return {"success": False, "error": "Video download failed"}
+        except Exception as e:
+            print(f"❌ Video yt-dlp error: {e}")
+            return {"success": False, "error": str(e)}
+
+    @staticmethod
+    def _download_scrape(url):
+        """Fallback scrape for videos (if yt-dlp fails)."""
+        try:
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Connection': 'keep-alive',
+            }
+            
+            cookies = {}
+            if os.path.exists('cookies.txt'):
+                with open('cookies.txt', 'r') as f:
+                    for line in f:
+                        if line.startswith('#') or not line.strip():
+                            continue
+                        parts = line.strip().split('\t')
+                        if len(parts) >= 7:
+                            cookies[parts[5]] = parts[6]
+            else:
+                return {"success": False, "error": "cookies.txt not found."}
+            
+            response = requests.get(url, headers=headers, cookies=cookies, timeout=15)
+            html = response.text
+            
+            # Find video URL
             v = re.search(r'"video_url":"([^"]+)"', html)
             if v:
                 shortcode = re.search(r'/(p|reel)/([^/]+)', url).group(2)
@@ -221,13 +277,11 @@ class InstaDownloader:
                         if chunk: f.write(chunk)
                 if os.path.getsize(fp) > 1000:
                     return {"success": True, "file_path": fp, "is_video": True}
-                    
+            return {"success": False, "error": "Video URL not found in scrape"}
         except Exception as e:
-            print(f"❌ Scrape error: {e}")
-            pass
-        
-        return {"success": False, "error": "Scrape failed"}
-    
+            print(f"❌ Video scrape error: {e}")
+            return {"success": False, "error": str(e)}
+
     @staticmethod
     def extract_audio(video_path, custom_name=None):
         """Extract audio from video"""
