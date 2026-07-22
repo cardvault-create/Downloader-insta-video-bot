@@ -32,9 +32,9 @@ def health():
     return {"status": "ok"}, 200
 
 # Bot config
-API_ID = int(os.environ.get("API_ID"))
-API_HASH = os.environ.get("API_HASH")
-BOT_TOKEN = os.environ.get("BOT_TOKEN")
+API_ID = int(os.environ.get("35140329"))
+API_HASH = os.environ.get("011f638e4acadee178c59afffc80193d")
+BOT_TOKEN = os.environ.get("8952730755:AAHhor54jekn60e8NflgIJa50cMHwPQ3dbU")
 
 # Initialize Pyrogram
 app = Client(
