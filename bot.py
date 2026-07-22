@@ -4,7 +4,6 @@ import re
 import subprocess
 import shutil
 import time
-import json
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 from telegram.error import TimedOut
@@ -40,7 +39,7 @@ class InstaDownloader:
     
     @staticmethod
     def download_media(url):
-        """Download video with audio OR photo(s)"""
+        """Download video with audio OR photo(s) DIRECT from Instagram"""
         
         # Try yt-dlp with cookies
         result = InstaDownloader._download_ytdlp(url)
@@ -57,33 +56,17 @@ class InstaDownloader:
     @staticmethod
     def _download_ytdlp(url):
         try:
-            # First, get info without downloading
+            # Check cookies
+            if not os.path.exists('cookies.txt'):
+                return {"success": False, "error": "cookies.txt not found! Please add valid cookies.txt"}
+            
+            # Get video/photo info
             ydl_opts = {
                 'quiet': True,
                 'no_warnings': True,
                 'ignoreerrors': True,
+                'cookiefile': 'cookies.txt',
             }
-            
-            if os.path.exists('cookies.txt'):
-                ydl_opts['cookiefile'] = 'cookies.txt'
-                print("✅ Using cookies.txt for authentication")
-                
-                # Verify cookies are valid by trying to get a small request
-                try:
-                    test_opts = {
-                        'quiet': True,
-                        'no_warnings': True,
-                        'ignoreerrors': True,
-                        'cookiefile': 'cookies.txt',
-                    }
-                    with yt_dlp.YoutubeDL(test_opts) as test_ydl:
-                        test_info = test_ydl.extract_info('https://www.instagram.com/', download=False)
-                        print("✅ Cookies are valid!")
-                except Exception as e:
-                    print(f"⚠️ Cookies might be expired: {e}")
-            else:
-                print("⚠️ cookies.txt not found!")
-                return {"success": False, "error": "cookies.txt not found. Please add valid cookies.txt"}
             
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=False)
@@ -96,10 +79,11 @@ class InstaDownloader:
                 formats = info.get('formats', [])
                 has_video_format = any(f.get('vcodec') != 'none' for f in formats)
                 
-                # ─── VIDEO (with audio) ───
+                # ─── VIDEO (WITH AUDIO) ───
                 if is_video or has_video_format or ext in ['mp4', 'mov', 'webm']:
                     print(f"🎬 Downloading video with audio: {url}")
                     
+                    # Force best quality with audio
                     video_opts = {
                         'quiet': True,
                         'no_warnings': True,
@@ -107,7 +91,11 @@ class InstaDownloader:
                         'outtmpl': os.path.join(DOWNLOAD_DIR, '%(id)s.%(ext)s'),
                         'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
                         'merge_output_format': 'mp4',
-                        'cookiefile': 'cookies.txt' if os.path.exists('cookies.txt') else None,
+                        'cookiefile': 'cookies.txt',
+                        'postprocessors': [{
+                            'key': 'FFmpegVideoConvertor',
+                            'preferedformat': 'mp4',
+                        }],
                     }
                     
                     with yt_dlp.YoutubeDL(video_opts) as ydl2:
@@ -115,19 +103,35 @@ class InstaDownloader:
                         if info2:
                             file_id = info2.get('id', 'unknown')
                             file_path = None
+                            
+                            # Find downloaded file
                             for f in os.listdir(DOWNLOAD_DIR):
                                 if file_id in f and f.endswith('.mp4'):
                                     file_path = os.path.join(DOWNLOAD_DIR, f)
                                     break
                             
+                            # If not found, check any video file
+                            if not file_path:
+                                for f in os.listdir(DOWNLOAD_DIR):
+                                    if file_id in f and f.endswith(('.mp4', '.mov', '.webm')):
+                                        file_path = os.path.join(DOWNLOAD_DIR, f)
+                                        break
+                            
                             if file_path and os.path.getsize(file_path) > 1000:
-                                print(f"✅ Video downloaded: {file_path}")
+                                print(f"✅ Video downloaded with audio: {file_path}")
+                                # Verify audio exists
+                                probe_cmd = ['ffprobe', '-v', 'error', '-select_streams', 'a:0', '-show_entries', 'stream=codec_type', '-of', 'csv=p=0', file_path]
+                                probe_result = subprocess.run(probe_cmd, capture_output=True, text=True, timeout=30)
+                                if probe_result.stdout.strip():
+                                    print("✅ Audio track found in video")
+                                else:
+                                    print("⚠️ No audio track found in video, but sending anyway")
                                 return {"success": True, "file_path": file_path, "is_video": True}
                 
                 # ─── PHOTO(S) ───
                 print(f"📸 Downloading photo(s): {url}")
                 
-                # Check if multiple photos (carousel)
+                # Check for multiple photos (carousel)
                 entries = info.get('entries', [])
                 if entries:
                     photo_paths = []
@@ -140,12 +144,13 @@ class InstaDownloader:
                                 'ignoreerrors': True,
                                 'outtmpl': os.path.join(DOWNLOAD_DIR, f"{file_id}.%(ext)s"),
                                 'format': 'best',
-                                'cookiefile': 'cookies.txt' if os.path.exists('cookies.txt') else None,
+                                'cookiefile': 'cookies.txt',
                             }
                             
                             with yt_dlp.YoutubeDL(photo_opts) as ydl_photo:
                                 ydl_photo.extract_info(f"https://www.instagram.com/p/{file_id}/", download=True)
                             
+                            # Find downloaded file
                             for f in os.listdir(DOWNLOAD_DIR):
                                 if file_id in f and f.endswith(('.jpg', '.jpeg', '.png', '.webp')):
                                     fp = os.path.join(DOWNLOAD_DIR, f)
@@ -154,6 +159,7 @@ class InstaDownloader:
                                         break
                     
                     if photo_paths:
+                        print(f"✅ Downloaded {len(photo_paths)} photos")
                         return {"success": True, "file_paths": photo_paths, "is_video": False, "is_multiple": True}
                 
                 # Single photo
@@ -163,7 +169,7 @@ class InstaDownloader:
                     'ignoreerrors': True,
                     'outtmpl': os.path.join(DOWNLOAD_DIR, '%(id)s.%(ext)s'),
                     'format': 'best',
-                    'cookiefile': 'cookies.txt' if os.path.exists('cookies.txt') else None,
+                    'cookiefile': 'cookies.txt',
                 }
                 
                 with yt_dlp.YoutubeDL(photo_opts) as ydl3:
@@ -184,7 +190,7 @@ class InstaDownloader:
             print(f"❌ Download error: {e}")
             return {"success": False, "error": str(e)}
         
-        return {"success": False, "error": "yt-dlp failed"}
+        return {"success": False, "error": "Download failed"}
     
     @staticmethod
     def _download_scrape(url):
@@ -266,12 +272,14 @@ class InstaDownloader:
             else:
                 audio_path = video_path.rsplit('.', 1)[0] + '.mp3'
             
+            # Check if video has audio
             probe_cmd = ['ffprobe', '-v', 'error', '-select_streams', 'a:0', '-show_entries', 'stream=codec_type', '-of', 'csv=p=0', video_path]
             probe_result = subprocess.run(probe_cmd, capture_output=True, text=True, timeout=30)
             
             if not probe_result.stdout.strip():
                 return {"success": False, "error": "❌ Is video main audio nahi hai!"}
             
+            # Extract audio
             cmd = ['ffmpeg', '-i', video_path, '-vn', '-acodec', 'libmp3lame', '-ab', '192k', '-y', audio_path]
             subprocess.run(cmd, capture_output=True, timeout=180)
             
@@ -314,7 +322,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "**Example:**\n"
         "`https://www.instagram.com/reel/xyz/`\n"
         "`https://www.instagram.com/p/xyz/`\n\n"
-        "**Note:** cookies.txt must be valid and not expired!",
+        "**⚠️ Note:** cookies.txt must be valid!",
         parse_mode="Markdown"
     )
 
@@ -356,9 +364,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"❌ **Failed:** {result.get('error')}\n\n"
                 f"💡 **Solution:**\n"
                 f"1. cookies.txt expire ho gayi hai\n"
-                f"2. Fresh cookies export karein\n"
-                f"3. GitHub par update karein\n"
-                f"4. Railway redeploy karein",
+                f"2. Instagram se logout → login karein\n"
+                f"3. Fresh cookies.txt export karein\n"
+                f"4. GitHub par update karein\n"
+                f"5. Railway redeploy karein",
                 parse_mode="Markdown"
             )
             return
@@ -403,7 +412,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 with open(fp, 'rb') as f:
                     await update.message.reply_video(
                         video=f,
-                        caption=f"✅ **Video Downloaded with Audio** ✅\n🔗 [Instagram Link]({url})\n\n📌 Audio ke liye button click karein",
+                        caption=f"✅ **Video with Audio** ✅\n🔗 [Instagram Link]({url})\n\n📌 Audio ke liye button click karein",
                         parse_mode="Markdown",
                         reply_markup=InlineKeyboardMarkup(keyboard),
                         supports_streaming=True
@@ -513,10 +522,19 @@ def main():
     # Check cookies.txt
     if os.path.exists('cookies.txt'):
         print("✅ cookies.txt found")
-        # Show first few lines for debugging
-        with open('cookies.txt', 'r') as f:
-            lines = f.readlines()
-            print(f"📄 cookies.txt has {len(lines)} lines")
+        # Check if valid by reading
+        try:
+            with open('cookies.txt', 'r') as f:
+                lines = f.readlines()
+                print(f"📄 cookies.txt has {len(lines)} lines")
+                # Check if it has sessionid
+                has_session = any('sessionid' in line for line in lines)
+                if has_session:
+                    print("✅ cookies.txt has sessionid (valid)")
+                else:
+                    print("⚠️ cookies.txt missing sessionid - might be expired!")
+        except:
+            print("⚠️ Error reading cookies.txt")
     else:
         print("⚠️ cookies.txt not found!")
     
