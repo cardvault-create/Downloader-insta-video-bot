@@ -5,6 +5,7 @@ import subprocess
 import shutil
 import time
 import json
+import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 from telegram.error import TimedOut
@@ -39,23 +40,21 @@ class InstaDownloader:
         return None
 
     @staticmethod
-    def download_media(url, status_callback=None):
+    def download_media(url):
         """Main function to download media."""
         
         # Check if it's a video (Reel) using yt-dlp
         is_video = InstaDownloader._is_video(url)
         
         if is_video:
-            if status_callback:
-                await status_callback("📥 **Downloading Video From Instagram...**")
+            print(f"🎬 Downloading video: {url}")
             result = InstaDownloader._download_video_ytdlp(url)
             if result.get("success"):
                 return result
             else:
                 return InstaDownloader._download_scrape(url)
         else:
-            if status_callback:
-                await status_callback("📸 **Downloading Photo From Instagram...**")
+            print(f"📸 Downloading photo: {url}")
             return InstaDownloader._download_photo_scrape(url)
 
     @staticmethod
@@ -113,28 +112,30 @@ class InstaDownloader:
             html = response.text
             
             # ─── METHOD 1: Extract from JSON data ───
-            # Look for the JSON data in script tags
-            json_patterns = [
-                r'<script type="text/javascript">window\._sharedData = (.*?);</script>',
-                r'<script type="application/json" id="__NEXT_DATA__">(.*?)</script>',
-                r'<script type="text/javascript">window\.__additionalDataLoaded\(".*?",(.*?)\);</script>'
-            ]
-            
             image_urls = []
             shortcode = re.search(r'/(p|reel)/([^/]+)', url).group(2)
             
-            for pattern in json_patterns:
-                match = re.search(pattern, html, re.DOTALL)
-                if match:
-                    try:
-                        data = json.loads(match.group(1))
-                        # Navigate to find image URLs
-                        image_urls = InstaDownloader._extract_images_from_json(data, shortcode)
-                        if image_urls:
-                            print(f"✅ Found {len(image_urls)} images from JSON data")
-                            break
-                    except:
-                        continue
+            # Try to find JSON data
+            json_match = re.search(r'<script type="text/javascript">window\._sharedData = (.*?);</script>', html, re.DOTALL)
+            if json_match:
+                try:
+                    data = json.loads(json_match.group(1))
+                    # Navigate to find image URLs
+                    if 'entry_data' in data:
+                        for entry in data['entry_data'].get('PostPage', []):
+                            if 'graphql' in entry:
+                                media = entry['graphql'].get('shortcode_media', {})
+                                if media.get('__typename') == 'GraphImage':
+                                    if media.get('display_url'):
+                                        image_urls.append(media['display_url'])
+                                elif media.get('__typename') == 'GraphSidecar':
+                                    edges = media.get('edge_sidecar_to_children', {}).get('edges', [])
+                                    for edge in edges:
+                                        node = edge.get('node', {})
+                                        if node.get('display_url'):
+                                            image_urls.append(node['display_url'])
+                except:
+                    pass
             
             # ─── METHOD 2: Fallback to display_url ───
             if not image_urls:
@@ -207,52 +208,6 @@ class InstaDownloader:
         except Exception as e:
             print(f"❌ Photo scrape error: {e}")
             return {"success": False, "error": f"Photo scrape failed: {str(e)}"}
-
-    @staticmethod
-    def _extract_images_from_json(data, shortcode):
-        """Recursively extract image URLs from JSON data."""
-        image_urls = []
-        
-        if isinstance(data, dict):
-            # Check for edge_media_to_caption (Instagram's graphql structure)
-            if 'graphql' in data:
-                data = data['graphql']
-            
-            if 'shortcode_media' in data:
-                media = data['shortcode_media']
-                if media.get('__typename') == 'GraphImage':
-                    if media.get('display_url'):
-                        image_urls.append(media['display_url'])
-                elif media.get('__typename') == 'GraphSidecar':
-                    if 'edge_sidecar_to_children' in media:
-                        edges = media['edge_sidecar_to_children'].get('edges', [])
-                        for edge in edges:
-                            node = edge.get('node', {})
-                            if node.get('display_url'):
-                                image_urls.append(node['display_url'])
-            elif 'edge_sidecar_to_children' in data:
-                edges = data['edge_sidecar_to_children'].get('edges', [])
-                for edge in edges:
-                    node = edge.get('node', {})
-                    if node.get('display_url'):
-                        image_urls.append(node['display_url'])
-            elif 'display_url' in data:
-                image_urls.append(data['display_url'])
-            
-            # If not found, search deeper
-            if not image_urls:
-                for value in data.values():
-                    result = InstaDownloader._extract_images_from_json(value, shortcode)
-                    if result:
-                        image_urls.extend(result)
-                        
-        elif isinstance(data, list):
-            for item in data:
-                result = InstaDownloader._extract_images_from_json(item, shortcode)
-                if result:
-                    image_urls.extend(result)
-        
-        return image_urls
 
     @staticmethod
     def _download_video_ytdlp(url):
