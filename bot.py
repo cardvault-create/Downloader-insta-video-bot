@@ -56,14 +56,12 @@ class InstaDownloader:
     def _download_ytdlp(url):
         """yt-dlp with proper format for both video+audio and photos"""
         try:
-            # Pehle info extract karo bina download kiye — pata karo video hai ya photo
             ydl_opts_info = {
                 'quiet': True,
                 'no_warnings': True,
                 'ignoreerrors': True,
             }
             
-            # Cookies add karo
             if os.path.exists('cookies.txt'):
                 ydl_opts_info['cookiefile'] = 'cookies.txt'
             
@@ -73,24 +71,19 @@ class InstaDownloader:
                 if not info:
                     return {"success": False, "error": "No info"}
                 
-                # Check if it's video or image
                 is_video = info.get('is_video', False)
                 ext = info.get('ext', '')
-                
-                # Also check formats
                 formats = info.get('formats', [])
                 has_video_format = any(f.get('vcodec') != 'none' for f in formats)
-                has_audio_format = any(f.get('acodec') != 'none' for f in formats)
                 
-                # Agar video hai to video+audio dono download karo
+                # VIDEO DOWNLOAD
                 if is_video or has_video_format or ext in ['mp4', 'mov', 'webm']:
-                    # ⭐ FIX 1: Best video + best audio combined
                     ydl_opts_dl = {
                         'quiet': True,
                         'no_warnings': True,
                         'ignoreerrors': True,
                         'outtmpl': os.path.join(DOWNLOAD_DIR, '%(id)s.%(ext)s'),
-                        'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',  # Yeh video+audio dono lega
+                        'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
                     }
                     if os.path.exists('cookies.txt'):
                         ydl_opts_dl['cookiefile'] = 'cookies.txt'
@@ -101,7 +94,6 @@ class InstaDownloader:
                             file_id = info2.get('id', 'unknown')
                             file_path = os.path.join(DOWNLOAD_DIR, f"{file_id}.mp4")
                             
-                            # Actual file dhundho
                             if not os.path.exists(file_path):
                                 for f in os.listdir(DOWNLOAD_DIR):
                                     if file_id in f and f.endswith('.mp4'):
@@ -111,14 +103,13 @@ class InstaDownloader:
                             if os.path.exists(file_path) and os.path.getsize(file_path) > 1000:
                                 return {"success": True, "file_path": file_path, "is_video": True}
                 
-                # Agar photo hai to image download karo
-                # ⭐ FIX 3: Photos ke liye alag format
+                # PHOTO DOWNLOAD - FIXED
                 ydl_opts_photo = {
                     'quiet': True,
                     'no_warnings': True,
                     'ignoreerrors': True,
                     'outtmpl': os.path.join(DOWNLOAD_DIR, '%(id)s.%(ext)s'),
-                    'format': 'best',  # best quality me download karega
+                    'format': 'best',  # Best quality
                 }
                 if os.path.exists('cookies.txt'):
                     ydl_opts_photo['cookiefile'] = 'cookies.txt'
@@ -127,16 +118,14 @@ class InstaDownloader:
                     info3 = ydl3.extract_info(url, download=True)
                     if info3:
                         file_id = info3.get('id', 'unknown')
-                        # Find any file (jpg, png, webp)
                         file_path = None
                         for f in os.listdir(DOWNLOAD_DIR):
-                            if file_id in f:
+                            if file_id in f and f.endswith(('.jpg', '.jpeg', '.png', '.webp')):
                                 file_path = os.path.join(DOWNLOAD_DIR, f)
                                 break
                         
                         if file_path and os.path.getsize(file_path) > 1000:
-                            is_vid = file_path.endswith(('.mp4', '.mov', '.webm'))
-                            return {"success": True, "file_path": file_path, "is_video": is_vid}
+                            return {"success": True, "file_path": file_path, "is_video": False}
             
         except Exception as e:
             return {"success": False, "error": str(e)}
@@ -182,34 +171,40 @@ class InstaDownloader:
         return {"success": False, "error": "Scrape failed"}
     
     @staticmethod
-    def extract_audio(video_path):
-        """⭐ FIX 2: Better audio extraction with multiple attempts"""
+    def extract_audio(video_path, custom_name=None):
+        """Audio extract with custom name support"""
         try:
-            audio_path = video_path.rsplit('.', 1)[0] + '.mp3'
+            # Custom name or default
+            if custom_name:
+                audio_path = os.path.join(DOWNLOAD_DIR, f"{custom_name}.mp3")
+            else:
+                audio_path = video_path.rsplit('.', 1)[0] + '.mp3'
             
-            # Pehle check karo video me audio hai bhi ya nahi
+            # Check audio exists
             probe_cmd = ['ffprobe', '-v', 'error', '-select_streams', 'a:0', '-show_entries', 'stream=codec_type', '-of', 'csv=p=0', video_path]
             probe_result = subprocess.run(probe_cmd, capture_output=True, text=True, timeout=30)
             
             if not probe_result.stdout.strip():
-                return {"success": False, "error": "❌ Is video main audio nahi hai! (Video without audio track)"}
+                return {"success": False, "error": "❌ Is video main audio nahi hai!"}
             
-            # Audio extract karo
+            # Extract audio
             cmd = ['ffmpeg', '-i', video_path, '-vn', '-acodec', 'libmp3lame', '-ab', '192k', '-y', audio_path]
-            result = subprocess.run(cmd, capture_output=True, timeout=120)
+            subprocess.run(cmd, capture_output=True, timeout=180)
             
             if os.path.exists(audio_path) and os.path.getsize(audio_path) > 1000:
                 return {"success": True, "file_path": audio_path}
             
-            # Fallback: Try with different codec
+            # Fallback
             cmd2 = ['ffmpeg', '-i', video_path, '-vn', '-acodec', 'mp3', '-y', audio_path]
-            subprocess.run(cmd2, capture_output=True, timeout=120)
+            subprocess.run(cmd2, capture_output=True, timeout=180)
             
             if os.path.exists(audio_path) and os.path.getsize(audio_path) > 1000:
                 return {"success": True, "file_path": audio_path}
             
             return {"success": False, "error": "Audio extract failed"}
             
+        except subprocess.TimeoutExpired:
+            return {"success": False, "error": "⏰ Timeout! Audio extract mein zyada time lag raha hai."}
         except Exception as e:
             return {"success": False, "error": f"FFmpeg error: {str(e)}"}
     
@@ -240,7 +235,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "✅ Sirf Instagram link bhejo\n"
         "✅ Video → **Video + Audio dono ke saath**\n"
         "✅ Photo → **High Quality Photo**\n"
-        "✅ Button → **Download Video Audio** click karo → MP3 aayega\n\n"
+        "✅ Audio button → **Pehle audio ka naam likhein**\n"
+        "✅ Phir audio usi naam se aayega\n\n"
         "**Example:**\n"
         "`https://www.instagram.com/reel/xyz/`\n"
         "`https://www.instagram.com/p/xyz/`",
@@ -283,11 +279,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     try:
         if is_video:
-            keyboard = [[InlineKeyboardButton("🎵 Download Video Audio", callback_data=f"audio_{url}")]]
+            # Store URL in context for audio button
+            context.user_data['audio_url'] = url
+            keyboard = [[InlineKeyboardButton("🎵 Download Video Audio", callback_data="audio_request")]]
             with open(fp, 'rb') as f:
                 await update.message.reply_video(
                     video=f,
-                    caption=f"✅ **Downloaded** ✅\n🔗 [Instagram Link]({url})",
+                    caption=f"✅ **Downloaded** ✅\n🔗 [Instagram Link]({url})\n\n📌 Audio ke liye neeche button click karein",
                     parse_mode="Markdown",
                     reply_markup=InlineKeyboardMarkup(keyboard),
                     supports_streaming=True
@@ -310,36 +308,83 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     
     data = query.data
-    if not data.startswith("audio_"):
+    
+    if data == "audio_request":
+        # Ask for audio name
+        await query.edit_message_reply_markup(reply_markup=None)
+        await query.message.reply_text(
+            "🎵 **Audio Name?**\n\n"
+            "Audio ka naam likhein (jaise: `My Song`)\n"
+            "Ya `skip` likhein default naam ke liye.",
+            parse_mode="Markdown"
+        )
+        context.user_data['awaiting_audio_name'] = True
         return
     
-    url = data.replace("audio_", "")
-    await query.edit_message_reply_markup(reply_markup=None)
-    status_msg = await query.message.reply_text("🎵 Audio extract ho raha hai...")
-    
-    # Video download karo
-    result = InstaDownloader.download_media(url)
-    if not result.get("success") or not (result.get("is_video") or result.get("file_path", '').endswith(('.mp4', '.mov'))):
-        await status_msg.edit_text("❌ Video download failed. Audio extract nahi ho paya.")
+    elif data.startswith("audio_confirm_"):
+        # Audio name received
+        custom_name = data.replace("audio_confirm_", "")
+        if custom_name == "skip":
+            custom_name = None
+        
+        url = context.user_data.get('audio_url')
+        if not url:
+            await query.message.reply_text("❌ URL not found. Please send video again.")
+            return
+        
+        await query.edit_message_reply_markup(reply_markup=None)
+        status_msg = await query.message.reply_text("🎵 Audio extract ho raha hai... (wait 1-2 min)")
+        
+        # Download video again
+        result = InstaDownloader.download_media(url)
+        if not result.get("success"):
+            await status_msg.edit_text("❌ Video download failed. Audio extract nahi ho paya.")
+            return
+        
+        vp = result["file_path"]
+        audio_result = InstaDownloader.extract_audio(vp, custom_name)
+        
+        if audio_result.get("success"):
+            ap = audio_result["file_path"]
+            try:
+                audio_name = custom_name if custom_name else "Instagram Audio"
+                with open(ap, 'rb') as f:
+                    await query.message.reply_audio(
+                        audio=f,
+                        title=audio_name,
+                        performer="Instagram",
+                        caption=f"🎵 **{audio_name}** ✅"
+                    )
+                await status_msg.edit_text("✅ Audio sent! 🎵")
+            except Exception as e:
+                await status_msg.edit_text(f"❌ Error: {str(e)}")
+            try: 
+                os.remove(ap)
+            except: 
+                pass
+        else:
+            await status_msg.edit_text(f"❌ {audio_result.get('error')}")
+        
+        InstaDownloader.cleanup(vp)
+        context.user_data['awaiting_audio_name'] = False
+
+async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle audio name input"""
+    user = update.effective_user.id
+    if user not in AUTHORIZED_USERS:
         return
     
-    vp = result["file_path"]
-    audio_result = InstaDownloader.extract_audio(vp)
-    
-    if audio_result.get("success"):
-        ap = audio_result["file_path"]
-        try:
-            with open(ap, 'rb') as f:
-                await query.message.reply_audio(audio=f, title="Instagram Audio", performer="Instagram", caption="🎵 Audio extracted ✅")
-            await status_msg.edit_text("✅ Audio sent! 🎵")
-        except Exception as e:
-            await status_msg.edit_text(f"❌ Error: {str(e)}")
-        try: os.remove(ap)
-        except: pass
-    else:
-        await status_msg.edit_text(f"❌ {audio_result.get('error')}\n\n💡 FFmpeg install karo: `sudo apt install ffmpeg`", parse_mode="Markdown")
-    
-    InstaDownloader.cleanup(vp)
+    if context.user_data.get('awaiting_audio_name'):
+        text = update.message.text.strip()
+        context.user_data['awaiting_audio_name'] = False
+        
+        # Create inline button with the name
+        keyboard = [[InlineKeyboardButton("✅ Confirm Audio Name", callback_data=f"audio_confirm_{text}")]]
+        await update.message.reply_text(
+            f"🎵 Audio Name: **{text}**\n\nClick confirm to extract audio.",
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
 
 def main():
     logging.basicConfig(level=logging.INFO)
@@ -362,6 +407,7 @@ def main():
     
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(CallbackQueryHandler(button_handler))
     
