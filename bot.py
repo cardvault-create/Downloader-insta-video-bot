@@ -39,7 +39,7 @@ class InstaDownloader:
     
     @staticmethod
     def download_media(url):
-        """Download video with audio OR photo"""
+        """Download video with audio OR photo(s)"""
         
         # Try yt-dlp with cookies
         result = InstaDownloader._download_ytdlp(url)
@@ -56,7 +56,6 @@ class InstaDownloader:
     @staticmethod
     def _download_ytdlp(url):
         try:
-            # Create yt-dlp options with cookies
             ydl_opts = {
                 'quiet': True,
                 'no_warnings': True,
@@ -64,7 +63,6 @@ class InstaDownloader:
                 'outtmpl': os.path.join(DOWNLOAD_DIR, '%(id)s.%(ext)s'),
             }
             
-            # Add cookies file
             if os.path.exists('cookies.txt'):
                 ydl_opts['cookiefile'] = 'cookies.txt'
                 print("✅ Using cookies.txt for authentication")
@@ -86,7 +84,6 @@ class InstaDownloader:
                 if is_video or has_video_format or ext in ['mp4', 'mov', 'webm']:
                     print(f"🎬 Downloading video with audio: {url}")
                     
-                    # Create separate options for video download
                     video_opts = {
                         'quiet': True,
                         'no_warnings': True,
@@ -94,7 +91,6 @@ class InstaDownloader:
                         'outtmpl': os.path.join(DOWNLOAD_DIR, '%(id)s.%(ext)s'),
                         'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
                         'merge_output_format': 'mp4',
-                        'ffmpeg_location': '/usr/bin/ffmpeg' if shutil.which('ffmpeg') else None,
                     }
                     
                     if os.path.exists('cookies.txt'):
@@ -104,8 +100,6 @@ class InstaDownloader:
                         info2 = ydl2.extract_info(url, download=True)
                         if info2:
                             file_id = info2.get('id', 'unknown')
-                            
-                            # Find downloaded file
                             file_path = None
                             for f in os.listdir(DOWNLOAD_DIR):
                                 if file_id in f and f.endswith('.mp4'):
@@ -116,8 +110,43 @@ class InstaDownloader:
                                 print(f"✅ Video downloaded: {file_path}")
                                 return {"success": True, "file_path": file_path, "is_video": True}
                 
-                # ─── PHOTO ───
-                print(f"📸 Downloading photo: {url}")
+                # ─── PHOTO(S) ───
+                print(f"📸 Downloading photo(s): {url}")
+                
+                # Check if multiple photos (carousel)
+                entries = info.get('entries', [])
+                if entries:
+                    # Multiple photos in one post
+                    photo_paths = []
+                    for entry in entries:
+                        if entry:
+                            file_id = entry.get('id', 'unknown')
+                            # Download each photo
+                            photo_opts = {
+                                'quiet': True,
+                                'no_warnings': True,
+                                'ignoreerrors': True,
+                                'outtmpl': os.path.join(DOWNLOAD_DIR, f"{file_id}.%(ext)s"),
+                                'format': 'best',
+                            }
+                            if os.path.exists('cookies.txt'):
+                                photo_opts['cookiefile'] = 'cookies.txt'
+                            
+                            with yt_dlp.YoutubeDL(photo_opts) as ydl_photo:
+                                ydl_photo.extract_info(f"https://www.instagram.com/p/{file_id}/", download=True)
+                            
+                            # Find downloaded file
+                            for f in os.listdir(DOWNLOAD_DIR):
+                                if file_id in f and f.endswith(('.jpg', '.jpeg', '.png', '.webp')):
+                                    fp = os.path.join(DOWNLOAD_DIR, f)
+                                    if os.path.getsize(fp) > 1000:
+                                        photo_paths.append(fp)
+                                        break
+                    
+                    if photo_paths:
+                        return {"success": True, "file_paths": photo_paths, "is_video": False, "is_multiple": True}
+                
+                # Single photo
                 photo_opts = {
                     'quiet': True,
                     'no_warnings': True,
@@ -141,7 +170,7 @@ class InstaDownloader:
                         
                         if file_path and os.path.getsize(file_path) > 1000:
                             print(f"✅ Photo downloaded: {file_path}")
-                            return {"success": True, "file_path": file_path, "is_video": False}
+                            return {"success": True, "file_path": file_path, "is_video": False, "is_multiple": False}
             
         except Exception as e:
             print(f"❌ Download error: {e}")
@@ -151,7 +180,7 @@ class InstaDownloader:
     
     @staticmethod
     def _download_scrape(url):
-        """Backup method using direct scrape"""
+        """Backup method for photos"""
         try:
             headers = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -161,13 +190,9 @@ class InstaDownloader:
                 'DNT': '1',
                 'Connection': 'keep-alive',
                 'Upgrade-Insecure-Requests': '1',
-                'Sec-Fetch-Dest': 'document',
-                'Sec-Fetch-Mode': 'navigate',
-                'Sec-Fetch-Site': 'none',
-                'Sec-Fetch-User': '?1',
             }
             
-            # Use cookies if available
+            # Use cookies from file
             cookies = {}
             if os.path.exists('cookies.txt'):
                 with open('cookies.txt', 'r') as f:
@@ -179,6 +204,27 @@ class InstaDownloader:
                             cookies[parts[5]] = parts[6]
             
             resp = requests.get(url, headers=headers, cookies=cookies, timeout=15)
+            
+            # Find all images
+            image_urls = re.findall(r'"display_url":"([^"]+)"', resp.text)
+            if image_urls:
+                shortcode = re.search(r'/(p|reel)/([^/]+)', url).group(2)
+                photo_paths = []
+                for i, img_url in enumerate(image_urls):
+                    fp = os.path.join(DOWNLOAD_DIR, f"{shortcode}_{i+1}.jpg")
+                    img_url = img_url.replace('\\u0026', '&')
+                    ir = requests.get(img_url, headers=headers, stream=True, timeout=30)
+                    with open(fp, 'wb') as f:
+                        for chunk in ir.iter_content(chunk_size=8192):
+                            if chunk: f.write(chunk)
+                    if os.path.getsize(fp) > 1000:
+                        photo_paths.append(fp)
+                
+                if photo_paths:
+                    if len(photo_paths) == 1:
+                        return {"success": True, "file_path": photo_paths[0], "is_video": False, "is_multiple": False}
+                    else:
+                        return {"success": True, "file_paths": photo_paths, "is_video": False, "is_multiple": True}
             
             # Video
             v = re.search(r'"video_url":"([^"]+)"', resp.text)
@@ -192,19 +238,7 @@ class InstaDownloader:
                         if chunk: f.write(chunk)
                 if os.path.getsize(fp) > 1000:
                     return {"success": True, "file_path": fp, "is_video": True}
-            
-            # Photo
-            im = re.search(r'"display_url":"([^"]+)"', resp.text)
-            if im:
-                shortcode = re.search(r'/(p|reel)/([^/]+)', url).group(2)
-                fp = os.path.join(DOWNLOAD_DIR, f"{shortcode}.jpg")
-                img_url = im.group(1).replace('\\u0026', '&')
-                ir = requests.get(img_url, headers=headers, stream=True, timeout=30)
-                with open(fp, 'wb') as f:
-                    for chunk in ir.iter_content(chunk_size=8192):
-                        if chunk: f.write(chunk)
-                if os.path.getsize(fp) > 1000:
-                    return {"success": True, "file_path": fp, "is_video": False}
+                    
         except Exception as e:
             print(f"❌ Scrape error: {e}")
             pass
@@ -215,7 +249,6 @@ class InstaDownloader:
     def extract_audio(video_path, custom_name=None):
         """Extract audio from video"""
         try:
-            # Sanitize name
             if custom_name and custom_name != "skip":
                 safe_name = re.sub(r'[^\w\s-]', '', custom_name).strip()
                 if not safe_name:
@@ -224,14 +257,12 @@ class InstaDownloader:
             else:
                 audio_path = video_path.rsplit('.', 1)[0] + '.mp3'
             
-            # Check if video has audio
             probe_cmd = ['ffprobe', '-v', 'error', '-select_streams', 'a:0', '-show_entries', 'stream=codec_type', '-of', 'csv=p=0', video_path]
             probe_result = subprocess.run(probe_cmd, capture_output=True, text=True, timeout=30)
             
             if not probe_result.stdout.strip():
                 return {"success": False, "error": "❌ Is video main audio nahi hai!"}
             
-            # Extract audio
             cmd = ['ffmpeg', '-i', video_path, '-vn', '-acodec', 'libmp3lame', '-ab', '192k', '-y', audio_path]
             subprocess.run(cmd, capture_output=True, timeout=180)
             
@@ -268,7 +299,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "📥 **Instagram Downloader Bot**\n\n"
         "✅ Video link bhejo → Video with Audio\n"
-        "✅ Photo link bhejo → High Quality Photo\n"
+        "✅ Photo link bhejo → High Quality Photo(s)\n"
+        "✅ Multiple photos → Sabhi 1-1 karke bhejunga\n"
         "✅ Audio button → Name do → Audio aayega\n\n"
         "**Example:**\n"
         "`https://www.instagram.com/reel/xyz/`\n"
@@ -313,6 +345,27 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await msg.edit_text(f"❌ **Failed:** {result.get('error')}\n\n💡 Make sure cookies.txt is valid", parse_mode="Markdown")
             return
         
+        # Check for multiple photos
+        if result.get("is_multiple"):
+            photo_paths = result.get("file_paths", [])
+            if photo_paths:
+                await msg.edit_text(f"📸 Sending {len(photo_paths)} photos...")
+                for i, fp in enumerate(photo_paths):
+                    if os.path.exists(fp) and os.path.getsize(fp) > 1000:
+                        try:
+                            with open(fp, 'rb') as f:
+                                await update.message.reply_photo(
+                                    photo=f,
+                                    caption=f"✅ **Photo {i+1}/{len(photo_paths)}** ✅\n🔗 [Instagram Link]({url})",
+                                    parse_mode="Markdown"
+                                )
+                        except Exception as e:
+                            await update.message.reply_text(f"❌ Error sending photo {i+1}: {str(e)}")
+                        InstaDownloader.cleanup(fp)
+                await msg.delete()
+                return
+        
+        # Single file
         fp = result["file_path"]
         if not os.path.exists(fp) or os.path.getsize(fp) < 1000:
             await msg.edit_text("❌ Download incomplete")
