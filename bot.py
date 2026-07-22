@@ -9,6 +9,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQu
 from telegram.error import TimedOut
 import yt_dlp
 import requests
+import json
 
 # ══════════════════════════════════════
 # 🔐 CONFIG
@@ -74,92 +75,72 @@ class InstaDownloader:
                 if not info:
                     return {"success": False, "error": "No info"}
                 
+                # ─── CHECK IF VIDEO ───
                 is_video = info.get('is_video', False)
                 ext = info.get('ext', '')
                 formats = info.get('formats', [])
                 has_video_format = any(f.get('vcodec') != 'none' for f in formats)
                 
-                # ─── VIDEO (FORCE WITH AUDIO) ───
+                # ─── VIDEO (WITH AUDIO) ───
                 if is_video or has_video_format or ext in ['mp4', 'mov', 'webm']:
                     print(f"🎬 Downloading video with audio: {url}")
                     
-                    # Try multiple formats to get audio
-                    formats_to_try = [
-                        'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
-                        'bestvideo+bestaudio/best',
-                        'best[ext=mp4]/best',
-                    ]
+                    video_opts = {
+                        'quiet': True,
+                        'no_warnings': True,
+                        'ignoreerrors': True,
+                        'outtmpl': os.path.join(DOWNLOAD_DIR, '%(id)s.%(ext)s'),
+                        'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+                        'merge_output_format': 'mp4',
+                        'cookiefile': 'cookies.txt',
+                        'postprocessors': [{
+                            'key': 'FFmpegVideoConvertor',
+                            'preferedformat': 'mp4',
+                        }],
+                    }
                     
-                    file_path = None
-                    for fmt in formats_to_try:
-                        try:
-                            video_opts = {
-                                'quiet': True,
-                                'no_warnings': True,
-                                'ignoreerrors': True,
-                                'outtmpl': os.path.join(DOWNLOAD_DIR, '%(id)s.%(ext)s'),
-                                'format': fmt,
-                                'merge_output_format': 'mp4',
-                                'cookiefile': 'cookies.txt',
-                                'postprocessors': [{
-                                    'key': 'FFmpegVideoConvertor',
-                                    'preferedformat': 'mp4',
-                                }],
-                            }
+                    with yt_dlp.YoutubeDL(video_opts) as ydl2:
+                        info2 = ydl2.extract_info(url, download=True)
+                        if info2:
+                            file_id = info2.get('id', 'unknown')
+                            file_path = None
+                            for f in os.listdir(DOWNLOAD_DIR):
+                                if file_id in f and f.endswith('.mp4'):
+                                    file_path = os.path.join(DOWNLOAD_DIR, f)
+                                    break
                             
-                            with yt_dlp.YoutubeDL(video_opts) as ydl2:
-                                info2 = ydl2.extract_info(url, download=True)
-                                if info2:
-                                    file_id = info2.get('id', 'unknown')
-                                    # Find downloaded file
-                                    for f in os.listdir(DOWNLOAD_DIR):
-                                        if file_id in f and f.endswith('.mp4'):
-                                            file_path = os.path.join(DOWNLOAD_DIR, f)
-                                            break
-                                    if file_path and os.path.getsize(file_path) > 1000:
-                                        # Check if audio exists
-                                        probe_cmd = ['ffprobe', '-v', 'error', '-select_streams', 'a:0', '-show_entries', 'stream=codec_type', '-of', 'csv=p=0', file_path]
-                                        probe_result = subprocess.run(probe_cmd, capture_output=True, text=True, timeout=30)
-                                        if probe_result.stdout.strip():
-                                            print(f"✅ Video with audio found: {file_path}")
-                                            return {"success": True, "file_path": file_path, "is_video": True}
-                                        else:
-                                            print(f"⚠️ Video without audio, trying next format...")
-                                            # Cleanup and try next format
-                                            InstaDownloader.cleanup(file_path)
-                                            file_path = None
-                        except Exception as e:
-                            print(f"⚠️ Format {fmt} failed: {e}")
-                            continue
-                    
-                    # If we reached here, try one more time with best format
-                    try:
-                        video_opts = {
-                            'quiet': True,
-                            'no_warnings': True,
-                            'ignoreerrors': True,
-                            'outtmpl': os.path.join(DOWNLOAD_DIR, '%(id)s.%(ext)s'),
-                            'format': 'best',
-                            'cookiefile': 'cookies.txt',
-                        }
-                        with yt_dlp.YoutubeDL(video_opts) as ydl3:
-                            info3 = ydl3.extract_info(url, download=True)
-                            if info3:
-                                file_id = info3.get('id', 'unknown')
-                                for f in os.listdir(DOWNLOAD_DIR):
-                                    if file_id in f and f.endswith(('.mp4', '.mov', '.webm')):
-                                        file_path = os.path.join(DOWNLOAD_DIR, f)
-                                        break
-                                if file_path and os.path.getsize(file_path) > 1000:
-                                    print(f"✅ Video downloaded (may or may not have audio): {file_path}")
-                                    return {"success": True, "file_path": file_path, "is_video": True}
-                    except Exception as e:
-                        print(f"❌ Final attempt failed: {e}")
+                            if file_path and os.path.getsize(file_path) > 1000:
+                                print(f"✅ Video with audio: {file_path}")
+                                return {"success": True, "file_path": file_path, "is_video": True}
                 
                 # ─── PHOTO(S) ───
                 print(f"📸 Downloading photo(s): {url}")
                 
-                # Check for multiple photos (carousel)
+                # Method 1: Direct photo download from info
+                if info.get('url'):
+                    photo_opts = {
+                        'quiet': True,
+                        'no_warnings': True,
+                        'ignoreerrors': True,
+                        'outtmpl': os.path.join(DOWNLOAD_DIR, '%(id)s.%(ext)s'),
+                        'format': 'best',
+                        'cookiefile': 'cookies.txt',
+                    }
+                    with yt_dlp.YoutubeDL(photo_opts) as ydl_photo:
+                        ydl_photo.extract_info(url, download=True)
+                    
+                    file_id = info.get('id', 'unknown')
+                    file_path = None
+                    for f in os.listdir(DOWNLOAD_DIR):
+                        if file_id in f and f.endswith(('.jpg', '.jpeg', '.png', '.webp')):
+                            file_path = os.path.join(DOWNLOAD_DIR, f)
+                            break
+                    
+                    if file_path and os.path.getsize(file_path) > 1000:
+                        print(f"✅ Photo: {file_path}")
+                        return {"success": True, "file_path": file_path, "is_video": False, "is_multiple": False}
+                
+                # Method 2: Multiple photos (carousel)
                 entries = info.get('entries', [])
                 if entries:
                     photo_paths = []
@@ -176,7 +157,10 @@ class InstaDownloader:
                             }
                             
                             with yt_dlp.YoutubeDL(photo_opts) as ydl_photo:
-                                ydl_photo.extract_info(f"https://www.instagram.com/p/{file_id}/", download=True)
+                                try:
+                                    ydl_photo.extract_info(f"https://www.instagram.com/p/{file_id}/", download=True)
+                                except:
+                                    pass
                             
                             for f in os.listdir(DOWNLOAD_DIR):
                                 if file_id in f and f.endswith(('.jpg', '.jpeg', '.png', '.webp')):
@@ -186,10 +170,13 @@ class InstaDownloader:
                                         break
                     
                     if photo_paths:
-                        print(f"✅ Downloaded {len(photo_paths)} photos")
-                        return {"success": True, "file_paths": photo_paths, "is_video": False, "is_multiple": True}
+                        print(f"✅ {len(photo_paths)} photos")
+                        if len(photo_paths) == 1:
+                            return {"success": True, "file_path": photo_paths[0], "is_video": False, "is_multiple": False}
+                        else:
+                            return {"success": True, "file_paths": photo_paths, "is_video": False, "is_multiple": True}
                 
-                # Single photo
+                # Method 3: Try direct download with best format
                 photo_opts = {
                     'quiet': True,
                     'no_warnings': True,
@@ -198,7 +185,6 @@ class InstaDownloader:
                     'format': 'best',
                     'cookiefile': 'cookies.txt',
                 }
-                
                 with yt_dlp.YoutubeDL(photo_opts) as ydl3:
                     info3 = ydl3.extract_info(url, download=True)
                     if info3:
@@ -210,7 +196,7 @@ class InstaDownloader:
                                 break
                         
                         if file_path and os.path.getsize(file_path) > 1000:
-                            print(f"✅ Photo downloaded: {file_path}")
+                            print(f"✅ Photo: {file_path}")
                             return {"success": True, "file_path": file_path, "is_video": False, "is_multiple": False}
             
         except Exception as e:
@@ -221,7 +207,7 @@ class InstaDownloader:
     
     @staticmethod
     def _download_scrape(url):
-        """Backup method using direct scrape"""
+        """Backup method using direct scrape - WORKS FOR PHOTOS"""
         try:
             headers = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -233,6 +219,7 @@ class InstaDownloader:
                 'Upgrade-Insecure-Requests': '1',
             }
             
+            # Use cookies from file
             cookies = {}
             if os.path.exists('cookies.txt'):
                 with open('cookies.txt', 'r') as f:
@@ -245,21 +232,31 @@ class InstaDownloader:
                 print("✅ Using cookies for scrape backup")
             
             resp = requests.get(url, headers=headers, cookies=cookies, timeout=15)
+            html = resp.text
             
-            # Find all images
-            image_urls = re.findall(r'"display_url":"([^"]+)"', resp.text)
+            # ─── FIND IMAGES ───
+            # Method 1: display_url
+            image_urls = re.findall(r'"display_url":"([^"]+)"', html)
             if image_urls:
+                print(f"📸 Found {len(image_urls)} images via display_url")
+                # Remove duplicates
+                image_urls = list(dict.fromkeys(image_urls))
                 shortcode = re.search(r'/(p|reel)/([^/]+)', url).group(2)
                 photo_paths = []
                 for i, img_url in enumerate(image_urls):
-                    fp = os.path.join(DOWNLOAD_DIR, f"{shortcode}_{i+1}.jpg")
-                    img_url = img_url.replace('\\u0026', '&')
-                    ir = requests.get(img_url, headers=headers, stream=True, timeout=30)
-                    with open(fp, 'wb') as f:
-                        for chunk in ir.iter_content(chunk_size=8192):
-                            if chunk: f.write(chunk)
-                    if os.path.getsize(fp) > 1000:
-                        photo_paths.append(fp)
+                    try:
+                        fp = os.path.join(DOWNLOAD_DIR, f"{shortcode}_{i+1}.jpg")
+                        img_url = img_url.replace('\\u0026', '&')
+                        ir = requests.get(img_url, headers=headers, stream=True, timeout=30)
+                        with open(fp, 'wb') as f:
+                            for chunk in ir.iter_content(chunk_size=8192):
+                                if chunk: f.write(chunk)
+                        if os.path.getsize(fp) > 1000:
+                            photo_paths.append(fp)
+                            print(f"✅ Downloaded image {i+1}")
+                    except Exception as e:
+                        print(f"⚠️ Failed to download image {i+1}: {e}")
+                        continue
                 
                 if photo_paths:
                     if len(photo_paths) == 1:
@@ -267,8 +264,35 @@ class InstaDownloader:
                     else:
                         return {"success": True, "file_paths": photo_paths, "is_video": False, "is_multiple": True}
             
-            # Video
-            v = re.search(r'"video_url":"([^"]+)"', resp.text)
+            # Method 2: src attribute in img tags
+            img_urls = re.findall(r'<img[^>]+src="([^"]+)"', html)
+            if img_urls:
+                print(f"📸 Found {len(img_urls)} images via img tags")
+                shortcode = re.search(r'/(p|reel)/([^/]+)', url).group(2)
+                photo_paths = []
+                for i, img_url in enumerate(img_urls[:10]):  # Max 10 photos
+                    try:
+                        if 'cdninstagram.com' in img_url or 'fbcdn' in img_url:
+                            fp = os.path.join(DOWNLOAD_DIR, f"{shortcode}_{i+1}.jpg")
+                            img_url = img_url.replace('\\u0026', '&')
+                            ir = requests.get(img_url, headers=headers, stream=True, timeout=30)
+                            with open(fp, 'wb') as f:
+                                for chunk in ir.iter_content(chunk_size=8192):
+                                    if chunk: f.write(chunk)
+                            if os.path.getsize(fp) > 1000:
+                                photo_paths.append(fp)
+                                print(f"✅ Downloaded image {i+1}")
+                    except Exception as e:
+                        continue
+                
+                if photo_paths:
+                    if len(photo_paths) == 1:
+                        return {"success": True, "file_path": photo_paths[0], "is_video": False, "is_multiple": False}
+                    else:
+                        return {"success": True, "file_paths": photo_paths, "is_video": False, "is_multiple": True}
+            
+            # ─── VIDEO ───
+            v = re.search(r'"video_url":"([^"]+)"', html)
             if v:
                 shortcode = re.search(r'/(p|reel)/([^/]+)', url).group(2)
                 fp = os.path.join(DOWNLOAD_DIR, f"{shortcode}.mp4")
@@ -342,7 +366,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "📥 **Instagram Downloader Bot**\n\n"
         "✅ Video link bhejo → Video with Audio\n"
-        "✅ Photo link bhejo → High Quality Photo\n"
+        "✅ Photo link bhejo → High Quality Photo(s)\n"
         "✅ Multiple photos → Sabhi 1-1 karke\n"
         "✅ Audio button → Name do → Audio aayega\n\n"
         "**Example:**\n"
