@@ -191,23 +191,16 @@ class InstaDownloader:
     
     @staticmethod
     def _download_video(shortcode, url):
-        """VIDEO WITH AUDIO - yt-dlp bestvideo+bestaudio MERGED"""
+        """VIDEO WITH AUDIO - Simple working yt-dlp"""
         ydl_opts = {
-            'quiet': True,
-            'no_warnings': True,
+            'quiet': True, 'no_warnings': True,
             'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
-            'format': 'bestvideo+bestaudio/best',
+            'format': 'bv*+ba/b',
             'merge_output_format': 'mp4',
-            'retries': 15,
-            'fragment_retries': 15,
-            'socket_timeout': 120,
-            'extractor_retries': 5,
-            'postprocessors': [{'key': 'FFmpegVideoConvertor', 'preferedformat': 'mp4'}],
+            'retries': 10, 'socket_timeout': 120,
         }
         if os.path.exists('cookies.txt'): ydl_opts['cookiefile'] = 'cookies.txt'
-        
-        ffmpeg = shutil.which('ffmpeg')
-        if ffmpeg: ydl_opts['ffmpeg_location'] = ffmpeg
+        if shutil.which('ffmpeg'): ydl_opts['ffmpeg_location'] = shutil.which('ffmpeg')
         
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -224,12 +217,12 @@ class InstaDownloader:
     
     @staticmethod
     def _download_photo(shortcode, url):
-        """PHOTOS - yt-dlp for ALL including carousel"""
+        """PHOTOS - yt-dlp first, then scrape"""
+        # Method 1: yt-dlp
         ydl_opts = {
             'quiet': True, 'no_warnings': True,
             'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}_%(index)s.%(ext)s'),
-            'format': 'best',
-            'retries': 10, 'socket_timeout': 120,
+            'format': 'best', 'retries': 10, 'socket_timeout': 120,
             'ignoreerrors': True,
         }
         if os.path.exists('cookies.txt'): ydl_opts['cookiefile'] = 'cookies.txt'
@@ -242,34 +235,36 @@ class InstaDownloader:
                 for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
                     if shortcode in f and f.endswith(('.jpg', '.jpeg', '.png', '.webp')):
                         fp = os.path.join(DOWNLOAD_DIR, f)
-                        if os.path.getsize(fp) > 5000: photos.append(fp)
+                        if os.path.getsize(fp) > 10000:  # Min 10KB to filter icons
+                            photos.append(fp)
                 if photos:
                     r = {"success": True, "file_path": photos[0], "is_video": False}
                     if len(photos) > 1: r.update({"is_multiple": True, "total": len(photos), "file_paths": photos})
                     return r
         except: pass
         
-        # Fallback scrape
+        # Method 2: Instagram embed page
         try:
+            embed_url = f"https://www.instagram.com/p/{shortcode}/embed/captioned/"
             cookies = get_cookie_dict()
             s = requests.Session()
             s.headers.update({
                 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15',
                 'Accept': 'text/html,application/xhtml+xml', 'Accept-Language': 'en-US,en;q=0.9',
-                'Referer': 'https://www.instagram.com/',
             })
             for n, v in cookies.items(): s.cookies.set(n, v, domain='.instagram.com')
             
-            r = s.get(url, timeout=20)
+            r = s.get(embed_url, timeout=20)
             if r.status_code != 200: return {"success": False, "error": f"HTTP {r.status_code}"}
             
             html = r.text
+            # Find REAL photo URLs (filter out icons/small images)
             img_urls = set()
-            for p in [r'"display_url"\s*:\s*"([^"]+)"', r'<meta\s+property="og:image"\s+content="([^"]+)"',
-                       r'https?://[^"\'\s]+\.(?:jpg|jpeg|png|webp)[^"\'\s]*']:
+            for p in [r'"display_url"\s*:\s*"([^"]+)"', r'<meta\s+property="og:image"\s+content="([^"]+)"']:
                 for u in re.findall(p, html):
                     u = u.replace('\\u0026', '&').strip()
-                    if u.startswith('http') and '.mp4' not in u and '.mov' not in u: img_urls.add(u)
+                    if 'cdninstagram' in u or 'fbcdn' in u:
+                        if '.mp4' not in u: img_urls.add(u)
             
             if not img_urls: return {"success": False, "error": "No photos found"}
             
@@ -278,11 +273,15 @@ class InstaDownloader:
                 try:
                     fp = os.path.join(DOWNLOAD_DIR, f"photo_{shortcode}_{i+1}.jpg")
                     rr = s.get(u, stream=True, timeout=30)
-                    if rr.status_code == 200:
+                    ct = rr.headers.get('content-type', '')
+                    cl = int(rr.headers.get('content-length', 0))
+                    # Only download if it's a real image (content-type image/* and size > 10KB)
+                    if rr.status_code == 200 and 'image' in ct and (cl > 10000 or cl == 0):
                         with open(fp, 'wb') as f:
                             for c in rr.iter_content(8192):
                                 if c: f.write(c)
-                        if os.path.getsize(fp) > 5000: dl.append(fp)
+                        if os.path.getsize(fp) > 10000: dl.append(fp)
+                        else: os.remove(fp)
                 except: continue
             
             if dl:
@@ -377,35 +376,14 @@ AUDIO_NAME_PROMPT = (
 async def welcome_animation(bot, chat_id, user_id, first_name):
     try:
         user_mention = f"[{first_name}](tg://user?id={user_id})"
-        emoji_id = get_random_emoji()
-        if emoji_id:
-            try: await bot.send_sticker(chat_id, emoji_id)
-            except: pass
-        await asyncio.sleep(0.1)
-        welcome_emojis = ["🩷", "🌸", "🏖️", "🍰", "🥂"]
-        welcome_msg = await bot.send_message(chat_id, f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ ꨄ {user_mention}...🩷", parse_mode="Markdown")
-        for emoji in welcome_emojis:
-            await asyncio.sleep(0.5)
-            try: await welcome_msg.edit_text(f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ ꨄ {user_mention}...{emoji}", parse_mode="Markdown")
-            except: break
-        await welcome_msg.delete()
-        await asyncio.sleep(0.2)
-        starting_emojis = ["🚀", "🌠", "🪶", "🍓", "🤖", "🥡", "🍷", "🍭", "🍨", "🧭", "🫧", "🍫", "🛸"]
-        words = ["s", "t", "α", "я", "т", "ι", "и", "g", ".", ".", ".", ".", "."]
-        starter_msg = await bot.send_message(chat_id, f"**{starting_emojis[0]}**", parse_mode="Markdown")
-        for i in range(len(words)):
-            await asyncio.sleep(0.08)
-            try: await starter_msg.edit_text(f"**{starting_emojis[i%len(starting_emojis)]} " + "".join(words[:i+1]) + "**", parse_mode="Markdown")
-            except: break
-        await asyncio.sleep(0.2); await starter_msg.delete()
         sticker_id = get_random_sticker()
         if sticker_id:
             try: await bot.send_sticker(chat_id, sticker_id)
             except: pass
-        await asyncio.sleep(4)
-        video_data = get_random_video()
+        await asyncio.sleep(2)
         final_text = WELCOME_TEXT.replace("{mention}", user_mention)
         kb = InlineKeyboardMarkup([[InlineKeyboardButton("◆ ➪ ˹𝜟𝙙𝙙 𝜯𝜣 𝑮𝜞𝜭𝑼𝝆˼ ♪☬", url=f"https://t.me/{(await bot.get_me()).username}?startgroup=true")]])
+        video_data = get_random_video()
         if video_data and os.path.exists(video_data["path"]):
             await bot.send_video(chat_id, video_data["path"], caption=final_text, parse_mode="Markdown", reply_markup=kb)
         else:
@@ -679,13 +657,13 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
     print("╔══════════════════════════╗")
-    print("║  🤖 INSTAGRAM BOT v37   ║")
-    print("║  ✅ VIDEO AUDIO FIXED   ║")
+    print("║  🤖 INSTAGRAM BOT v38   ║")
+    print("║  ✅ OLD VIDEO FORMAT    ║")
+    print("║  ✅ REAL PHOTOS ONLY    ║")
     print("╚══════════════════════════╝")
     
     os.system('apt-get update -qq && apt-get install -y -qq ffmpeg 2>/dev/null')
     print(f"🍪 Cookies: {'✅ Found' if os.path.exists('cookies.txt') else '❌ Missing'}")
-    print(f"🎬 FFmpeg: {'✅ Found' if shutil.which('ffmpeg') else '❌ Missing'}")
     
     for f in os.listdir(DOWNLOAD_DIR):
         try: os.remove(os.path.join(DOWNLOAD_DIR, f))
