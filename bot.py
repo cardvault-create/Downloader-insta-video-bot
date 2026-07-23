@@ -198,67 +198,27 @@ class InstaDownloader:
     
     @staticmethod
     def _download_photo(shortcode, url):
-        """PHOTO DOWNLOAD - Use yt-dlp for ALL photos (most reliable with cookies)"""
-        ydl_opts = {
-            'quiet': True, 'no_warnings': True,
-            'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}_%(index)s.%(ext)s'),
-            'format': 'best',
-            'retries': 10, 'socket_timeout': 120,
-            'writethumbnail': False,
-            'writeinfojson': False,
-        }
-        if os.path.exists('cookies.txt'): ydl_opts['cookiefile'] = 'cookies.txt'
+        """PHOTO DOWNLOAD - Check total count first, then download all"""
+        session = requests.Session()
+        session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Referer': 'https://www.instagram.com/',
+        })
+        
+        # Load cookies
+        if os.path.exists('cookies.txt'):
+            with open('cookies.txt', 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith('#'): continue
+                    parts = line.split('\t')
+                    if len(parts) >= 7:
+                        try: session.cookies.set(parts[5], parts[6], domain='.instagram.com')
+                        except: pass
         
         try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([url])
-                time.sleep(1)
-                
-                photos = []
-                for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
-                    if f.endswith(('.jpg', '.jpeg', '.png', '.webp')) and shortcode in f:
-                        fp = os.path.join(DOWNLOAD_DIR, f)
-                        if os.path.exists(fp) and os.path.getsize(fp) > 5000:
-                            photos.append(fp)
-                
-                if photos:
-                    result = {"success": True, "file_path": photos[0], "is_video": False}
-                    if len(photos) > 1:
-                        result["is_multiple"] = True
-                        result["total"] = len(photos)
-                        result["file_paths"] = photos
-                    print(f"✅ Downloaded {len(photos)} photos via yt-dlp")
-                    return result
-                
-        except Exception as e:
-            print(f"yt-dlp photo error: {e}")
-        
-        # Fallback to direct scrape
-        return InstaDownloader._scrape_photos(shortcode, url)
-    
-    @staticmethod
-    def _scrape_photos(shortcode, url):
-        """Direct page scrape for photos"""
-        try:
-            session = requests.Session()
-            session.headers.update({
-                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15',
-                'Accept': 'text/html,application/xhtml+xml',
-                'Accept-Language': 'en-US,en;q=0.9',
-                'Referer': 'https://www.instagram.com/',
-            })
-            
-            # Load cookies
-            if os.path.exists('cookies.txt'):
-                with open('cookies.txt', 'r') as f:
-                    for line in f:
-                        line = line.strip()
-                        if not line or line.startswith('#'): continue
-                        parts = line.split('\t')
-                        if len(parts) >= 7:
-                            try: session.cookies.set(parts[5], parts[6], domain='.instagram.com')
-                            except: pass
-            
             resp = session.get(url, timeout=20)
             if resp.status_code != 200:
                 return {"success": False, "error": f"HTTP {resp.status_code}"}
@@ -266,43 +226,84 @@ class InstaDownloader:
             html = resp.text
             image_urls = []
             
-            # Try all patterns
-            for pattern in [
-                r'"display_url"\s*:\s*"([^"]+)"',
-                r'"display_src"\s*:\s*"([^"]+)"',
-                r'<meta\s+property="og:image"\s+content="([^"]+)"',
-                r'https?://[^"\'\s]+\.(?:jpg|jpeg|png|webp)[^"\'\s]*',
-            ]:
-                urls = re.findall(pattern, html)
-                for u in urls:
-                    u = u.replace('\\u0026', '&').strip()
-                    if u.startswith('http') and '.mp4' not in u:
-                        image_urls.append(u)
+            # Method 1: __NEXT_DATA__ JSON - BEST for multiple photos
+            nd = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', html, re.DOTALL)
+            if nd:
+                try:
+                    data = json.loads(nd.group(1))
+                    
+                    def extract_all_photos(obj, depth=0):
+                        if depth > 15: return []
+                        urls = []
+                        if isinstance(obj, dict):
+                            # Check edge_sidecar_to_children for multiple photos
+                            edges = obj.get('edge_sidecar_to_children', {})
+                            if isinstance(edges, dict):
+                                for edge in edges.get('edges', []):
+                                    node = edge.get('node', {})
+                                    du = node.get('display_url', '')
+                                    if du and '.mp4' not in du: urls.append(du)
+                            # Check single display_url
+                            du = obj.get('display_url', '')
+                            if du and '.mp4' not in du and du not in urls: urls.append(du)
+                            # Recurse
+                            for v in obj.values():
+                                urls.extend(extract_all_photos(v, depth+1))
+                        elif isinstance(obj, list):
+                            for item in obj:
+                                urls.extend(extract_all_photos(item, depth+1))
+                        return urls
+                    
+                    image_urls = extract_all_photos(data)
+                except Exception as e:
+                    print(f"NEXT_DATA error: {e}")
             
-            # Deduplicate
+            # Method 2: Regex for all display_url in page
+            if not image_urls:
+                urls = re.findall(r'"display_url"\s*:\s*"([^"]+)"', html)
+                image_urls = [u.replace('\\u0026', '&') for u in urls if '.mp4' not in u]
+            
+            # Method 3: og:image (usually first photo only)
+            if not image_urls:
+                og = re.findall(r'<meta\s+property="og:image"\s+content="([^"]+)"', html)
+                image_urls = list(set(og))
+            
+            # Clean & deduplicate
             seen = set()
             unique_urls = []
             for u in image_urls:
-                if u not in seen:
+                u = u.replace('\\u0026', '&').strip()
+                if '.mp4' in u or '.mov' in u: continue
+                if u.startswith('http') and u not in seen:
                     seen.add(u)
                     unique_urls.append(u)
             
             if not unique_urls:
-                return {"success": False, "error": "No photos found - Check cookies"}
+                return {"success": False, "error": "No photos found"}
             
-            # Download
+            total = len(unique_urls)
+            print(f"📸 Found {total} photos in post")
+            
+            # Download all photos
             downloaded = []
-            for i, img_url in enumerate(unique_urls[:10]):
+            for i, img_url in enumerate(unique_urls):
                 try:
                     fp = os.path.join(DOWNLOAD_DIR, f"photo_{shortcode}_{i+1}.jpg")
                     r = session.get(img_url, stream=True, timeout=30)
                     if r.status_code == 200:
-                        with open(fp, 'wb') as f:
-                            for chunk in r.iter_content(8192):
-                                if chunk: f.write(chunk)
-                        if os.path.getsize(fp) > 1000:
-                            downloaded.append(fp)
-                except: continue
+                        content_type = r.headers.get('content-type', '')
+                        if 'image' in content_type or r.headers.get('content-length', '0').isdigit():
+                            with open(fp, 'wb') as f:
+                                for chunk in r.iter_content(8192):
+                                    if chunk: f.write(chunk)
+                            if os.path.getsize(fp) > 5000:
+                                downloaded.append(fp)
+                                print(f"✅ Photo {i+1}/{total}: {os.path.getsize(fp)} bytes")
+                            else:
+                                os.remove(fp)
+                except Exception as e:
+                    print(f"⚠️ Photo {i+1} failed: {e}")
+                    continue
             
             if downloaded:
                 result = {"success": True, "file_path": downloaded[0], "is_video": False}
@@ -312,7 +313,8 @@ class InstaDownloader:
                     result["file_paths"] = downloaded
                 return result
             
-            return {"success": False, "error": "Could not download photos"}
+            return {"success": False, "error": "Download failed - Check cookies"}
+            
         except Exception as e:
             return {"success": False, "error": str(e)[:80]}
     
@@ -734,8 +736,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
     print("╔══════════════════════════╗")
-    print("║  🤖 INSTAGRAM BOT v33   ║")
-    print("║  ✅ yt-dlp FOR PHOTOS   ║")
+    print("║  🤖 INSTAGRAM BOT v34   ║")
+    print("║  ✅ MULTI-PHOTO FIX     ║")
     print("╚══════════════════════════╝")
     
     os.system('apt-get update -qq && apt-get install -y -qq ffmpeg 2>/dev/null')
