@@ -22,7 +22,7 @@ DOWNLOAD_DIR = "downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
 # ══════════════════════════════════════
-# 📥 DOWNLOAD ENGINE — FIXED
+# 📥 DOWNLOAD ENGINE — PHOTO KE 7 METHODS
 # ══════════════════════════════════════
 
 class InstaDownloader:
@@ -40,13 +40,11 @@ class InstaDownloader:
 
     @staticmethod
     def get_shortcode(url):
-        """Extract shortcode from Instagram URL"""
         m = re.search(r'/(p|reel|tv)/([a-zA-Z0-9_\-]+)', url)
         return m.group(2) if m else None
 
     @staticmethod
     def load_cookies_dict():
-        """Load cookies.txt as dictionary"""
         cookies = {}
         if not os.path.exists('cookies.txt'):
             return cookies
@@ -58,11 +56,9 @@ class InstaDownloader:
                         continue
                     parts = line.split('\t')
                     if len(parts) >= 7:
-                        name = parts[5]
-                        value = parts[6]
-                        cookies[name] = value
+                        cookies[parts[5]] = parts[6]
         except:
-            pass
+        pass
         return cookies
 
     @staticmethod
@@ -74,46 +70,40 @@ class InstaDownloader:
             'Accept-Encoding': 'gzip, deflate, br',
             'Connection': 'keep-alive',
             'Upgrade-Insecure-Requests': '1',
-            'Sec-Fetch-Dest': 'document',
-            'Sec-Fetch-Mode': 'navigate',
-            'Sec-Fetch-Site': 'none',
-            'Sec-Fetch-User': '?1',
         }
+
+    # ═══════════════════════════════════
+    # 🎬 MAIN FUNCTION
+    # ═══════════════════════════════════
 
     @staticmethod
     def download_media(url):
-        """Main download — photo/video both"""
         shortcode = InstaDownloader.get_shortcode(url)
         if not shortcode:
             return {"success": False, "error": "Invalid URL"}
         
-        # ⭐ CHECK IF IT'S VIDEO OR PHOTO FIRST
         is_reel = '/reel/' in url or '/tv/' in url
         
         if is_reel:
-            # VIDEO — yt-dlp with best quality (video+audio combined)
             return InstaDownloader._download_video(url, shortcode)
         else:
-            # PHOTO — Direct API scraping (more reliable than yt-dlp for photos)
+            # ⭐ PHOTO KE LIYE 7 METHODS TRY KAREGA
             return InstaDownloader._download_photo(shortcode)
 
-    # ══════════════════════════════════
-    # 🎬 VIDEO DOWNLOAD (WITH AUDIO)
-    # ══════════════════════════════════
+    # ═══════════════════════════════════
+    # 🎬 VIDEO DOWNLOAD (already working)
+    # ═══════════════════════════════════
 
     @staticmethod
     def _download_video(url, shortcode):
-        """Download Instagram Reel with audio"""
         try:
             if not os.path.exists('cookies.txt'):
-                return {"success": False, "error": "❌ cookies.txt not found!\n\n💡 Chrome extension se cookies.txt banao aur GitHub pe upload karo"}
+                return {"success": False, "error": "cookies.txt not found"}
             
-            # ⭐ FIX: Use 'best' format — yeh single file me video+audio dono lata hai
-            # Agar 'best' fail ho to 'bestvideo+bestaudio' try karo
             formats_to_try = [
-                'best',                    # Best single file (video+audio combined)
-                'best[ext=mp4]',           # Best mp4 with audio
-                'bestvideo+bestaudio',     # Separate streams (ffmpeg merge)
+                'best',
+                'best[ext=mp4]',
+                'bestvideo+bestaudio',
             ]
             
             for fmt in formats_to_try:
@@ -126,21 +116,13 @@ class InstaDownloader:
                         'format': fmt,
                         'cookiefile': 'cookies.txt',
                         'merge_output_format': 'mp4',
-                        'postprocessors': [{
-                            'key': 'FFmpegVideoConvertor',
-                            'preferedformat': 'mp4',
-                        }],
                     }
-                    
-                    # Agar ffmpeg available hai to use karo
                     if shutil.which('ffmpeg'):
                         ydl_opts['ffmpeg_location'] = shutil.which('ffmpeg')
                     
-                    print(f"🎬 Trying format: {fmt}")
                     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                         info = ydl.extract_info(url, download=True)
                         if info:
-                            # Find downloaded file
                             file_path = None
                             for f in os.listdir(DOWNLOAD_DIR):
                                 if shortcode in f and f.endswith('.mp4'):
@@ -148,143 +130,148 @@ class InstaDownloader:
                                     break
                             
                             if file_path and os.path.getsize(file_path) > 5000:
-                                # ✅ VERIFY: Check if audio exists in video
-                                probe_cmd = [
-                                    'ffprobe', '-v', 'error', 
-                                    '-select_streams', 'a:0', 
-                                    '-show_entries', 'stream=codec_type', 
-                                    '-of', 'csv=p=0', 
-                                    file_path
-                                ]
-                                probe = subprocess.run(probe_cmd, capture_output=True, text=True, timeout=30)
-                                
-                                has_audio = bool(probe.stdout.strip())
-                                print(f"✅ Video found: {file_path} | Audio: {has_audio}")
-                                
-                                if has_audio:
+                                probe = subprocess.run(
+                                    ['ffprobe', '-v', 'error', '-select_streams', 'a:0', '-show_entries', 'stream=codec_type', '-of', 'csv=p=0', file_path],
+                                    capture_output=True, text=True, timeout=30
+                                )
+                                if probe.stdout.strip():
                                     return {"success": True, "file_path": file_path, "is_video": True}
-                                else:
-                                    # ⭐ Video without audio — delete and try next format
-                                    print(f"⚠️ No audio in {fmt}, trying next format")
-                                    try: os.remove(file_path)
-                                    except: pass
-                                    continue
-                except Exception as e:
-                    print(f"⚠️ Format {fmt} failed: {e}")
+                                try: os.remove(file_path)
+                                except: pass
+                except:
                     continue
-            
-            # ⭐ FINAL FALLBACK: Direct API se video download
-            print("🔄 Trying direct API for video...")
-            return InstaDownloader._download_video_api(url, shortcode)
-            
-        except Exception as e:
-            print(f"❌ Video error: {e}")
-            return {"success": False, "error": str(e)}
-
-    @staticmethod
-    def _download_video_api(url, shortcode):
-        """Direct Instagram API for video"""
-        try:
-            cookies = InstaDownloader.load_cookies_dict()
-            headers = InstaDownloader.get_headers()
-            
-            # Get page
-            page_url = f"https://www.instagram.com/p/{shortcode}/"
-            resp = requests.get(page_url, headers=headers, cookies=cookies, timeout=15)
-            
-            # Find video URL in page
-            # Method 1: video_url in JSON
-            video_urls = re.findall(r'"video_url":"([^"]+)"', resp.text)
-            if video_urls:
-                video_url = video_urls[0].replace('\\u0026', '&')
-                if video_url.startswith('//'):
-                    video_url = 'https:' + video_url
-                
-                file_path = os.path.join(DOWNLOAD_DIR, f"{shortcode}.mp4")
-                vr = requests.get(video_url, headers=headers, stream=True, timeout=60)
-                with open(file_path, 'wb') as f:
-                    for chunk in vr.iter_content(chunk_size=8192):
-                        if chunk: f.write(chunk)
-                
-                if os.path.getsize(file_path) > 5000:
-                    print(f"✅ Video downloaded via API: {file_path}")
-                    return {"success": True, "file_path": file_path, "is_video": True}
             
             return {"success": False, "error": "Video download failed"}
         except Exception as e:
-            return {"success": False, "error": f"API error: {e}"}
+            return {"success": False, "error": str(e)}
 
-    # ══════════════════════════════════
-    # 📸 PHOTO DOWNLOAD (FULL FIX)
-    # ══════════════════════════════════
+    # ═══════════════════════════════════
+    # 📸 PHOTO DOWNLOAD — 7 METHODS
+    # ═══════════════════════════════════
 
     @staticmethod
     def _download_photo(shortcode):
-        """Download Instagram photo using direct page scraping"""
+        """Photo download with 7 fallback methods"""
+        print(f"\n🔍 Downloading photo: {shortcode}")
+        
+        # ─── METHOD 1: yt-dlp ───
+        print(f"📥 Method 1: yt-dlp")
+        result = InstaDownloader._method_ytdlp(shortcode)
+        if result.get("success"):
+            return result
+        
+        # ─── METHOD 2: Direct page scrape with cookies ───
+        print(f"📥 Method 2: Direct scrape")
+        result = InstaDownloader._method_direct_scrape(shortcode)
+        if result.get("success"):
+            return result
+        
+        # ─── METHOD 3: oEmbed API (no login needed!) ───
+        print(f"📥 Method 3: oEmbed")
+        result = InstaDownloader._method_oembed(shortcode)
+        if result.get("success"):
+            return result
+        
+        # ─── METHOD 4: Instagram Basic Display API ───
+        print(f"📥 Method 4: Basic Display API")
+        result = InstaDownloader._method_basic_display(shortcode)
+        if result.get("success"):
+            return result
+        
+        # ─── METHOD 5: Third-party scrapers (Dumpor/Imginn) ───
+        print(f"📥 Method 5: Third-party")
+        result = InstaDownloader._method_third_party(shortcode)
+        if result.get("success"):
+            return result
+        
+        # ─── METHOD 6: GraphQL API ───
+        print(f"📥 Method 6: GraphQL")
+        result = InstaDownloader._method_graphql(shortcode)
+        if result.get("success"):
+            return result
+        
+        # ─── METHOD 7: Direct JSON embed ───
+        print(f"📥 Method 7: Embed JSON")
+        result = InstaDownloader._method_embed_json(shortcode)
+        if result.get("success"):
+            return result
+        
+        return {"success": False, "error": "❌ Saare 7 methods fail! cookies.txt naya banao."}
+
+    @staticmethod
+    def _method_ytdlp(shortcode):
+        """Method 1: yt-dlp"""
         try:
-            if not os.path.exists('cookies.txt'):
-                return {"success": False, "error": "❌ cookies.txt not found!"}
-            
+            url = f"https://www.instagram.com/p/{shortcode}/"
+            ydl_opts = {
+                'quiet': True,
+                'no_warnings': True,
+                'ignoreerrors': True,
+                'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
+                'format': 'best',
+                'cookiefile': 'cookies.txt' if os.path.exists('cookies.txt') else None,
+            }
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+                if info:
+                    for f in os.listdir(DOWNLOAD_DIR):
+                        if shortcode in f and f.endswith(('.jpg', '.jpeg', '.png', '.webp')):
+                            fp = os.path.join(DOWNLOAD_DIR, f)
+                            if os.path.getsize(fp) > 1000:
+                                return {"success": True, "file_path": fp, "is_video": False}
+        except:
+            pass
+        return {"success": False}
+
+    @staticmethod
+    def _method_direct_scrape(shortcode):
+        """Method 2: Direct page scrape"""
+        try:
             cookies = InstaDownloader.load_cookies_dict()
             headers = InstaDownloader.get_headers()
-            
-            if not cookies.get('sessionid'):
-                return {"success": False, "error": "❌ cookies.txt me 'sessionid' nahi hai! Naya cookies.txt banao."}
-            
-            print(f"📸 Fetching photo: {shortcode}")
-            
-            # Page URL
             page_url = f"https://www.instagram.com/p/{shortcode}/"
+            
             resp = requests.get(page_url, headers=headers, cookies=cookies, timeout=15)
-            
-            if resp.status_code != 200:
-                return {"success": False, "error": f"HTTP {resp.status_code}"}
-            
             html = resp.text
             
-            # ⭐ METHOD 1: JSON data from page
             image_urls = []
             
-            # Try to find __NEXT_DATA__ (new Instagram)
-            next_data = re.search(r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>', html, re.DOTALL)
-            if next_data:
+            # __NEXT_DATA__
+            nd = re.search(r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>', html, re.DOTALL)
+            if nd:
                 try:
-                    data = json.loads(next_data.group(1))
-                    # Extract from __NEXT_DATA__
-                    def extract_images(obj):
+                    data = json.loads(nd.group(1))
+                    def extract(obj):
                         urls = []
                         if isinstance(obj, dict):
+                            if obj.get('display_url'):
+                                urls.append(obj['display_url'])
                             if obj.get('__typename') == 'GraphImage' and obj.get('display_url'):
                                 urls.append(obj['display_url'])
-                            if 'display_url' in obj and obj['display_url']:
-                                urls.append(obj['display_url'])
-                            for key, val in obj.items():
-                                if key in ('display_url', 'display_src', 'src'):
-                                    if isinstance(val, str) and val.startswith('http'):
-                                        urls.append(val)
+                            for k, v in obj.items():
+                                if k in ('display_url', 'display_src', 'src') and isinstance(v, str) and 'http' in v:
+                                    urls.append(v)
                                 else:
-                                    urls.extend(extract_images(val))
+                                    urls.extend(extract(v))
                         elif isinstance(obj, list):
                             for item in obj:
-                                urls.extend(extract_images(item))
+                                urls.extend(extract(item))
                         return urls
-                    
-                    image_urls = extract_images(data)
+                    image_urls = extract(data)
                 except:
                     pass
             
-            # ⭐ METHOD 2: Shared data
+            # _sharedData
             if not image_urls:
-                shared = re.search(r'window\._sharedData\s*=\s*({.*?});', html, re.DOTALL)
-                if shared:
+                sd = re.search(r'window\._sharedData\s*=\s*({.*?});', html, re.DOTALL)
+                if sd:
                     try:
-                        data = json.loads(shared.group(1))
+                        data = json.loads(sd.group(1))
                         entries = data.get('entry_data', {}).get('PostPage', [])
                         for entry in entries:
                             media = entry.get('graphql', {}).get('shortcode_media', {})
                             if media.get('display_url'):
                                 image_urls.append(media['display_url'])
-                            # Carousel
                             edges = media.get('edge_sidecar_to_children', {}).get('edges', [])
                             for edge in edges:
                                 node = edge.get('node', {})
@@ -293,86 +280,213 @@ class InstaDownloader:
                     except:
                         pass
             
-            # ⭐ METHOD 3: Regex display_url
+            # Regex
             if not image_urls:
                 urls = re.findall(r'"display_url":"([^"]+)"', html)
                 for u in urls:
-                    u = u.replace('\\u0026', '&')
-                    if u not in image_urls:
-                        image_urls.append(u)
+                    image_urls.append(u.replace('\\u0026', '&'))
             
-            # ⭐ METHOD 4: og:image
+            # og:image
             if not image_urls:
                 og = re.findall(r'<meta property="og:image" content="([^"]+)"', html)
-                for u in og:
-                    if u not in image_urls:
-                        image_urls.append(u)
+                image_urls = list(set(og))
             
-            if not image_urls:
-                return {"success": False, "error": "❌ Photo URL nahi mila!\n\n💡 cookies.txt expire ho gayi? Naya cookies.txt banao."}
-            
-            # ⭐ DOWNLOAD Images
-            downloaded = []
-            for i, img_url in enumerate(image_urls[:10]):
-                try:
-                    if img_url.startswith('//'):
-                        img_url = 'https:' + img_url
-                    
-                    # Clean URL
-                    img_url = img_url.split('?')[0]
-                    
-                    # Determine extension
-                    ext = 'jpg'
-                    if '.png' in img_url:
-                        ext = 'png'
-                    elif '.webp' in img_url:
-                        ext = 'webp'
-                    
-                    file_name = f"{shortcode}_{i+1}.{ext}" if len(image_urls) > 1 else f"{shortcode}.{ext}"
-                    file_path = os.path.join(DOWNLOAD_DIR, file_name)
-                    
-                    print(f"📥 Downloading photo {i+1}: {img_url[:50]}...")
-                    
-                    img_headers = {
-                        'User-Agent': 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36',
-                        'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
-                        'Referer': 'https://www.instagram.com/',
-                    }
-                    
-                    ir = requests.get(img_url, headers=img_headers, stream=True, timeout=30)
-                    if ir.status_code == 200:
-                        with open(file_path, 'wb') as f:
-                            for chunk in ir.iter_content(chunk_size=8192):
-                                if chunk: f.write(chunk)
-                        
-                        if os.path.exists(file_path) and os.path.getsize(file_path) > 1000:
-                            downloaded.append(file_path)
-                            print(f"✅ Photo {i+1} saved: {os.path.getsize(file_path)} bytes")
-                except Exception as e:
-                    print(f"⚠️ Error downloading photo {i+1}: {e}")
-                    continue
-            
-            if downloaded:
-                if len(downloaded) == 1:
-                    return {"success": True, "file_path": downloaded[0], "is_video": False}
-                else:
-                    return {"success": True, "file_paths": downloaded, "is_video": False, "is_multiple": True}
-            
-            return {"success": False, "error": "❌ Photo download nahi hua"}
-            
-        except Exception as e:
-            print(f"❌ Photo error: {e}")
-            return {"success": False, "error": str(e)}
+            if image_urls:
+                return InstaDownloader._save_images(image_urls, shortcode)
+                
+        except:
+            pass
+        return {"success": False}
 
-    # ══════════════════════════════════
+    @staticmethod
+    def _method_oembed(shortcode):
+        """Method 3: oEmbed API — NO LOGIN NEEDED"""
+        try:
+            url = f"https://www.instagram.com/p/{shortcode}/"
+            oembed_url = f"https://api.instagram.com/oembed?url={urllib.parse.quote(url)}"
+            
+            resp = requests.get(oembed_url, timeout=10)
+            if resp.status_code == 200:
+                data = resp.json()
+                thumbnail_url = data.get('thumbnail_url', '')
+                if thumbnail_url:
+                    # Try to get HD version
+                    hd_url = thumbnail_url.replace('/s150x150/', '/').replace('/s320x320/', '/').replace('/s640x640/', '/')
+                    # Try full resolution
+                    hd_url2 = re.sub(r'/s\d+x\d+/', '/', thumbnail_url)
+                    
+                    image_urls = [hd_url2, hd_url, thumbnail_url]
+                    return InstaDownloader._save_images(image_urls, shortcode)
+        except:
+            pass
+        return {"success": False}
+
+    @staticmethod
+    def _method_basic_display(shortcode):
+        """Method 4: Instagram Basic Display API"""
+        try:
+            # Use the public embed page
+            embed_url = f"https://www.instagram.com/p/{shortcode}/embed/"
+            resp = requests.get(embed_url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=10)
+            if resp.status_code == 200:
+                # Find image in embed
+                imgs = re.findall(r'<img[^>]+src="([^"]+)"', resp.text)
+                for img_url in imgs:
+                    if 'instagram.com' in img_url and ('p' in img_url or shortcode in img_url):
+                        # Try to get highest quality
+                        clean_url = img_url.split('?')[0]
+                        hd_url = re.sub(r'/s\d+x\d+/', '/', clean_url)
+                        return InstaDownloader._save_images([hd_url, clean_url], shortcode)
+        except:
+            pass
+        return {"success": False}
+
+    @staticmethod
+    def _method_third_party(shortcode):
+        """Method 5: Third-party scrapers"""
+        scrapers = [
+            f"https://imginn.com/p/{shortcode}/",
+            f"https://dumpor.com/v/{shortcode}",
+            f"https://instasave.io/instagram/{shortcode}",
+        ]
+        
+        for scraper_url in scrapers:
+            try:
+                resp = requests.get(scraper_url, headers={
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                    'Accept': 'text/html,application/xhtml+xml',
+                }, timeout=15)
+                
+                if resp.status_code == 200:
+                    # Find image URLs
+                    imgs = re.findall(r'(https?://[^"\']+\.(?:jpg|jpeg|png|webp)[^"\']*)', resp.text)
+                    valid_imgs = [u for u in imgs if 'instagram' in u or 'cdn' in u or 'media' in u or 'img' in u]
+                    
+                    if valid_imgs:
+                        return InstaDownloader._save_images(valid_imgs[:5], shortcode)
+            except:
+                continue
+        
+        return {"success": False}
+
+    @staticmethod
+    def _method_graphql(shortcode):
+        """Method 6: Instagram GraphQL API"""
+        try:
+            cookies = InstaDownloader.load_cookies_dict()
+            if not cookies.get('sessionid'):
+                return {"success": False}
+            
+            # GraphQL query
+            query_hash = "56a7068fea504063273cc2120ffd54f3"
+            variables = json.dumps({"shortcode": shortcode, "child_comment_count": 3, "fetch_comment_count": 2, "parent_comment_count": 2, "has_threaded_comments": True})
+            
+            graphql_url = f"https://www.instagram.com/graphql/query/?query_hash={query_hash}&variables={urllib.parse.quote(variables)}"
+            
+            resp = requests.get(graphql_url, headers=InstaDownloader.get_headers(), cookies=cookies, timeout=15)
+            if resp.status_code == 200:
+                data = resp.json()
+                media = data.get('data', {}).get('shortcode_media', {})
+                if media.get('display_url'):
+                    image_urls = [media['display_url']]
+                    
+                    # Check for carousel
+                    edges = media.get('edge_sidecar_to_children', {}).get('edges', [])
+                    for edge in edges:
+                        node = edge.get('node', {})
+                        if node.get('display_url'):
+                            image_urls.append(node['display_url'])
+                    
+                    if image_urls:
+                        return InstaDownloader._save_images(image_urls, shortcode)
+        except:
+            pass
+        return {"success": False}
+
+    @staticmethod
+    def _method_embed_json(shortcode):
+        """Method 7: Direct JSON embed"""
+        try:
+            # Instagram's public embed API
+            embed_js = f"https://www.instagram.com/p/{shortcode}/embed/captioned/"
+            resp = requests.get(embed_js, headers={'User-Agent': 'Mozilla/5.0'}, timeout=10)
+            
+            if resp.status_code == 200:
+                # window.__INITIAL_STATE__
+                init = re.search(r'window\.__INITIAL_STATE__\s*=\s*({.*?});', resp.text, re.DOTALL)
+                if init:
+                    data = json.loads(init.group(1))
+                    # Navigate to find display_url
+                    for key in data:
+                        val = data[key]
+                        if isinstance(val, dict):
+                            for k2, v2 in val.items():
+                                if isinstance(v2, dict) and v2.get('display_url'):
+                                    sh = re.search(r'/([^/]+)/?$', shortcode)
+                                    sc = sh.group(1) if sh else shortcode
+                                    return InstaDownloader._save_images([v2['display_url']], sc)
+        except:
+            pass
+        return {"success": False}
+
+    @staticmethod
+    def _save_images(image_urls, shortcode):
+        """Download and save image URLs"""
+        downloaded = []
+        
+        for i, img_url in enumerate(image_urls):
+            try:
+                if img_url.startswith('//'):
+                    img_url = 'https:' + img_url
+                
+                img_url = img_url.split('?')[0]
+                img_url = re.sub(r'/s\d+x\d+/', '/', img_url)  # HD quality
+                
+                ext = 'jpg'
+                if '.png' in img_url:
+                    ext = 'png'
+                elif '.webp' in img_url:
+                    ext = 'webp'
+                
+                file_name = f"{shortcode}_{i+1}.{ext}" if len(image_urls) > 1 else f"{shortcode}.{ext}"
+                file_path = os.path.join(DOWNLOAD_DIR, file_name)
+                
+                headers = {
+                    'User-Agent': 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36',
+                    'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+                    'Referer': 'https://www.instagram.com/',
+                }
+                
+                ir = requests.get(img_url, headers=headers, stream=True, timeout=30)
+                if ir.status_code == 200:
+                    with open(file_path, 'wb') as f:
+                        for chunk in ir.iter_content(chunk_size=8192):
+                            if chunk: f.write(chunk)
+                    
+                    if os.path.exists(file_path) and os.path.getsize(file_path) > 1000:
+                        downloaded.append(file_path)
+                        print(f"✅ Saved: {file_path} ({os.path.getsize(file_path)} bytes)")
+                        if len(image_urls) == 1:
+                            break
+            except Exception as e:
+                print(f"⚠️ Save error: {e}")
+                continue
+        
+        if downloaded:
+            if len(downloaded) == 1:
+                return {"success": True, "file_path": downloaded[0], "is_video": False}
+            else:
+                return {"success": True, "file_paths": downloaded, "is_video": False, "is_multiple": True}
+        
+        return {"success": False}
+
+    # ═══════════════════════════════════
     # 🎵 AUDIO EXTRACTION
-    # ══════════════════════════════════
+    # ═══════════════════════════════════
 
     @staticmethod
     def extract_audio(video_path, custom_name=None):
-        """Extract audio with custom name"""
         try:
-            # Audio file path
             if custom_name:
                 safe_name = re.sub(r'[^\w\s-]', '', custom_name).strip()[:50]
                 if not safe_name:
@@ -384,49 +498,40 @@ class InstaDownloader:
             
             audio_path = os.path.join(DOWNLOAD_DIR, file_name)
             
-            # Check if ffmpeg is available
             if not shutil.which('ffmpeg'):
-                return {"success": False, "error": "❌ FFmpeg nahi mila! Install karo:\n`sudo apt install ffmpeg -y`"}
+                return {"success": False, "error": "FFmpeg not found"}
             
-            # Check audio exists
-            probe_cmd = ['ffprobe', '-v', 'error', '-select_streams', 'a:0', '-show_entries', 'stream=codec_type', '-of', 'csv=p=0', video_path]
-            probe = subprocess.run(probe_cmd, capture_output=True, text=True, timeout=30)
+            probe = subprocess.run(
+                ['ffprobe', '-v', 'error', '-select_streams', 'a:0', '-show_entries', 'stream=codec_type', '-of', 'csv=p=0', video_path],
+                capture_output=True, text=True, timeout=30
+            )
             
             if not probe.stdout.strip():
-                return {"success": False, "error": "❌ Is video main audio track nahi hai!"}
+                return {"success": False, "error": "❌ Is video main audio nahi hai!"}
             
-            # Extract audio
             cmd = ['ffmpeg', '-i', video_path, '-vn', '-acodec', 'libmp3lame', '-ab', '192k', '-ar', '44100', '-y', audio_path]
-            process = subprocess.run(cmd, capture_output=True, timeout=180)
+            subprocess.run(cmd, capture_output=True, timeout=180)
             
             if os.path.exists(audio_path) and os.path.getsize(audio_path) > 1000:
-                print(f"✅ Audio extracted: {audio_path} ({os.path.getsize(audio_path)} bytes)")
                 return {"success": True, "file_path": audio_path}
             
-            return {"success": False, "error": "❌ Audio extract fail hua"}
-            
-        except subprocess.TimeoutExpired:
-            return {"success": False, "error": "❌ Timeout! File bahut badi hai"}
-        except Exception as e:
-            return {"success": False, "error": f"❌ Error: {str(e)}"}
+            return {"success": False, "error": "Audio extract failed"}
+        except:
+            return {"success": False, "error": "Audio error"}
     
     @staticmethod
     def cleanup(file_path):
-        """Clean up downloaded files"""
         try:
             if file_path and os.path.exists(file_path):
                 os.remove(file_path)
-                print(f"🗑️ Deleted: {file_path}")
         except:
             pass
     
     @staticmethod
     def cleanup_dir():
-        """Clean entire download directory"""
         try:
             for f in os.listdir(DOWNLOAD_DIR):
-                fp = os.path.join(DOWNLOAD_DIR, f)
-                try: os.remove(fp)
+                try: os.remove(os.path.join(DOWNLOAD_DIR, f))
                 except: pass
         except:
             pass
@@ -444,13 +549,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "📥 **Instagram Downloader Bot**\n\n"
         "✅ **Reel link** → Video (with audio) 🎬\n"
-        "✅ **Post link** → High Quality Photo 📸\n"
-        "✅ **Multiple photos** → Ek ek karke 🖼️\n"
-        "✅ **Audio button** → Click → Naam do → MP3 ⚡\n\n"
-        "**Example:**\n"
-        "`https://www.instagram.com/reel/xyz123/`\n"
-        "`https://www.instagram.com/p/xyz123/`\n\n"
-        "🔹 **Try karo!** Bas link paste karo.",
+        "✅ **Post link** → Photo(s) 📸\n"
+        "✅ **Multiple photos** → Sab ek-ek karke 🔄\n"
+        "✅ **Audio button** → Naam do → MP3 ⚡\n\n"
+        "**Bas link bhejo!** ⬇️",
         parse_mode="Markdown"
     )
 
@@ -463,19 +565,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not text:
         return
     
-    # ⭐ Check if user is giving audio name
+    # Audio name input
     if context.user_data.get('awaiting_audio'):
         context.user_data['awaiting_audio'] = False
         audio_name = text.strip()
-        context.user_data['audio_name'] = audio_name
-        
-        # Start audio extraction immediately
         url = context.user_data.get('current_url')
         if url:
             await extract_and_send_audio(update, context, url, audio_name)
         return
     
-    # Check Instagram URL
     if not InstaDownloader.is_instagram_url(text):
         return
     
@@ -484,32 +582,24 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Invalid URL")
         return
     
-    # Store URL for audio extraction
     context.user_data['current_url'] = url
     
     msg = await update.message.reply_text("⏳ **Processing...**", parse_mode="Markdown")
     
     try:
-        shortcode = InstaDownloader.get_shortcode(url)
         is_reel = '/reel/' in url or '/tv/' in url
-        
-        if is_reel:
-            await msg.edit_text("📥 **Downloading Reel Video...**")
-        else:
-            await msg.edit_text("📥 **Downloading Photo...**")
+        await msg.edit_text("📥 **Downloading...**" if is_reel else "📥 **Downloading Photo...**")
         
         result = InstaDownloader.download_media(url)
         
         if not result.get("success"):
-            error_msg = result.get('error', 'Unknown error')
             await msg.edit_text(
-                f"❌ **Failed!**\n\n{error_msg}\n\n"
-                f"💡 **Solution:**\n"
-                f"1. cookies.txt expire ho gayi?\n"
-                f"2. Instagram se logout → login karein\n"
-                f"3. Chrome extension se naya cookies.txt banao\n"
-                f"4. GitHub par cookies.txt update karo\n"
-                f"5. Railway redeploy karo",
+                f"❌ **Failed!**\n\n{result.get('error', 'Unknown')}\n\n"
+                f"💡 **Fix:**\n"
+                f"1. Instagram se logout → login karein\n"
+                f"2. Chrome extension se **naya cookies.txt** banao\n"
+                f"3. GitHub par update karo\n"
+                f"4. Railway redeploy karo",
                 parse_mode="Markdown"
             )
             return
@@ -517,32 +607,30 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # ⭐ MULTIPLE PHOTOS
         if result.get("is_multiple"):
             photo_paths = result.get("file_paths", [])
-            if photo_paths:
-                await msg.edit_text(f"📤 **Uploading {len(photo_paths)} photos...**")
-                for i, fp in enumerate(photo_paths):
-                    if os.path.exists(fp) and os.path.getsize(fp) > 1000:
-                        try:
-                            with open(fp, 'rb') as f:
-                                await update.message.reply_photo(
-                                    photo=f,
-                                    caption=f"✅ **Photo {i+1}/{len(photo_paths)}** ✅\n🔗 [Instagram Link]({url})",
-                                    parse_mode="Markdown"
-                                )
-                        except Exception as e:
-                            await update.message.reply_text(f"❌ Error: {str(e)}")
-                        InstaDownloader.cleanup(fp)
-                await msg.delete()
-                return
+            await msg.edit_text(f"📤 **Uploading {len(photo_paths)} photos...**")
+            for i, fp in enumerate(photo_paths):
+                if os.path.exists(fp) and os.path.getsize(fp) > 1000:
+                    try:
+                        with open(fp, 'rb') as f:
+                            await update.message.reply_photo(
+                                photo=f,
+                                caption=f"✅ **Photo {i+1}/{len(photo_paths)}** ✅\n🔗 [Instagram Link]({url})",
+                                parse_mode="Markdown"
+                            )
+                    except Exception as e:
+                        await update.message.reply_text(f"❌ Error: {str(e)}")
+                    InstaDownloader.cleanup(fp)
+            await msg.delete()
+            return
         
         # ⭐ SINGLE FILE
         fp = result["file_path"]
         if not os.path.exists(fp) or os.path.getsize(fp) < 1000:
-            await msg.edit_text("❌ Download incomplete (file too small)")
+            await msg.edit_text("❌ Download incomplete")
             return
         
-        file_size = os.path.getsize(fp)
-        if file_size > 50 * 1024 * 1024:
-            await msg.edit_text("❌ File >50MB — Telegram limit")
+        if os.path.getsize(fp) > 50 * 1024 * 1024:
+            await msg.edit_text("❌ File >50MB")
             InstaDownloader.cleanup(fp)
             return
         
@@ -550,83 +638,62 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         if is_video:
             await msg.edit_text("📤 **Uploading Video...**")
-            keyboard = [[InlineKeyboardButton("🎵 Download Audio", callback_data=f"get_audio")]]
-            
+            keyboard = [[InlineKeyboardButton("🎵 Download Audio", callback_data="get_audio")]]
             with open(fp, 'rb') as f:
                 await update.message.reply_video(
                     video=f,
-                    caption=f"✅ **Video Downloaded** ✅\n🔗 [Instagram Link]({url})\n\n🎵 Audio ke liye neeche button dabao",
+                    caption=f"✅ **Video Downloaded** ✅\n🔗 [Instagram Link]({url})",
                     parse_mode="Markdown",
                     reply_markup=InlineKeyboardMarkup(keyboard),
-                    supports_streaming=True,
-                    read_timeout=60,
-                    write_timeout=60,
-                    connect_timeout=60,
-                    pool_timeout=60
+                    supports_streaming=True
                 )
-            await msg.delete()
         else:
             await msg.edit_text("📤 **Uploading Photo...**")
             with open(fp, 'rb') as f:
                 await update.message.reply_photo(
                     photo=f,
                     caption=f"✅ **Photo Downloaded** ✅\n🔗 [Instagram Link]({url})",
-                    parse_mode="Markdown",
-                    read_timeout=60,
-                    write_timeout=60,
-                    connect_timeout=60,
-                    pool_timeout=60
+                    parse_mode="Markdown"
                 )
-            await msg.delete()
         
-        # Cleanup
+        await msg.delete()
         InstaDownloader.cleanup(fp)
         
     except TimedOut:
-        await msg.edit_text("⏰ **Timeout!** Dobara try karo.")
+        await msg.edit_text("⏰ Timeout! Dobara try karo.")
     except Exception as e:
         await msg.edit_text(f"❌ **Error:** {str(e)}")
         InstaDownloader.cleanup_dir()
 
 async def extract_and_send_audio(update, context, url, audio_name):
-    """Extract audio and send immediately"""
-    status_msg = await update.message.reply_text(f"🎵 **Extracting Audio: {audio_name}...**", parse_mode="Markdown")
+    status_msg = await update.message.reply_text(f"🎵 **Extracting: {audio_name}...**", parse_mode="Markdown")
     
     try:
-        # Download video
         result = InstaDownloader.download_media(url)
         if not result.get("success"):
-            await status_msg.edit_text("❌ Video download fail hua. Audio extract nahi ho paya.")
+            await status_msg.edit_text("❌ Video download fail")
             return
         
         vp = result["file_path"]
-        
-        # Extract audio
         audio_result = InstaDownloader.extract_audio(vp, audio_name)
         
         if audio_result.get("success"):
             ap = audio_result["file_path"]
             await status_msg.edit_text("📤 **Uploading Audio...**")
-            try:
-                with open(ap, 'rb') as f:
-                    await update.message.reply_audio(
-                        audio=f,
-                        title=audio_name,
-                        performer="Instagram",
-                        caption=f"🎵 **{audio_name}** ✅",
-                        read_timeout=60,
-                        write_timeout=60
-                    )
-                await status_msg.edit_text(f"✅ **{audio_name}** sent! 🎵")
-            except Exception as e:
-                await status_msg.edit_text(f"❌ Send error: {str(e)}")
+            with open(ap, 'rb') as f:
+                await update.message.reply_audio(
+                    audio=f,
+                    title=audio_name,
+                    performer="Instagram",
+                    caption=f"🎵 **{audio_name}** ✅"
+                )
+            await status_msg.edit_text(f"✅ **{audio_name} sent!** 🎵")
             try: os.remove(ap)
             except: pass
         else:
             await status_msg.edit_text(f"❌ {audio_result.get('error')}")
         
         InstaDownloader.cleanup(vp)
-        
     except Exception as e:
         await status_msg.edit_text(f"❌ Error: {str(e)}")
 
@@ -634,14 +701,12 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
-    data = query.data
-    
-    if data == "get_audio":
+    if query.data == "get_audio":
         await query.edit_message_reply_markup(reply_markup=None)
         await query.message.reply_text(
             "🎵 **Audio Ka Naam Likhein** 🎵\n\n"
             "Jaise: `Meri Pyaari Song`\n"
-            "Ya: `skip` (default naam ke liye)\n\n"
+            "Ya: `skip` dalo\n\n"
             "⬇️ **Neeche type karein:**",
             parse_mode="Markdown"
         )
@@ -658,36 +723,26 @@ def main():
     print("║  🤖 INSTAGRAM DOWNLOADER    ║")
     print("╚══════════════════════════════╝")
     
-    # Check FFmpeg
-    ffmpeg_path = shutil.which('ffmpeg')
-    if ffmpeg_path:
-        print(f"✅ FFmpeg: {ffmpeg_path}")
+    # FFmpeg
+    if shutil.which('ffmpeg'):
+        print(f"✅ FFmpeg: {shutil.which('ffmpeg')}")
     else:
-        print("⚠️ FFmpeg not found!")
-        print("   Installing ffmpeg...")
+        print("⚠️ Installing ffmpeg...")
         os.system('apt-get update && apt-get install ffmpeg -y')
-        if shutil.which('ffmpeg'):
-            print("✅ FFmpeg installed!")
-        else:
-            print("❌ FFmpeg installation failed")
     
-    # Check cookies.txt
+    # cookies.txt
     if os.path.exists('cookies.txt'):
-        print(f"✅ cookies.txt found ({os.path.getsize('cookies.txt')} bytes)")
+        print(f"✅ cookies.txt ({os.path.getsize('cookies.txt')} bytes)")
         with open('cookies.txt') as f:
-            content = f.read()
-        if 'sessionid' in content:
-            print("✅ sessionid found — cookies are valid!")
+            c = f.read()
+        if 'sessionid' in c:
+            print("✅ sessionid found")
         else:
-            print("⚠️ sessionid missing — cookies expired!")
+            print("⚠️ No sessionid")
     else:
-        print("❌ cookies.txt NOT FOUND!")
-        print("   Create cookies.txt using Chrome extension!")
+        print("❌ cookies.txt missing")
     
-    # Clean download directory
     InstaDownloader.cleanup_dir()
-    print("✅ Download directory cleaned")
-    
     print("✅ Bot Started! 🚀")
     
     app = Application.builder().token(BOT_TOKEN).build()
