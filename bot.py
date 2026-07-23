@@ -11,6 +11,7 @@ import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 from telegram.constants import ChatMemberStatus
+import yt_dlp
 import requests
 
 # ═══════════════════════════
@@ -143,7 +144,7 @@ def get_photo_cache(key):
     return None
 
 # ═══════════════════════════
-# 📥 INSTAGRAM DOWNLOADER (NO yt-dlp)
+# 📥 INSTAGRAM DOWNLOADER (yt-dlp + cookies)
 # ═══════════════════════════
 
 class InstaDownloader:
@@ -175,101 +176,43 @@ class InstaDownloader:
     
     @staticmethod
     def _download_video(shortcode, url):
-        """Direct Instagram API - NO yt-dlp needed"""
-        session = requests.Session()
-        session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Referer': 'https://www.instagram.com/',
-        })
-        
-        # Load cookies if available
+        """yt-dlp with cookies - most reliable"""
+        ydl_opts = {
+            'quiet': True, 'no_warnings': True,
+            'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
+            'format': 'bestvideo+bestaudio/best',
+            'merge_output_format': 'mp4',
+            'retries': 5,
+            'socket_timeout': 60,
+        }
         if os.path.exists('cookies.txt'):
-            try:
-                with open('cookies.txt') as f:
-                    for line in f:
-                        line = line.strip()
-                        if not line or line.startswith('#'): continue
-                        parts = line.split('\t')
-                        if len(parts) >= 7:
-                            session.cookies.set(parts[5], parts[6], domain='.instagram.com')
-            except: pass
+            ydl_opts['cookiefile'] = 'cookies.txt'
+        if shutil.which('ffmpeg'):
+            ydl_opts['ffmpeg_location'] = shutil.which('ffmpeg')
         
         try:
-            # Get page HTML
-            resp = session.get(url, timeout=30)
-            if resp.status_code != 200:
-                return {"success": False, "error": f"Instagram returned {resp.status_code}"}
-            
-            html = resp.text
-            
-            # Find video URL in page
-            video_url = None
-            
-            # Method 1: video_url in JSON
-            match = re.search(r'"video_url"\s*:\s*"([^"]+)"', html)
-            if match:
-                video_url = match.group(1).replace('\\u0026', '&')
-            
-            # Method 2: __NEXT_DATA__
-            if not video_url:
-                nd_match = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', html, re.DOTALL)
-                if nd_match:
-                    try:
-                        data = json.loads(nd_match.group(1))
-                        def find_video(d, depth=0):
-                            if depth > 6: return None
-                            if isinstance(d, dict):
-                                if 'video_url' in d: return d['video_url']
-                                for v in d.values():
-                                    r = find_video(v, depth+1)
-                                    if r: return r
-                            elif isinstance(d, list):
-                                for item in d:
-                                    r = find_video(item, depth+1)
-                                    if r: return r
-                            return None
-                        video_url = find_video(data)
-                    except: pass
-            
-            if not video_url:
-                return {"success": False, "error": "Video URL not found - may need login"}
-            
-            # Download video
-            fp = os.path.join(DOWNLOAD_DIR, f"{shortcode}.mp4")
-            
-            dl_headers = {
-                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15',
-                'Accept': '*/*',
-                'Referer': 'https://www.instagram.com/',
-                'Origin': 'https://www.instagram.com',
-                'Connection': 'keep-alive',
-            }
-            
-            vr = session.get(video_url, headers=dl_headers, stream=True, timeout=120)
-            if vr.status_code == 200:
-                with open(fp, 'wb') as f:
-                    for chunk in vr.iter_content(chunk_size=8192):
-                        if chunk: f.write(chunk)
-                
-                if os.path.exists(fp) and os.path.getsize(fp) > 50000:
-                    print(f"✅ Downloaded: {os.path.basename(fp)} ({os.path.getsize(fp)} bytes)")
-                    return {"success": True, "file_path": fp, "is_video": True}
-                else:
-                    os.remove(fp)
-                    return {"success": False, "error": "Downloaded file too small"}
-            else:
-                return {"success": False, "error": f"CDN returned {vr.status_code}"}
-                
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+                if info:
+                    time.sleep(0.5)
+                    for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
+                        if f.endswith('.mp4'):
+                            fp = os.path.join(DOWNLOAD_DIR, f)
+                            if os.path.exists(fp) and os.path.getsize(fp) > 50000:
+                                return {"success": True, "file_path": fp, "is_video": True}
         except Exception as e:
-            return {"success": False, "error": str(e)[:100]}
+            err = str(e)
+            if 'login' in err.lower() or 'cookie' in err.lower():
+                return {"success": False, "error": "Cookies expired! Update cookies.txt"}
+            return {"success": False, "error": err[:80]}
+        
+        return {"success": False, "error": "Download failed"}
     
     @staticmethod
     def _download_photo(shortcode, url):
         result = InstaDownloader._method_scrape_multi(shortcode, url)
         if result.get("success"): return result
-        for method in [InstaDownloader._method_oembed, InstaDownloader._method_scrape_single, InstaDownloader._method_cdn]:
+        for method in [InstaDownloader._method_oembed, InstaDownloader._method_ytdlp, InstaDownloader._method_scrape_single, InstaDownloader._method_cdn]:
             result = method(shortcode)
             if result.get("success"): return result
         return {"success": False, "error": "Photo download failed"}
@@ -341,6 +284,21 @@ class InstaDownloader:
                     if os.path.getsize(fp) > 1000: return {"success": True, "file_path": fp, "is_video": False}
             return {"success": False}
         except: return {"success": False}
+    
+    @staticmethod
+    def _method_ytdlp(shortcode):
+        try:
+            ydl_opts = {'quiet': True, 'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'), 'format': 'best', 'retries': 3}
+            if os.path.exists('cookies.txt'): ydl_opts['cookiefile'] = 'cookies.txt'
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.extract_info(f"https://www.instagram.com/p/{shortcode}/", download=True)
+                time.sleep(0.3)
+                for f in os.listdir(DOWNLOAD_DIR):
+                    if shortcode in f and not f.endswith(('.mp4','.mov','.webm')):
+                        fp = os.path.join(DOWNLOAD_DIR, f)
+                        if os.path.getsize(fp) > 1000: return {"success": True, "file_path": fp, "is_video": False}
+        except: pass
+        return {"success": False}
     
     @staticmethod
     def _method_scrape_single(shortcode):
@@ -842,11 +800,12 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
     print("╔══════════════════════════╗")
-    print("║  🤖 INSTAGRAM BOT v26   ║")
-    print("║  ✅ DIRECT API FIX      ║")
+    print("║  🤖 INSTAGRAM BOT v27   ║")
+    print("║  ✅ yt-dlp + COOKIES    ║")
     print("╚══════════════════════════╝")
     
     print(f"🔹 Bot: {'ENABLED' if is_bot_enabled() else 'DISABLED'}")
+    print(f"🍪 Cookies: {'✅ Found' if os.path.exists('cookies.txt') else '❌ Missing'}")
     
     for f in os.listdir(DOWNLOAD_DIR):
         try: os.remove(os.path.join(DOWNLOAD_DIR, f))
