@@ -39,6 +39,91 @@ class InstaDownloader:
         return m.group(2) if m else None
     
     @staticmethod
+    def test_post(shortcode):
+        """Test karega ki post download ho sakti hai ya nahi"""
+        url = f"https://www.instagram.com/p/{shortcode}/"
+        result = []
+        
+        result.append(f"🔍 **Testing:** `{shortcode}`\n")
+        
+        # Check cookies
+        if not os.path.exists('cookies.txt'):
+            result.append("❌ cookies.txt not found!")
+            return "\n".join(result)
+        
+        result.append("✅ cookies.txt found")
+        
+        # Try to get info
+        try:
+            ydl_opts = {
+                'cookiefile': 'cookies.txt',
+                'quiet': True,
+                'no_warnings': True,
+            }
+            
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=False)
+                result.append(f"✅ Info extracted!")
+                result.append(f"📌 Title: `{info.get('title', 'N/A')[:80]}`")
+                result.append(f"📌 Uploader: `{info.get('uploader', 'N/A')}`")
+                
+                # Check entries (carousel)
+                entries = info.get('entries', [])
+                if entries:
+                    result.append(f"\n📸 **Carousel detected! {len(entries)} items:**")
+                    for i, entry in enumerate(entries[:10], 1):
+                        entry_type = entry.get('_type', 'unknown')
+                        formats = entry.get('formats', [])
+                        ext_list = list(set([f.get('ext', '?') for f in formats]))
+                        result.append(f"  {i}. Type: `{entry_type}` | Ext: {ext_list}")
+                else:
+                    result.append(f"\n📸 **Single post**")
+                    formats = info.get('formats', [])
+                    ext_list = list(set([f.get('ext', '?') for f in formats]))
+                    result.append(f"  Formats: {ext_list}")
+                
+                # Try actual download
+                result.append(f"\n📥 **Trying download...**")
+                
+                download_opts = {
+                    'outtmpl': os.path.join(DOWNLOAD_DIR, 'test_%(id)s.%(ext)s'),
+                    'cookiefile': 'cookies.txt',
+                    'quiet': True,
+                    'no_warnings': True,
+                }
+                
+                with yt_dlp.YoutubeDL(download_opts) as ydl:
+                    ydl.download([url])
+                
+                time.sleep(2)
+                
+                # Check what was downloaded
+                downloaded = []
+                for f in os.listdir(DOWNLOAD_DIR):
+                    if 'test_' in f:
+                        fp = os.path.join(DOWNLOAD_DIR, f)
+                        size = os.path.getsize(fp)
+                        downloaded.append(f"{f} ({size} bytes)")
+                
+                if downloaded:
+                    result.append(f"✅ **Downloaded files:**")
+                    for d in downloaded:
+                        result.append(f"  📁 {d}")
+                else:
+                    result.append(f"❌ No files downloaded!")
+                    result.append(f"  Downloads folder: {os.listdir(DOWNLOAD_DIR)}")
+                
+                # Cleanup
+                for f in os.listdir(DOWNLOAD_DIR):
+                    if 'test_' in f:
+                        os.remove(os.path.join(DOWNLOAD_DIR, f))
+                
+        except Exception as e:
+            result.append(f"❌ **Error:** `{str(e)[:300]}`")
+        
+        return "\n".join(result)
+    
+    @staticmethod
     def download_media(url):
         shortcode = InstaDownloader.get_shortcode(url)
         if not shortcode:
@@ -65,9 +150,10 @@ class InstaDownloader:
                 
         except Exception as e:
             err = str(e)
+            print(f"❌ Error: {err}")
             if '403' in err or '401' in err:
                 return {"success": False, "error": "Cookies EXPIRED!"}
-            return {"success": False, "error": f"Error: {err[:200]}"}
+            return {"success": False, "error": f"{err[:200]}"}
     
     @staticmethod
     def _download_reel(shortcode, url):
@@ -99,12 +185,9 @@ class InstaDownloader:
     def _download_post(shortcode, url):
         print("📸 Downloading photos...")
         
-        # Saare downloaded files collect karenge
         photos = []
         
-        # ============================================
-        # METHOD 1: Simple download (NO format filter)
-        # ============================================
+        # Method 1: Simple download
         print("  Method 1: Simple download...")
         try:
             ydl_opts = {
@@ -113,7 +196,6 @@ class InstaDownloader:
                 'quiet': True,
                 'no_warnings': True,
                 'retries': 5,
-                # FORMAT HATA DIYA - yt-dlp khud best lega
             }
             
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -121,25 +203,21 @@ class InstaDownloader:
             
             time.sleep(2)
             
-            # Jo bhi download hua check karo
             for f in os.listdir(DOWNLOAD_DIR):
                 if shortcode in f:
                     fp = os.path.join(DOWNLOAD_DIR, f)
                     if os.path.exists(fp) and os.path.getsize(fp) > 1000:
-                        # Video files skip karo (reel nahi hai to photo post hai)
                         if f.endswith(('.mp4', '.mov', '.webm')):
-                            os.remove(fp)  # Video delete karo
+                            os.remove(fp)
                             continue
                         photos.append(fp)
                         print(f"    ✅ {f} ({os.path.getsize(fp)} bytes)")
         except Exception as e:
-            print(f"    ⚠️ Method 1 error: {e}")
+            print(f"    ⚠️ Method 1: {e}")
         
-        # ============================================
-        # METHOD 2: Agar kuch nahi mila to retry
-        # ============================================
+        # Method 2: Retry
         if not photos:
-            print("  Method 2: Retry without extension filter...")
+            print("  Method 2: Retry...")
             try:
                 ydl_opts = {
                     'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}_retry.%(ext)s'),
@@ -164,11 +242,9 @@ class InstaDownloader:
                             photos.append(fp)
                             print(f"    ✅ {f} ({os.path.getsize(fp)} bytes)")
             except Exception as e:
-                print(f"    ⚠️ Method 2 error: {e}")
+                print(f"    ⚠️ Method 2: {e}")
         
-        # ============================================
-        # DUPLICATE REMOVAL
-        # ============================================
+        # Remove duplicates
         if len(photos) > 1:
             unique = []
             sizes = set()
@@ -181,11 +257,8 @@ class InstaDownloader:
                     os.remove(fp)
             photos = sorted(unique)
         
-        # ============================================
-        # RESULT
-        # ============================================
         if photos:
-            print(f"✅ Total photos: {len(photos)}")
+            print(f"✅ Total: {len(photos)} photos")
             if len(photos) == 1:
                 return {"success": True, "file_path": photos[0], "is_video": False}
             else:
@@ -197,7 +270,6 @@ class InstaDownloader:
                     "total": len(photos)
                 }
         
-        # Agar ab bhi kuch nahi mila
         all_files = os.listdir(DOWNLOAD_DIR)
         print(f"❌ No photos! Downloads: {all_files}")
         return {"success": False, "error": f"No photos found. Downloads: {all_files}"}
@@ -246,9 +318,34 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "✅ Post → ALL Photos 📸\n"
         "✅ Carousel → 1-by-1 🔄\n"
         "✅ Audio → MP3 ⚡\n\n"
+        "🔍 `/test SHORTCODE` - Test post\n"
         "🔗 **Link bhejo!**",
         parse_mode="Markdown"
     )
+
+async def test_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Test command - /test SHORTCODE"""
+    if update.effective_user.id not in AUTHORIZED_USERS:
+        return
+    
+    if not context.args:
+        await update.message.reply_text("❌ Usage: `/test SHORTCODE`\n\nExample: `/test ABC123xyz`", parse_mode="Markdown")
+        return
+    
+    shortcode = context.args[0].strip()
+    
+    msg = await update.message.reply_text(f"🔍 **Testing `{shortcode}`...**", parse_mode="Markdown")
+    
+    result = InstaDownloader.test_post(shortcode)
+    
+    # Split if too long
+    if len(result) > 4000:
+        parts = [result[i:i+4000] for i in range(0, len(result), 4000)]
+        await msg.edit_text(parts[0], parse_mode="Markdown")
+        for part in parts[1:]:
+            await update.message.reply_text(part, parse_mode="Markdown")
+    else:
+        await msg.edit_text(result, parse_mode="Markdown")
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id not in AUTHORIZED_USERS:
@@ -280,7 +377,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         result = InstaDownloader.download_media(url)
         
         if not result.get("success"):
-            await msg.edit_text(f"❌ **Failed!**\n\n{result.get('error', 'Unknown')}", parse_mode="Markdown")
+            err_msg = result.get('error', 'Unknown')
+            # Agar error aata hai to test bhi karo
+            shortcode = InstaDownloader.get_shortcode(url)
+            await msg.edit_text(
+                f"❌ **Failed!**\n\n{err_msg}\n\n"
+                f"🔍 Test ke liye: `/test {shortcode}`",
+                parse_mode="Markdown"
+            )
             return
         
         # Multiple photos
@@ -373,7 +477,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def main():
     print("=" * 50)
-    print("  INSTAGRAM BOT v6 - FIXED PHOTOS")
+    print("  INSTAGRAM BOT v7 - TEST MODE")
     print(f"  yt-dlp: {yt_dlp.version.__version__}")
     print("=" * 50)
     
@@ -388,6 +492,7 @@ def main():
     
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("test", test_command))  # NEW TEST COMMAND
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(CallbackQueryHandler(button_handler))
     app.run_polling()
