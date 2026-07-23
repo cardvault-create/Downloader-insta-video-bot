@@ -35,6 +35,7 @@ BOT_STATE_DB = "bot_state.json"
 ACTIVATED_GROUPS_DB = "activated_groups.json"
 PHOTO_CACHE_DB = "photo_cache.json"
 VIDEO_DIR = "welcome_videos"
+SESSION_FILE = "instagram_session"
 os.makedirs(VIDEO_DIR, exist_ok=True)
 
 last_emoji_index = -1
@@ -144,10 +145,9 @@ def get_photo_cache(key):
     return None
 
 # ═══════════════════════════
-# 📥 INSTAGRAM DOWNLOADER (instaloader)
+# 📥 INSTAGRAM DOWNLOADER
 # ═══════════════════════════
 
-# Initialize instaloader once
 L = instaloader.Instaloader(
     quiet=True,
     download_videos=True,
@@ -160,22 +160,45 @@ L = instaloader.Instaloader(
     filename_pattern='{shortcode}'
 )
 
-# Load cookies if available
-if os.path.exists('cookies.txt'):
+# ⚡ LOGIN: Try session file first, then cookies, then env vars
+logged_in = False
+
+if os.path.exists(SESSION_FILE):
     try:
-        # Load session from cookies file
+        # Try to find username from session file
+        L.load_session_from_file("instagram_user", SESSION_FILE)
+        logged_in = True
+        print("✅ Logged in via session file")
+    except:
+        print("⚠️ Session file failed, trying cookies...")
+
+if not logged_in and os.path.exists('cookies.txt'):
+    try:
         with open('cookies.txt', 'r') as f:
             for line in f:
                 line = line.strip()
                 if not line or line.startswith('#'): continue
                 parts = line.split('\t')
-                if len(parts) >= 7 and parts[5] == 'sessionid':
-                    L.context._session.cookies.set('sessionid', parts[6], domain='.instagram.com')
-                elif len(parts) >= 7 and parts[5] == 'csrftoken':
-                    L.context._session.cookies.set('csrftoken', parts[6], domain='.instagram.com')
-        print("✅ instaloader cookies loaded")
+                if len(parts) >= 7:
+                    L.context._session.cookies.set(parts[5], parts[6], domain='.instagram.com')
+        logged_in = True
+        print("✅ Cookies loaded into instaloader")
     except:
-        pass
+        print("⚠️ Cookies loading failed")
+
+if not logged_in:
+    insta_user = os.environ.get('INSTA_USER')
+    insta_pass = os.environ.get('INSTA_PASS')
+    if insta_user and insta_pass:
+        try:
+            L.login(insta_user, insta_pass)
+            logged_in = True
+            print("✅ Logged in via username/password")
+        except Exception as e:
+            print(f"⚠️ Login failed: {e}")
+
+if not logged_in:
+    print("⚠️ No login method worked - public posts only")
 
 class InstaDownloader:
     
@@ -205,24 +228,20 @@ class InstaDownloader:
             post = instaloader.Post.from_shortcode(L.context, shortcode)
             
             if post.is_video:
-                # Download video
-                L.download_post(post, target=shortcode)
+                L.download_post(post, target=DOWNLOAD_DIR)
                 time.sleep(1)
                 
-                # Find downloaded video
                 for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
                     if f.endswith('.mp4') and shortcode in f:
                         fp = os.path.join(DOWNLOAD_DIR, f)
                         if os.path.exists(fp) and os.path.getsize(fp) > 50000:
-                            # Clean up other files
                             for extra in os.listdir(DOWNLOAD_DIR):
-                                if extra.endswith(('.txt', '.json', '.jpg')) and shortcode in extra:
+                                if extra.endswith(('.txt', '.json', '.jpg', '.xz')) and shortcode in extra:
                                     try: os.remove(os.path.join(DOWNLOAD_DIR, extra))
                                     except: pass
                             return {"success": True, "file_path": fp, "is_video": True}
             else:
-                # Download photos
-                L.download_post(post, target=shortcode)
+                L.download_post(post, target=DOWNLOAD_DIR)
                 time.sleep(1)
                 
                 photos = []
@@ -233,6 +252,11 @@ class InstaDownloader:
                             photos.append(fp)
                 
                 if photos:
+                    for extra in os.listdir(DOWNLOAD_DIR):
+                        if extra.endswith(('.txt', '.json', '.xz')) and shortcode in extra:
+                            try: os.remove(os.path.join(DOWNLOAD_DIR, extra))
+                            except: pass
+                    
                     result = {"success": True, "file_path": photos[0], "is_video": False}
                     if len(photos) > 1:
                         result["is_multiple"] = True
@@ -240,12 +264,12 @@ class InstaDownloader:
                         result["file_paths"] = photos
                     return result
             
-            return {"success": False, "error": "No media found"}
+            return {"success": False, "error": "No media found - Post may be private"}
             
         except Exception as e:
             err = str(e)
-            if 'login' in err.lower() or '401' in err or '403' in err:
-                return {"success": False, "error": "Login required! Add cookies.txt"}
+            if 'login' in err.lower() or '401' in err or '403' in err or 'Fetching Post metadata failed' in err:
+                return {"success": False, "error": "Login required! Add session file or cookies.txt"}
             return {"success": False, "error": err[:80]}
     
     @staticmethod
@@ -379,7 +403,7 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
         except: pass
 
 # ═══════════════════════════
-# 🤖 HANDLERS (same as before - shortened for space)
+# 🤖 HANDLERS
 # ═══════════════════════════
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -710,17 +734,22 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def main():
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
-    print("Instagram Bot - instaloader version")
-    print(f"Cookies: {'Found' if os.path.exists('cookies.txt') else 'Missing'}")
+    print("╔══════════════════════════╗")
+    print("║  🤖 INSTAGRAM BOT v26   ║")
+    print("║  ✅ INSTALOADER + LOGIN ║")
+    print("╚══════════════════════════╝")
     
-    # Install FFmpeg
     os.system('apt-get update -qq && apt-get install -y -qq ffmpeg 2>/dev/null')
+    
+    print(f"🔹 Bot: {'ENABLED' if is_bot_enabled() else 'DISABLED'}")
+    print(f"🔑 Login: {'✅' if logged_in else '❌'}")
+    print(f"🎨 E:{len(get_emojis())} S:{len(get_stickers())} V:{len(get_video_list())}")
     
     for f in os.listdir(DOWNLOAD_DIR):
         try: os.remove(os.path.join(DOWNLOAD_DIR, f))
         except: pass
     
-    app = Application.builder().token(BOT_TOKEN).read_timeout(120).write_timeout(120).connect_timeout(120).build()
+    app = Application.builder().token(BOT_TOKEN).read_timeout(120).write_timeout(120).connect_timeout(120).pool_timeout(120).build()
     
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("activate", activate_cmd))
@@ -741,7 +770,7 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(CallbackQueryHandler(button_handler))
     
-    print("Bot Started!")
+    print("✅ Bot Started! 🚀")
     app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
