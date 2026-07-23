@@ -73,7 +73,7 @@ class InstaDownloader:
             return InstaDownloader._download_photo(shortcode)
     
     # ═══════════════════════════
-    # 🎬 VIDEO
+    # 🎬 VIDEO - FIXED FOR AUDIO
     # ═══════════════════════════
     
     @staticmethod
@@ -83,7 +83,8 @@ class InstaDownloader:
                 'quiet': True,
                 'no_warnings': True,
                 'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
-                'format': 'best[ext=mp4]/best',
+                'format': 'bv*+ba/b',  # FIXED: Best video + best audio, merge them
+                'merge_output_format': 'mp4',  # FIXED: Ensure output is mp4 with audio
                 'retries': 3,
             }
             
@@ -93,10 +94,6 @@ class InstaDownloader:
             ffmpeg = shutil.which('ffmpeg')
             if ffmpeg:
                 ydl_opts['ffmpeg_location'] = ffmpeg
-                ydl_opts['postprocessors'] = [{
-                    'key': 'FFmpegVideoConvertor',
-                    'preferedformat': 'mp4',
-                }]
             
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
@@ -105,12 +102,21 @@ class InstaDownloader:
                     return {"success": False, "error": "No response from Instagram"}
                 
                 file_path = None
+                # Look for merged mp4 file first
                 for f in os.listdir(DOWNLOAD_DIR):
                     if shortcode in f and f.endswith('.mp4'):
                         file_path = os.path.join(DOWNLOAD_DIR, f)
                         break
                 
                 if not file_path:
+                    # Check for any video file
+                    for f in os.listdir(DOWNLOAD_DIR):
+                        if shortcode in f and f.endswith(('.mp4', '.webm', '.mkv')):
+                            file_path = os.path.join(DOWNLOAD_DIR, f)
+                            break
+                
+                if not file_path:
+                    # Fallback: get most recent mp4
                     mp4_files = sorted(
                         [f for f in os.listdir(DOWNLOAD_DIR) if f.endswith('.mp4')],
                         key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)),
@@ -120,10 +126,32 @@ class InstaDownloader:
                         file_path = os.path.join(DOWNLOAD_DIR, mp4_files[0])
                 
                 if file_path and os.path.exists(file_path) and os.path.getsize(file_path) > 5000:
-                    print(f"✅ Video: {os.path.basename(file_path)}")
-                    return {"success": True, "file_path": file_path, "is_video": True}
+                    # Verify audio exists in the file
+                    probe = subprocess.run(
+                        ['ffprobe', '-v', 'error', '-select_streams', 'a:0', '-show_entries', 'stream=codec_type', '-of', 'csv=p=0', file_path],
+                        capture_output=True, text=True, timeout=30
+                    )
+                    
+                    if probe.stdout.strip():
+                        print(f"✅ Video with Audio: {os.path.basename(file_path)}")
+                        return {"success": True, "file_path": file_path, "is_video": True}
+                    else:
+                        print(f"⚠️ Video without audio detected, retrying with different format...")
+                        # Try alternative format
+                        ydl_opts['format'] = 'best'  # Fallback to best single format
+                        with yt_dlp.YoutubeDL(ydl_opts) as ydl2:
+                            info2 = ydl2.extract_info(url, download=True)
+                            # Check again for file
+                            for f in os.listdir(DOWNLOAD_DIR):
+                                if shortcode in f and f.endswith('.mp4'):
+                                    file_path = os.path.join(DOWNLOAD_DIR, f)
+                                    break
+                        
+                        if file_path and os.path.exists(file_path) and os.path.getsize(file_path) > 5000:
+                            print(f"✅ Video (fallback): {os.path.basename(file_path)}")
+                            return {"success": True, "file_path": file_path, "is_video": True}
                 
-                return {"success": False, "error": "File not found"}
+                return {"success": False, "error": "File not found or no audio track"}
                 
         except Exception as e:
             err = str(e)
