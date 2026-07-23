@@ -55,14 +55,94 @@ class InstaDownloader:
         if not os.path.exists('cookies.txt'):
             return {"success": False, "error": "cookies.txt not found!"}
         
-        print(f"\n📥 {shortcode} | yt-dlp: {yt_dlp.version.__version__}")
+        print(f"\n📥 {shortcode} | Type: {'Reel' if is_reel else 'Post'}")
         
         try:
             if is_reel:
-                # REEL
+                return InstaDownloader._download_reel(shortcode, url)
+            else:
+                return InstaDownloader._download_post(shortcode, url)
+                
+        except Exception as e:
+            err = str(e)
+            if '403' in err or '401' in err:
+                return {"success": False, "error": "Cookies EXPIRED!"}
+            return {"success": False, "error": f"Error: {err[:200]}"}
+    
+    @staticmethod
+    def _download_reel(shortcode, url):
+        print("🎬 Downloading reel...")
+        
+        ydl_opts = {
+            'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
+            'format': 'bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/best',
+            'cookiefile': 'cookies.txt',
+            'quiet': True,
+            'no_warnings': True,
+            'retries': 5,
+        }
+        
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
+        
+        time.sleep(1)
+        for f in os.listdir(DOWNLOAD_DIR):
+            if shortcode in f and f.endswith('.mp4'):
+                fp = os.path.join(DOWNLOAD_DIR, f)
+                if os.path.getsize(fp) > 5000:
+                    print(f"✅ Reel: {f}")
+                    return {"success": True, "file_path": fp, "is_video": True}
+        
+        return {"success": False, "error": "Reel file not found"}
+    
+    @staticmethod
+    def _download_post(shortcode, url):
+        print("📸 Downloading photos...")
+        
+        # Saare downloaded files collect karenge
+        photos = []
+        
+        # ============================================
+        # METHOD 1: Simple download (NO format filter)
+        # ============================================
+        print("  Method 1: Simple download...")
+        try:
+            ydl_opts = {
+                'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
+                'cookiefile': 'cookies.txt',
+                'quiet': True,
+                'no_warnings': True,
+                'retries': 5,
+                # FORMAT HATA DIYA - yt-dlp khud best lega
+            }
+            
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([url])
+            
+            time.sleep(2)
+            
+            # Jo bhi download hua check karo
+            for f in os.listdir(DOWNLOAD_DIR):
+                if shortcode in f:
+                    fp = os.path.join(DOWNLOAD_DIR, f)
+                    if os.path.exists(fp) and os.path.getsize(fp) > 1000:
+                        # Video files skip karo (reel nahi hai to photo post hai)
+                        if f.endswith(('.mp4', '.mov', '.webm')):
+                            os.remove(fp)  # Video delete karo
+                            continue
+                        photos.append(fp)
+                        print(f"    ✅ {f} ({os.path.getsize(fp)} bytes)")
+        except Exception as e:
+            print(f"    ⚠️ Method 1 error: {e}")
+        
+        # ============================================
+        # METHOD 2: Agar kuch nahi mila to retry
+        # ============================================
+        if not photos:
+            print("  Method 2: Retry without extension filter...")
+            try:
                 ydl_opts = {
-                    'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
-                    'format': 'bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/best',
+                    'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}_retry.%(ext)s'),
                     'cookiefile': 'cookies.txt',
                     'quiet': True,
                     'no_warnings': True,
@@ -72,97 +152,55 @@ class InstaDownloader:
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     ydl.download([url])
                 
-                time.sleep(1)
+                time.sleep(2)
+                
                 for f in os.listdir(DOWNLOAD_DIR):
-                    if shortcode in f and f.endswith('.mp4'):
+                    if shortcode in f:
                         fp = os.path.join(DOWNLOAD_DIR, f)
-                        if os.path.getsize(fp) > 5000:
-                            return {"success": True, "file_path": fp, "is_video": True}
-                
-                return {"success": False, "error": "Reel download failed"}
-            
+                        if os.path.exists(fp) and os.path.getsize(fp) > 1000:
+                            if f.endswith(('.mp4', '.mov', '.webm')):
+                                os.remove(fp)
+                                continue
+                            photos.append(fp)
+                            print(f"    ✅ {f} ({os.path.getsize(fp)} bytes)")
+            except Exception as e:
+                print(f"    ⚠️ Method 2 error: {e}")
+        
+        # ============================================
+        # DUPLICATE REMOVAL
+        # ============================================
+        if len(photos) > 1:
+            unique = []
+            sizes = set()
+            for fp in photos:
+                s = os.path.getsize(fp)
+                if s not in sizes:
+                    sizes.add(s)
+                    unique.append(fp)
+                else:
+                    os.remove(fp)
+            photos = sorted(unique)
+        
+        # ============================================
+        # RESULT
+        # ============================================
+        if photos:
+            print(f"✅ Total photos: {len(photos)}")
+            if len(photos) == 1:
+                return {"success": True, "file_path": photos[0], "is_video": False}
             else:
-                # POST PHOTOS
-                photos = []
-                
-                # Attempt 1: Playlist mode for carousel
-                try:
-                    ydl_opts = {
-                        'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}_%(playlist_index)s.%(ext)s'),
-                        'format': 'best[ext=jpg]/best[ext=png]/best[ext=webp]/best',
-                        'cookiefile': 'cookies.txt',
-                        'quiet': True,
-                        'no_warnings': True,
-                        'retries': 5,
-                        'ignoreerrors': True,
-                        'no_playlist': False,
-                    }
-                    
-                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                        ydl.download([url])
-                    
-                    time.sleep(2)
-                    
-                    for f in sorted(os.listdir(DOWNLOAD_DIR)):
-                        if shortcode in f and not f.endswith(('.mp4', '.mov', '.webm', '.part', '.ytdl')):
-                            fp = os.path.join(DOWNLOAD_DIR, f)
-                            if os.path.exists(fp) and os.path.getsize(fp) > 1000:
-                                photos.append(fp)
-                except:
-                    pass
-                
-                # Attempt 2: Simple download
-                if not photos:
-                    try:
-                        ydl_opts = {
-                            'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
-                            'format': 'best[ext=jpg]/best[ext=png]/best[ext=webp]/best',
-                            'cookiefile': 'cookies.txt',
-                            'quiet': True,
-                            'no_warnings': True,
-                            'retries': 5,
-                        }
-                        
-                        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                            ydl.download([url])
-                        
-                        time.sleep(2)
-                        
-                        for f in sorted(os.listdir(DOWNLOAD_DIR)):
-                            if shortcode in f and not f.endswith(('.mp4', '.mov', '.webm', '.part', '.ytdl')):
-                                fp = os.path.join(DOWNLOAD_DIR, f)
-                                if os.path.exists(fp) and os.path.getsize(fp) > 1000:
-                                    photos.append(fp)
-                    except:
-                        pass
-                
-                # Remove duplicates
-                if len(photos) > 1:
-                    unique = []
-                    sizes = set()
-                    for fp in photos:
-                        s = os.path.getsize(fp)
-                        if s not in sizes:
-                            sizes.add(s)
-                            unique.append(fp)
-                        else:
-                            os.remove(fp)
-                    photos = sorted(unique)
-                
-                if photos:
-                    print(f"✅ Downloaded {len(photos)} photos")
-                    if len(photos) == 1:
-                        return {"success": True, "file_path": photos[0], "is_video": False}
-                    else:
-                        return {"success": True, "file_paths": photos, "is_video": False, "is_multiple": True, "total": len(photos)}
-                
-                return {"success": False, "error": "No photos downloaded"}
-                
-        except Exception as e:
-            err = str(e)
-            if '403' in err or '401' in err:
-                return {"success": False, "error": "Cookies EXPIRED! New cookies banao."}
-            return {"success": False, "error": f"Error: {err[:200]}"}
+                return {
+                    "success": True,
+                    "file_paths": photos,
+                    "is_video": False,
+                    "is_multiple": True,
+                    "total": len(photos)
+                }
+        
+        # Agar ab bhi kuch nahi mila
+        all_files = os.listdir(DOWNLOAD_DIR)
+        print(f"❌ No photos! Downloads: {all_files}")
+        return {"success": False, "error": f"No photos found. Downloads: {all_files}"}
     
     @staticmethod
     def extract_audio(video_path, name=None):
@@ -235,9 +273,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     context.user_data['current_url'] = url
-    shortcode = InstaDownloader.get_shortcode(url)
     
-    msg = await update.message.reply_text(f"⏳ **Processing...**", parse_mode="Markdown")
+    msg = await update.message.reply_text("⏳ **Processing...**", parse_mode="Markdown")
     
     try:
         result = InstaDownloader.download_media(url)
@@ -336,13 +373,12 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def main():
     print("=" * 50)
-    print("  INSTAGRAM BOT v6")
+    print("  INSTAGRAM BOT v6 - FIXED PHOTOS")
     print(f"  yt-dlp: {yt_dlp.version.__version__}")
     print("=" * 50)
     
     if not shutil.which('ffmpeg'):
         os.system('apt-get update -qq && apt-get install ffmpeg -y -qq 2>/dev/null')
-    print(f"✅ FFmpeg: {shutil.which('ffmpeg')}")
     
     for f in os.listdir(DOWNLOAD_DIR):
         try: os.remove(os.path.join(DOWNLOAD_DIR, f))
