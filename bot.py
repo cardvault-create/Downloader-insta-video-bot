@@ -145,7 +145,7 @@ def get_photo_cache(key):
     return None
 
 # ═══════════════════════════
-# 📥 INSTAGRAM DOWNLOADER
+# 🔑 INSTAGRAM LOGIN
 # ═══════════════════════════
 
 L = instaloader.Instaloader(
@@ -160,18 +160,32 @@ L = instaloader.Instaloader(
     filename_pattern='{shortcode}'
 )
 
-# ⚡ LOGIN: Try session file first, then cookies, then env vars
 logged_in = False
 
+# Method 1: Session file
 if os.path.exists(SESSION_FILE):
     try:
-        # Try to find username from session file
         L.load_session_from_file("instagram_user", SESSION_FILE)
         logged_in = True
-        print("✅ Logged in via session file")
-    except:
-        print("⚠️ Session file failed, trying cookies...")
+        print("✅ LOGIN SUCCESS: Session File")
+    except Exception as e:
+        print(f"❌ Session failed: {e}")
 
+# Method 2: Username/Password from ENV
+if not logged_in:
+    INSTA_USER = os.environ.get('INSTA_USER', '').strip()
+    INSTA_PASS = os.environ.get('INSTA_PASS', '').strip()
+    
+    if INSTA_USER and INSTA_PASS:
+        try:
+            print(f"🔄 Trying login: {INSTA_USER}")
+            L.login(INSTA_USER, INSTA_PASS)
+            logged_in = True
+            print(f"✅ LOGIN SUCCESS: {INSTA_USER}")
+        except Exception as e:
+            print(f"❌ Login failed: {e}")
+
+# Method 3: Cookies
 if not logged_in and os.path.exists('cookies.txt'):
     try:
         with open('cookies.txt', 'r') as f:
@@ -182,23 +196,23 @@ if not logged_in and os.path.exists('cookies.txt'):
                 if len(parts) >= 7:
                     L.context._session.cookies.set(parts[5], parts[6], domain='.instagram.com')
         logged_in = True
-        print("✅ Cookies loaded into instaloader")
-    except:
-        print("⚠️ Cookies loading failed")
+        print("✅ LOGIN SUCCESS: Cookies")
+    except Exception as e:
+        print(f"❌ Cookies failed: {e}")
 
-if not logged_in:
-    insta_user = os.environ.get('INSTA_USER')
-    insta_pass = os.environ.get('INSTA_PASS')
-    if insta_user and insta_pass:
-        try:
-            L.login(insta_user, insta_pass)
-            logged_in = True
-            print("✅ Logged in via username/password")
-        except Exception as e:
-            print(f"⚠️ Login failed: {e}")
+if logged_in:
+    print("╔══════════════════════════╗")
+    print("║  ✅ INSTAGRAM LOGGED IN ║")
+    print("╚══════════════════════════╝")
+else:
+    print("╔══════════════════════════╗")
+    print("║  ❌ NOT LOGGED IN       ║")
+    print("║  Public posts only!     ║")
+    print("╚══════════════════════════╝")
 
-if not logged_in:
-    print("⚠️ No login method worked - public posts only")
+# ═══════════════════════════
+# 📥 INSTAGRAM DOWNLOADER
+# ═══════════════════════════
 
 class InstaDownloader:
     
@@ -239,6 +253,7 @@ class InstaDownloader:
                                 if extra.endswith(('.txt', '.json', '.jpg', '.xz')) and shortcode in extra:
                                     try: os.remove(os.path.join(DOWNLOAD_DIR, extra))
                                     except: pass
+                            print(f"✅ Downloaded: {os.path.basename(fp)} ({os.path.getsize(fp)} bytes)")
                             return {"success": True, "file_path": fp, "is_video": True}
             else:
                 L.download_post(post, target=DOWNLOAD_DIR)
@@ -268,8 +283,8 @@ class InstaDownloader:
             
         except Exception as e:
             err = str(e)
-            if 'login' in err.lower() or '401' in err or '403' in err or 'Fetching Post metadata failed' in err:
-                return {"success": False, "error": "Login required! Add session file or cookies.txt"}
+            if 'login' in err.lower() or '401' in err or '403' in err:
+                return {"success": False, "error": "Login required! Set INSTA_USER & INSTA_PASS in Railway Variables"}
             return {"success": False, "error": err[:80]}
     
     @staticmethod
@@ -580,7 +595,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = await update.message.reply_text("⏳ **𝗣𝗿𝗼𝗰𝗲𝘀𝘀𝗶𝗻𝗴...**", parse_mode="Markdown")
     
     try:
-        await msg.edit_text("📥 **𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗶𝗻𝗴...**", parse_mode="Markdown")
+        is_reel = '/reel/' in url or '/tv/' in url
+        await msg.edit_text("📥 **𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗩𝗶𝗱𝗲𝗼...**" if is_reel else "📥 **𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗣𝗵𝗼𝘁𝗼...**", parse_mode="Markdown")
         result = InstaDownloader.download_media(url)
         
         if not result.get("success"):
@@ -734,15 +750,16 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def main():
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
+    
     print("╔══════════════════════════╗")
-    print("║  🤖 INSTAGRAM BOT v26   ║")
-    print("║  ✅ INSTALOADER + LOGIN ║")
+    print("║  🤖 INSTAGRAM BOT v27   ║")
+    print("║  ✅ INSTALOADER LOGIN   ║")
     print("╚══════════════════════════╝")
     
     os.system('apt-get update -qq && apt-get install -y -qq ffmpeg 2>/dev/null')
     
     print(f"🔹 Bot: {'ENABLED' if is_bot_enabled() else 'DISABLED'}")
-    print(f"🔑 Login: {'✅' if logged_in else '❌'}")
+    print(f"🔑 Login Status: {'✅ LOGGED IN' if logged_in else '❌ NOT LOGGED IN'}")
     print(f"🎨 E:{len(get_emojis())} S:{len(get_stickers())} V:{len(get_video_list())}")
     
     for f in os.listdir(DOWNLOAD_DIR):
