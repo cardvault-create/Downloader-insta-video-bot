@@ -177,7 +177,6 @@ class InstaDownloader:
     @staticmethod
     def _download_video(shortcode, url):
         try:
-            # Method 1: Direct Instagram CDN with audio
             session = requests.Session()
             session.headers.update({
                 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15',
@@ -215,7 +214,6 @@ class InstaDownloader:
                         if os.path.exists(fp) and os.path.getsize(fp) > 5000:
                             return {"success": True, "file_path": fp, "is_video": True}
             
-            # Method 2: yt-dlp merged format
             ydl_opts = {
                 'quiet': True, 'no_warnings': True,
                 'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
@@ -475,24 +473,24 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
         welcome_emojis = ["🩷", "🌸", "🏖️", "🍰", "🥂"]
         welcome_msg = await bot.send_message(chat_id, f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ ꨄ {user_mention}...🩷", parse_mode="Markdown")
         for emoji in welcome_emojis:
-            await asyncio.sleep(0.4)
+            await asyncio.sleep(0.5)
             try: await welcome_msg.edit_text(f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ ꨄ {user_mention}...{emoji}", parse_mode="Markdown")
             except: break
         if emoji_msg:
             try: await emoji_msg.delete()
             except: pass
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.2)
         starting_emojis = ["🚀", "🌠", "🪶", "🍓", "🤖", "🥡", "🍷", "🍭", "🍨", "🧭", "🫧", "🍫", "🛸"]
         words = ["s", "t", "α", "я", "т", "ι", "и", "g", ".", ".", ".", ".", "."]
         try: await welcome_msg.edit_text(f"**{starting_emojis[0]}**", parse_mode="Markdown")
         except: pass
         for i in range(len(words)):
-            await asyncio.sleep(0.06)
+            await asyncio.sleep(0.08)
             current_text = "".join(words[:i + 1])
             emoji = starting_emojis[i % len(starting_emojis)]
             try: await welcome_msg.edit_text(f"**{emoji} " + current_text + "**", parse_mode="Markdown")
             except: break
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.2)
         try: await welcome_msg.delete()
         except: pass
         sticker_id = get_random_sticker()
@@ -500,7 +498,7 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
         if sticker_id:
             try: sticker_msg = await bot.send_sticker(chat_id, sticker_id)
             except: pass
-        await asyncio.sleep(3)
+        await asyncio.sleep(4)
         video_data = get_random_video()
         final_text = WELCOME_TEXT.replace("{mention}", user_mention)
         kb = InlineKeyboardMarkup([
@@ -511,7 +509,7 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
         else:
             await bot.send_message(chat_id, final_text, parse_mode="Markdown", reply_markup=kb)
         if sticker_msg:
-            await asyncio.sleep(5)
+            await asyncio.sleep(6)
             try: await sticker_msg.delete()
             except: pass
     except:
@@ -526,32 +524,43 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_bot_enabled():
         await update.message.reply_text(BOT_DISABLED_MSG, parse_mode="Markdown")
         return
-    if update.effective_chat.type != 'private': return
+    if update.effective_chat.type != 'private':
+        return
     await welcome_animation(context.bot, update.effective_chat.id, update.effective_user.id, update.effective_user.first_name or "User")
 
 async def activate_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_bot_enabled(): return    chat = update.effective_chat
+    if not is_bot_enabled():
+        return
+    chat = update.effective_chat
     user = update.effective_user
     
-    # Check if user is admin or owner in group
-    if chat.type in ['group', 'supergroup']:
+    if chat.type not in ['group', 'supergroup']:
+        await update.message.reply_text("❌ **𝗧𝗵𝗶𝘀 𝗰𝗼𝗺𝗺𝗮𝗻𝗱 𝗼𝗻𝗹𝘆 𝘄𝗼𝗿𝗸𝘀 𝗶𝗻 𝗴𝗿𝗼𝘂𝗽𝘀!**", parse_mode="Markdown")
+        return
+    
+    # Check if user is admin or owner
+    try:
         member = await context.bot.get_chat_member(chat.id, user.id)
         if member.status not in ['administrator', 'creator'] and user.id != OWNER_ID:
-            await update.message.reply_text("❌ **Only group admins can activate the bot!**", parse_mode="Markdown")
+            await update.message.reply_text("❌ **𝗢𝗻𝗹𝘆 𝗴𝗿𝗼𝘂𝗽 𝗮𝗱𝗺𝗶𝗻𝘀 𝗰𝗮𝗻 𝗮𝗰𝘁𝗶𝘃𝗮𝘁𝗲 𝘁𝗵𝗲 𝗯𝗼𝘁!**", parse_mode="Markdown")
             return
-        
-        if is_group_activated(chat.id):
-            await update.message.reply_text("✅ **Bot is already activated in this group!**\n\nJust send Instagram link to use.", parse_mode="Markdown")
-        else:
-            activate_group(chat.id)
-            await update.message.reply_text(
-                f"✅ **Bot Activated Successfully!** 🚀\n\n"
-                f"Now send any Instagram link in this group.\n"
-                f"Bot will download and send photos/videos instantly!",
-                parse_mode="Markdown"
-            )
+    except:
+        pass
+    
+    if is_group_activated(chat.id):
+        await update.message.reply_text(
+            "✅ **𝗕𝗼𝘁 𝗶𝘀 𝗮𝗹𝗿𝗲𝗮𝗱𝘆 𝗮𝗰𝘁𝗶𝘃𝗮𝘁𝗲𝗱 𝗶𝗻 𝘁𝗵𝗶𝘀 𝗴𝗿𝗼𝘂𝗽!**\n\n"
+            "𝗝𝘂𝘀𝘁 𝘀𝗲𝗻𝗱 𝗜𝗻𝘀𝘁𝗮𝗴𝗿𝗮𝗺 𝗹𝗶𝗻𝗸 𝘁𝗼 𝘂𝘀𝗲.",
+            parse_mode="Markdown"
+        )
     else:
-        await update.message.reply_text("This command only works in groups!")
+        activate_group(chat.id)
+        await update.message.reply_text(
+            "✅ **𝗕𝗼𝘁 𝗔𝗰𝘁𝗶𝘃𝗮𝘁𝗲𝗱 𝗦𝘂𝗰𝗰𝗲𝘀𝘀𝗳𝘂𝗹𝗹𝘆!** 🚀\n\n"
+            "𝗡𝗼𝘄 𝘀𝗲𝗻𝗱 𝗮𝗻𝘆 𝗜𝗻𝘀𝘁𝗮𝗴𝗿𝗮𝗺 𝗹𝗶𝗻𝗸 𝗶𝗻 𝘁𝗵𝗶𝘀 𝗴𝗿𝗼𝘂𝗽.\n"
+            "𝗕𝗼𝘁 𝘄𝗶𝗹𝗹 𝗱𝗼𝘄𝗻𝗹𝗼𝗮𝗱 𝗮𝗻𝗱 𝘀𝗲𝗻𝗱 𝗽𝗵𝗼𝘁𝗼𝘀/𝘃𝗶𝗱𝗲𝗼𝘀 𝗶𝗻𝘀𝘁𝗮𝗻𝘁𝗹𝘆!",
+            parse_mode="Markdown"
+        )
 
 async def settings_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
@@ -563,6 +572,9 @@ async def settings_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/disable - 🚫 ˹𝐃𝐢𝐬𝐚𝐛𝐥𝐞 𝐁𝐨𝐭˼\n"
         "/enable - ✅ ˹𝐄𝐧𝐚𝐛𝐥𝐞 𝐁𝐨𝐭˼\n"
         "/settings - ⚙️ ˹𝐂𝐨𝐦𝐦𝐚𝐧𝐝𝐬 𝐋𝐢𝐬𝐭˼\n\n"
+        "👥 **˹𝐆𝐑𝐎𝐔𝐏 𝐂𝐎𝐌𝐌𝐀𝐍𝐃˼**\n"
+        "━━━━━━━━━━━━━━━━━━━\n"
+        "/activate - ✅ ˹𝐀𝐜𝐭𝐢𝐯𝐚𝐭𝐞 𝐁𝐨𝐭 𝐢𝐧 𝐆𝐫𝐨𝐮𝐩˼\n\n"
         "🎨 **˹𝐄𝐌𝐎𝐉𝐈 𝐂𝐎𝐌𝐌𝐀𝐍𝐃𝐒˼**\n"
         "━━━━━━━━━━━━━━━━━━━\n"
         "/addemoji - ⎘ ˹𝐀𝐝𝐝 𝐄𝐦𝐨𝐣𝐢˼\n"
@@ -711,7 +723,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     chat_type = update.effective_chat.type
     
-    # Check group activation for group chats
+    # Group check
     if chat_type in ['group', 'supergroup']:
         if not is_group_activated(update.effective_chat.id):
             return
@@ -790,7 +802,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     )
             await msg.delete()
             if sticker_msg:
-                await asyncio.sleep(5)
+                await asyncio.sleep(6)
                 try: await sticker_msg.delete()
                 except: pass
             return
@@ -830,7 +842,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         InstaDownloader.cleanup(fp)
         
         if sticker_msg:
-            await asyncio.sleep(5)
+            await asyncio.sleep(6)
             try: await sticker_msg.delete()
             except: pass
         
@@ -946,8 +958,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
     print("╔══════════════════════════╗")
-    print("║  🤖 INSTAGRAM BOT v15   ║")
-    print("║  ✅ PREMIUM FIXED       ║")
+    print("║  🤖 INSTAGRAM BOT v16   ║")
+    print("║  ✅ SYNTAX FIXED        ║")
     print("╚══════════════════════════╝")
     
     if not shutil.which('ffmpeg'):
