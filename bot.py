@@ -32,14 +32,13 @@ EMOJI_DB = "emojis.json"
 STICKER_DB = "stickers.json"
 VIDEO_LIST_DB = "video_list.json"
 BOT_STATE_DB = "bot_state.json"
+PHOTO_CACHE_DB = "photo_cache.json"
 VIDEO_DIR = "welcome_videos"
 os.makedirs(VIDEO_DIR, exist_ok=True)
 
 last_emoji_index = -1
 last_sticker_index = -1
 last_video_index = -1
-
-multi_photo_cache = {}
 
 def jload(f, d=None):
     try:
@@ -117,6 +116,23 @@ def clear_videos_db():
     for v in vids:
         if os.path.exists(v["path"]): os.remove(v["path"])
     jsave(VIDEO_LIST_DB, []); return len(vids)
+
+# ═══════════════ PHOTO CACHE ═══════════════
+def save_photo_cache(key, paths):
+    data = jload(PHOTO_CACHE_DB, {})
+    data[key] = {"paths": paths, "time": time.time()}
+    # Clean old entries
+    for k in list(data.keys()):
+        if time.time() - data[k].get("time", 0) > 3600:  # 1 hour
+            del data[k]
+    jsave(PHOTO_CACHE_DB, data)
+
+def get_photo_cache(key):
+    data = jload(PHOTO_CACHE_DB, {})
+    entry = data.get(key)
+    if entry and time.time() - entry.get("time", 0) < 3600:
+        return entry["paths"]
+    return None
 
 # ═══════════════════════════
 # 📥 INSTAGRAM DOWNLOADER
@@ -348,13 +364,13 @@ class InstaDownloader:
 # ═══════════════════════════
 
 CAPTION = (
-    "𝘋/𝘓 𝘉𝘺 ➪ [˹𝚰𝖓𝖘𝖙𝖆𝖌𝖗𝖆𝖒 ✘ 𝚫𝐨𝐰𝐧𝐥𝐨𝐚𝐝𝐞𝐫˼ ♪�҉](https://t.me/Instagram_LinkToVideo_Bot)\n"
+    "𝘋/𝘓 𝘉𝘺 ➪ [˹𝚰𝖓𝖘𝖙𝖆𝖌𝖗𝖆𝖒 ✘ 𝚫𝐨𝐰𝐧𝐥𝐨𝐚𝐝𝐞𝐫˼ ♪\u00a0\u0491](https://t.me/Instagram_LinkToVideo_Bot)\n"
     "\n"
-    "༼◉𝐂𝛄𝛆𝛂𝛕𝛆𝛄◉༽ 🪽 ➪ [𝜝𝜣𝜯 𝑭𝜟𝜯𝜢𝜮𝜞](https://t.me/FathersOfCreater) �҉"
+    "\u00a0\u0491 ˹𝐂𝛄𝛆𝛂𝛕𝛆𝛄˼ \U0001fab9 ➪ [𝜝𝜣𝜯 𝑭𝜟𝜯𝜢𝜮𝜞](https://t.me/FathersOfCreater) ┏༼ ◉ ╭╮ ◉༽┓\u00a0\u0491"
 )
 
 WELCOME_TEXT = """ʜᴇʏ, {mention} 👋🏻
-ɪ'ᴍ [˹𝚰𝖓𝖘𝖙𝖆𝖌𝖗𝖆𝖒 ✘ 𝚫𝐨𝐰𝐧𝐥𝐨𝐚𝐝𝐞𝐫˼ ♪](https://t.me/Instagram_LinkToVideo_Bot),
+ɪ'ᴍ [˹𝚰𝖓𝖘𝖙𝖆𝖌𝖗𝖆𝖒 ✘ 𝚫𝐨𝐰𝐧𝐥𝐨𝐚𝐝𝐞𝐫˼ ♪\u00a0\u0491](https://t.me/Instagram_LinkToVideo_Bot),
 
 ┏━━━━━━━━━━━━━━━━━⧫
 ┠ ◆ ˹ɪ ʜᴀᴠᴇ sᴘᴇᴄɪᴀʟ ғᴇᴀᴛᴜʀᴇs˼
@@ -374,11 +390,11 @@ WELCOME_TEXT = """ʜᴇʏ, {mention} 👋🏻
 ⧫━━━━━✦◆ ◇ ◆ ◇ ◆ ◇✦━━━━━⧫
 ๏ ˹ᴄʟɪᴄᴋ ᴏɴ ᴛʜᴇ ᴀᴅᴅ ᴛᴏ ɢʀᴏᴜᴘ ʙᴜᴛᴛᴏɴ ʙᴇʟᴏᴡ ᴛᴏ ᴀᴅᴅ ᴛʜɪs ʙᴏᴛ ɪɴ ʏᴏᴜʀ ɢʀᴏᴜᴘ ᴀɴᴅ ᴇɴᴊᴏʏ ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ᴛʜᴇʀᴇ ᴛᴏᴏ˼
 
-🫧 ˹ᴅᴇᴠᴇʟᴏᴩᴇʀ˼ 🪽 ➪ [𝜝𝜣𝜯 𝑭𝜟𝜯𝜢𝜮𝜞](https://t.me/FathersOfCreater) ✔︎"""
+🫧 ˹ᴅᴇᴠᴇʟᴏᴩᴇʀ˼ \U0001fab9 ➪ [𝜝𝜣𝜯 𝑭𝜟𝜯𝜢𝜮𝜞](https://t.me/FathersOfCreater) ✔︎"""
 
 GROUP_WELCOME = """👋🏻 **ʜᴇʟʟᴏ {chat_title}!**
 
-ɪ'ᴍ [˹𝚰𝖓𝖘𝖙𝖆𝖌𝖗𝖆𝖒 ✘ 𝚫𝐨𝐰𝐧𝐥𝐨𝐚𝐝𝐞𝐫˼ ♪](https://t.me/Instagram_LinkToVideo_Bot),
+ɪ'ᴍ [˹𝚰𝖓𝖘𝖙𝖆𝖌𝖗𝖆𝖒 ✘ 𝚫𝐨𝐰𝐧𝐥𝐨𝐚𝐝𝐞𝐫˼ ♪\u00a0\u0491](https://t.me/Instagram_LinkToVideo_Bot),
 
 ┏━━━━━━━━━━━━━━━━━⧫
 ┠ ◆ ˹ᴅᴏᴡɴʟᴏᴀᴅ ɪɴsᴛᴀɢʀᴀᴍ ʀᴇᴇʟs, ᴘʜᴏᴛᴏs & ᴀᴜᴅɪᴏ˼
@@ -388,54 +404,19 @@ GROUP_WELCOME = """👋🏻 **ʜᴇʟʟᴏ {chat_title}!**
 
 ⚡ ˹sɪʀғ ʟɪɴᴋ ʙʜᴇᴊᴏ, ʙᴀᴋɪ ʙᴏᴛ ᴅᴇᴋʜ ʟᴇɢᴀ˼
 
-🫧 ˹ᴅᴇᴠᴇʟᴏᴩᴇʀ˼ 🪽 ➪ [𝜝𝜣𝜯 𝑭𝜟𝜯𝜢𝜮𝜞](https://t.me/FathersOfCreater) ✔︎"""
+🫧 ˹ᴅᴇᴠᴇʟᴏᴩᴇʀ˼ \U0001fab9 ➪ [𝜝𝜣𝜯 𝑭𝜟𝜯𝜢𝜮𝜞](https://t.me/FathersOfCreater) ✔︎"""
 
-BOT_DISABLED_MSG = """🚫 **𝗕𝗢𝗧 𝗦𝗧𝗢𝗣 𝗕𝗬 𝗢𝗪𝗡𝗘𝗥**
+BOT_DISABLED_MSG = "🚫 **𝗕𝗢𝗧 𝗦𝗧𝗢𝗣 𝗕𝗬 𝗢𝗪𝗡𝗘𝗥**\n\n𝗧𝗵𝗶𝘀 𝗯𝗼𝘁 𝗶𝘀 𝗰𝘂𝗿𝗿𝗲𝗻𝘁𝗹𝘆 𝗱𝗶𝘀𝗮𝗯𝗹𝗲𝗱.\n𝗣𝗹𝗲𝗮𝘀𝗲 𝘁𝗿𝘆 𝗮𝗴𝗮𝗶𝗻 𝗹𝗮𝘁𝗲𝗿.\n\n🫧 ˹𝗗𝗲𝘃𝗲𝗹𝗼𝗽𝗲𝗿˼ \U0001fab9 ➪ [𝜝𝜣𝜯 𝑭𝜟𝜯𝜢𝜮𝜞](https://t.me/FathersOfCreater)"
 
-𝗧𝗵𝗶𝘀 𝗯𝗼𝘁 𝗶𝘀 𝗰𝘂𝗿𝗿𝗲𝗻𝘁𝗹𝘆 𝗱𝗶𝘀𝗮𝗯𝗹𝗲𝗱.
-𝗣𝗹𝗲𝗮𝘀𝗲 𝘁𝗿𝘆 𝗮𝗴𝗮𝗶𝗻 𝗹𝗮𝘁𝗲𝗿.
-
-🫧 ˹𝗗𝗲𝘃𝗲𝗹𝗼𝗽𝗲𝗿˼ 🪽 ➪ [𝜝𝜣𝜯 𝑭𝜟𝜯𝜢𝜮𝜞](https://t.me/FathersOfCreater)"""
-
-AUDIO_BUTTON_TEXT = "➪ ˹𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝 𝐕𝐢𝐝𝐞𝐨 𝐀𝐮𝐝𝐢𝐨˼  ♪�҉"
-AUDIO_DEFAULT_NAME = "➪ ༼◉♡ 𝙈𝙮 𝙈𝙪𝙨𝙞𝙘 ♪�҉🛸◉༽"
+AUDIO_BUTTON_TEXT = "➪ ˹𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝 𝐕𝐢𝐝𝐞𝐨 𝐀𝐮𝐝𝐢𝐨˼  ♪\u00a0\u0491"
+AUDIO_DEFAULT_NAME = "➪ ༼◉♡ 𝙈𝙮 𝙈𝙪𝙨𝙞𝙘 ♪\u00a0\u0491🛸◉༽"
 
 AUDIO_NAME_PROMPT = (
     "➪ 𝙊𝙠𝙖𝙮, 𝙂𝙖𝙫𝙚 𝙈𝙚 𝘼𝙪𝙙𝙞𝙤 𝙉𝙖𝙢𝙚?\n\n"
     "𝐄𝐱𝐚𝐦𝐩𝐥𝐞 : 𝐌𝐲 𝐌𝐮𝐬𝐢𝐜 🎶\n"
-    " ˹ησ ι∂єα вє¢αυѕє уσυ gαу˼ ♪�҉\n\n"
+    " ˹ησ ι∂єα вє¢αυѕє уσυ gαу˼ ♪\u00a0\u0491\n\n"
     "𝐘𝐨𝐮 𝐇𝐚𝐯𝐞 𝐍𝐨 𝐈𝐝𝐞𝐚 𝐓𝐡𝐚𝐧 𝐂𝐥𝐢𝐜𝐤 𝐓𝐡𝐢𝐬 𝐁𝐮𝐭𝐭𝐨𝐧 🔽"
 )
-
-SETTINGS_TEXT = """⚙️ **˹𝐂𝐎𝐌𝐌𝐀𝐍𝐃𝐒 𝐋𝐈𝐒𝐓˼**
-
-👑 **˹𝐎𝐖𝐍𝐄𝐑 𝐂𝐎𝐌𝐌𝐀𝐍𝐃𝐒˼**
-━━━━━━━━━━━━━━━━━━━
-/start - 🎬 ˹𝐒𝐭𝐚𝐫𝐭 𝐁𝐨𝐭˼
-/disable - 🚫 ˹𝐃𝐢𝐬𝐚𝐛𝐥𝐞 𝐁𝐨𝐭˼
-/enable - ✅ ˹𝐄𝐧𝐚𝐛𝐥𝐞 𝐁𝐨𝐭˼
-/settings - ⚙️ ˹𝐂𝐨𝐦𝐦𝐚𝐧𝐝𝐬 𝐋𝐢𝐬𝐭˼
-
-🎨 **˹𝐄𝐌𝐎𝐉𝐈 𝐂𝐎𝐌𝐌𝐀𝐍𝐃𝐒˼**
-━━━━━━━━━━━━━━━━━━━
-/addemoji - ⎘ ˹𝐀𝐝𝐝 𝐄𝐦𝐨𝐣𝐢˼
-/removeemoji - ⌫ ˹𝐑𝐞𝐦𝐨𝐯𝐞 𝐄𝐦𝐨𝐣𝐢˼
-/listemojis - ⌘ ˹𝐋𝐢𝐬𝐭 𝐄𝐦𝐨𝐣𝐢𝐬˼
-
-❄ **˹𝐒𝐓𝐈𝐂𝐊𝐄𝐑 𝐂𝐎𝐌𝐌𝐀𝐍𝐃𝐒˼**
-━━━━━━━━━━━━━━━━━━━
-/addsticker - ⎘ ˹𝐀𝐝𝐝 𝐒𝐭𝐢𝐜𝐤𝐞𝐫˼
-/removesticker - ⌫ ˹𝐑𝐞𝐦𝐨𝐯𝐞 𝐒𝐭𝐢𝐜𝐤𝐞𝐫˼
-/liststickers - ⌘ ˹𝐋𝐢𝐬𝐭 𝐒𝐭𝐢𝐜𝐤𝐞𝐫𝐬˼
-
-📹 **˹𝐕𝐈𝐃𝐄𝐎 𝐂𝐎𝐌𝐌𝐀𝐍𝐃𝐒˼**
-━━━━━━━━━━━━━━━━━━━
-/addvideo - ⎘ ˹𝐀𝐝𝐝 𝐕𝐢𝐝𝐞𝐨˼
-/delvideo - ⌫ ˹𝐃𝐞𝐥𝐞𝐭𝐞 𝐕𝐢𝐝𝐞𝐨˼
-/videos - ⌘ ˹𝐋𝐢𝐬𝐭 𝐕𝐢𝐝𝐞𝐨𝐬˼
-/clearvideos - ⎚ ˹𝐂𝐥𝐞𝐚𝐫 𝐀𝐥𝐥˼
-
-🫧 ˹𝐃𝐞𝐯𝐞𝐥𝐨𝐩𝐞𝐫˼ 🪽 ➪ [𝜝𝜣𝜯 𝑭𝜟𝜯𝜢𝜮𝜞](https://t.me/FathersOfCreater)"""
 
 # ═══════════════════════════
 # 🎬 WELCOME ANIMATION
@@ -457,10 +438,11 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
         welcome_msg = await bot.send_message(chat_id, f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ ꨄ {user_mention}...🩷", parse_mode="Markdown")
         
         for emoji in welcome_emojis:
-            await asyncio.sleep(0.35)
+            await asyncio.sleep(0.4)
             try: await welcome_msg.edit_text(f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ ꨄ {user_mention}...{emoji}", parse_mode="Markdown")
             except: break
         
+        # Delete emoji sticker after welcome baby animation completes
         if emoji_msg:
             try: await emoji_msg.delete()
             except: pass
@@ -474,7 +456,7 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
         except: pass
         
         for i in range(len(words)):
-            await asyncio.sleep(0.05)
+            await asyncio.sleep(0.06)
             current_text = "".join(words[:i + 1])
             emoji = starting_emojis[i % len(starting_emojis)]
             try: await welcome_msg.edit_text(f"**{emoji} " + current_text + "**", parse_mode="Markdown")
@@ -490,6 +472,7 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
             try: sticker_msg = await bot.send_sticker(chat_id, sticker_id)
             except: pass
         
+        # Wait for sticker to be fully visible
         await asyncio.sleep(3)
         
         video_data = get_random_video()
@@ -504,8 +487,9 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
         else:
             await bot.send_message(chat_id, final_text, parse_mode="Markdown", reply_markup=kb)
         
+        # Delete sticker AFTER final message
         if sticker_msg:
-            await asyncio.sleep(3)
+            await asyncio.sleep(5)
             try: await sticker_msg.delete()
             except: pass
             
@@ -522,11 +506,33 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_bot_enabled():
         await update.message.reply_text(BOT_DISABLED_MSG, parse_mode="Markdown")
         return
+    # Only work in private chat
+    if update.effective_chat.type != 'private':
+        return
     await welcome_animation(context.bot, update.effective_chat.id, update.effective_user.id, update.effective_user.first_name or "User")
 
 async def settings_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
-    await update.message.reply_text(SETTINGS_TEXT, parse_mode="Markdown", disable_web_page_preview=True)
+    text = f"""⚙️ **˹𝐂𝐎𝐌𝐌𝐀𝐍𝐃𝐒 𝐋𝐈𝐒𝐓˼**
+
+👑 **˹𝐎𝐖𝐍𝐄𝐑˼**
+━━━━━━━━━━━━━━━━━━━
+/start - Start Bot
+/disable - Disable Bot
+/enable - Enable Bot
+/settings - Commands List
+
+🎨 **˹𝐄𝐌𝐎𝐉𝐈˼**
+/addemoji /removeemoji /listemojis
+
+❄ **˹𝐒𝐓𝐈𝐂𝐊𝐄𝐑˼**
+/addsticker /removesticker /liststickers
+
+📹 **˹𝐕𝐈𝐃𝐄𝐎˼**
+/addvideo /delvideo /videos /clearvideos
+
+🫧 ˹𝐃𝐞𝐯˼ ➪ [𝜝𝜣𝜯 𝑭𝜟𝜯𝜢𝜮𝜞](https://t.me/FathersOfCreater)"""
+    await update.message.reply_text(text, parse_mode="Markdown", disable_web_page_preview=True)
 
 async def bot_added_to_group(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_bot_enabled(): return
@@ -688,7 +694,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['current_url'] = url
     chat_id = update.effective_chat.id
     user_id = update.effective_user.id
-    cache_key = f"{chat_id}_{user_id}"
+    shortcode = InstaDownloader.get_shortcode(url)
+    cache_key = f"{chat_id}_{user_id}_{shortcode}"
+    
+    # Check photo cache first
+    cached_paths = get_photo_cache(cache_key)
     
     sticker_id = get_random_sticker()
     sticker_msg = None
@@ -700,7 +710,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     try:
         is_reel = '/reel/' in url or '/tv/' in url
-        await msg.edit_text("📥 **𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗩𝗶𝗱𝗲𝗼...**" if is_reel else "📥 **𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗣𝗵𝗼𝘁𝗼...**", parse_mode="Markdown")
+        
+        if is_reel:
+            await msg.edit_text("📥 **𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗩𝗶𝗱𝗲𝗼...**", parse_mode="Markdown")
+        else:
+            await msg.edit_text("📥 **𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗣𝗵𝗼𝘁𝗼...**", parse_mode="Markdown")
+        
         result = InstaDownloader.download_media(url)
         
         if not result.get("success"):
@@ -710,10 +725,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 except: pass
             return
         
+        # Handle multiple photos
         if result.get("is_multiple"):
             photo_paths = result.get("file_paths", [])
             total = len(photo_paths)
-            multi_photo_cache[cache_key] = photo_paths
+            # Save to cache
+            save_photo_cache(cache_key, photo_paths)
             
             await msg.edit_text(f"📤 **𝗨𝗽𝗹𝗼𝗮𝗱𝗶𝗻𝗴 {total} 𝗣𝗵𝗼𝘁𝗼𝘀...**", parse_mode="Markdown")
             
@@ -721,14 +738,19 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 keyboard = None
                 if total > 1:
                     keyboard = InlineKeyboardMarkup([
-                        [InlineKeyboardButton(f"➪ ˹𝐍𝐞𝐱𝐭 𝐏𝐡𝐨𝐭𝐨˼ ➤ (2/{total})", callback_data=f"nextphoto_{cache_key}_0")]
+                        [InlineKeyboardButton(f"➪ ˹𝐍𝐞𝐱𝐭 𝐏𝐡𝐨𝐭𝐨˼ ➤ (2/{total})", callback_data=f"nxp_{cache_key}_0")]
                     ])
                 with open(photo_paths[0], 'rb') as f:
-                    await update.message.reply_photo(photo=f, caption=f"📸 **Photo 1/{total}**\n\n{CAPTION}", parse_mode="Markdown", reply_markup=keyboard)
+                    await update.message.reply_photo(
+                        photo=f,
+                        caption=f"📸 **Photo 1/{total}**\n\n{CAPTION}",
+                        parse_mode="Markdown",
+                        reply_markup=keyboard
+                    )
             
             await msg.delete()
             if sticker_msg:
-                await asyncio.sleep(2)
+                await asyncio.sleep(5)
                 try: await sticker_msg.delete()
                 except: pass
             return
@@ -754,9 +776,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         if is_video:
             await msg.edit_text("📤 **𝗨𝗽𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗩𝗶𝗱𝗲𝗼...**", parse_mode="Markdown")
-            keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(AUDIO_BUTTON_TEXT, callback_data=f"audio_{url}")]])
+            keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(AUDIO_BUTTON_TEXT, callback_data=f"aud_{url}")]])
             with open(fp, 'rb') as f:
-                await update.message.reply_video(video=f, caption=CAPTION, parse_mode="Markdown", reply_markup=keyboard, supports_streaming=True)
+                await update.message.reply_video(
+                    video=f, caption=CAPTION, parse_mode="Markdown",
+                    reply_markup=keyboard, supports_streaming=True
+                )
         else:
             await msg.edit_text("📤 **𝗨𝗽𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗣𝗵𝗼𝘁𝗼...**", parse_mode="Markdown")
             with open(fp, 'rb') as f:
@@ -766,7 +791,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         InstaDownloader.cleanup(fp)
         
         if sticker_msg:
-            await asyncio.sleep(3)
+            await asyncio.sleep(5)
             try: await sticker_msg.delete()
             except: pass
         
@@ -837,18 +862,18 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
-    if query.data.startswith("audio_"):
-        video_url = query.data.replace("audio_", "")
+    if query.data.startswith("aud_"):
+        video_url = query.data[4:]  # Remove "aud_"
         context.user_data['audio_video_url'] = video_url
         context.user_data['current_url'] = video_url
         await query.edit_message_reply_markup(reply_markup=None)
         await asyncio.sleep(1.5)
-        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(AUDIO_DEFAULT_NAME, callback_data="default_audio")]])
+        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(AUDIO_DEFAULT_NAME, callback_data="def_audio")]])
         prompt_msg = await query.message.reply_text(AUDIO_NAME_PROMPT, parse_mode="Markdown", reply_markup=keyboard)
         context.user_data['awaiting_audio'] = True
         context.user_data['audio_prompt_msg'] = prompt_msg
     
-    elif query.data == "default_audio":
+    elif query.data == "def_audio":
         await query.message.delete()
         context.user_data['awaiting_audio'] = False
         context.user_data['audio_prompt_msg'] = None
@@ -856,30 +881,32 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if url: await extract_and_send_audio_direct(query, context, url, AUDIO_DEFAULT_NAME)
         context.user_data['audio_video_url'] = None
     
-    elif query.data.startswith("nextphoto_"):
-        parts = query.data.split("_")
-        cache_key = parts[1]
-        current_idx = int(parts[2])
+    elif query.data.startswith("nxp_"):
+        # Format: nxp_{cache_key}_{current_idx}
+        parts = query.data[4:].rsplit("_", 1)  # Split from right
+        cache_key = parts[0]
+        current_idx = int(parts[1])
         next_idx = current_idx + 1
         
-        photo_paths = multi_photo_cache.get(cache_key, [])
-        total = len(photo_paths)
+        photo_paths = get_photo_cache(cache_key)
         
-        if next_idx < total and os.path.exists(photo_paths[next_idx]):
+        if photo_paths and next_idx < len(photo_paths) and os.path.exists(photo_paths[next_idx]):
             await query.edit_message_reply_markup(reply_markup=None)
             
             keyboard = None
-            if next_idx + 1 < total:
+            if next_idx + 1 < len(photo_paths):
                 keyboard = InlineKeyboardMarkup([
-                    [InlineKeyboardButton(f"➪ ˹𝐍𝐞𝐱𝐭 𝐏𝐡𝐨𝐭𝐨˼ ➤ ({next_idx + 2}/{total})", callback_data=f"nextphoto_{cache_key}_{next_idx}")]
+                    [InlineKeyboardButton(f"➪ ˹𝐍𝐞𝐱𝐭 𝐏𝐡𝐨𝐭𝐨˼ ➤ ({next_idx + 2}/{len(photo_paths)})", callback_data=f"nxp_{cache_key}_{next_idx}")]
                 ])
             
             with open(photo_paths[next_idx], 'rb') as f:
-                await query.message.reply_photo(photo=f, caption=f"📸 **Photo {next_idx + 1}/{total}**\n\n{CAPTION}", parse_mode="Markdown", reply_markup=keyboard)
+                await query.message.reply_photo(
+                    photo=f,
+                    caption=f"📸 **Photo {next_idx + 1}/{len(photo_paths)}**\n\n{CAPTION}",
+                    parse_mode="Markdown",
+                    reply_markup=keyboard
+                )
         else:
-            if cache_key in multi_photo_cache:
-                for fp in photo_paths: InstaDownloader.cleanup(fp)
-                del multi_photo_cache[cache_key]
             await query.answer("No more photos!", show_alert=True)
 
 # ═══════════════════════════
@@ -889,8 +916,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
     print("╔══════════════════════════╗")
-    print("║  🤖 INSTAGRAM BOT v12   ║")
-    print("║  ✅ ALL FIXED & STABLE  ║")
+    print("║  🤖 INSTAGRAM BOT v13   ║")
+    print("║  ✅ ALL FIXED FINAL     ║")
     print("╚══════════════════════════╝")
     
     if not shutil.which('ffmpeg'):
