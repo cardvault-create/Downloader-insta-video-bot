@@ -6,6 +6,7 @@ import shutil
 import time
 import json
 import sys
+import traceback
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 import yt_dlp
@@ -20,17 +21,6 @@ AUTHORIZED_USERS = [1987818347]
 
 DOWNLOAD_DIR = "downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
-
-# Enable yt-dlp verbose logging
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout),
-        logging.FileHandler('bot_debug.log')
-    ]
-)
-logger = logging.getLogger(__name__)
 
 # ═══════════════════════════
 # 📥 INSTAGRAM DOWNLOADER
@@ -53,10 +43,34 @@ class InstaDownloader:
         return m.group(2) if m else None
     
     @staticmethod
+    def test_cookies():
+        """Test if cookies are valid"""
+        if not os.path.exists('cookies.txt'):
+            return False, "cookies.txt file not found"
+        
+        with open('cookies.txt', 'r') as f:
+            content = f.read()
+        
+        if 'sessionid' not in content:
+            return False, "No sessionid in cookies"
+        
+        # Check sessionid expiry
+        for line in content.split('\n'):
+            if 'sessionid' in line and not line.startswith('#'):
+                parts = line.split('\t')
+                if len(parts) >= 5:
+                    expiry = int(parts[4])
+                    if expiry > 0 and expiry < time.time():
+                        return False, f"sessionid EXPIRED! (expired: {time.strftime('%Y-%m-%d', time.localtime(expiry))})"
+                    return True, f"Valid (expires: {time.strftime('%Y-%m-%d', time.localtime(expiry))})"
+        
+        return False, "Could not verify sessionid"
+    
+    @staticmethod
     def download_media(url):
         shortcode = InstaDownloader.get_shortcode(url)
         if not shortcode:
-            return {"success": False, "error": "Invalid URL"}
+            return {"success": False, "error": "❌ Invalid URL"}
         
         is_reel = '/reel/' in url or '/tv/' in url
         
@@ -67,16 +81,15 @@ class InstaDownloader:
                 except: pass
         
         # Check cookies
-        if not os.path.exists('cookies.txt'):
-            return {"success": False, "error": "❌ cookies.txt not found!"}
+        cookie_ok, cookie_msg = InstaDownloader.test_cookies()
+        if not cookie_ok:
+            return {"success": False, "error": f"❌ Cookies: {cookie_msg}"}
         
-        # Verify cookies have sessionid
-        with open('cookies.txt', 'r') as f:
-            cookie_content = f.read()
-            if 'sessionid' not in cookie_content:
-                return {"success": False, "error": "❌ cookies.txt has NO sessionid!"}
-        
-        logger.info(f"Downloading: {shortcode} (Reel: {is_reel})")
+        print(f"\n{'='*50}")
+        print(f"📥 Downloading: {shortcode}")
+        print(f"🔐 Cookies: {cookie_msg}")
+        print(f"📹 Type: {'Reel' if is_reel else 'Post'}")
+        print(f"{'='*50}\n")
         
         try:
             if is_reel:
@@ -85,12 +98,14 @@ class InstaDownloader:
                 return InstaDownloader._download_post(shortcode, url)
                 
         except Exception as e:
-            logger.error(f"Download error: {e}")
-            return {"success": False, "error": f"Error: {str(e)[:200]}"}
+            error_details = traceback.format_exc()
+            print(f"❌ FATAL ERROR:\n{error_details}")
+            return {"success": False, "error": f"❌ {str(e)[:300]}", "debug": error_details[:500]}
     
     @staticmethod
     def _download_reel(shortcode, url):
-        """Download reel with verbose logging"""
+        print("🎬 Downloading REEL...")
+        
         ydl_opts = {
             'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
             'format': 'best[ext=mp4]/best',
@@ -98,35 +113,57 @@ class InstaDownloader:
             'retries': 3,
             'quiet': False,
             'no_warnings': False,
-            'verbose': True,
-            'progress_hooks': [lambda d: logger.debug(f"Progress: {d.get('status')} - {d.get('filename', 'N/A')}")],
         }
         
         try:
-            logger.info(f"Downloading reel: {url}")
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
-                logger.info(f"Download complete: {info.get('title', 'N/A')}")
+                print(f"✅ Reel downloaded: {info.get('title', 'N/A')}")
             
             time.sleep(1)
             for f in os.listdir(DOWNLOAD_DIR):
                 if shortcode in f and f.endswith('.mp4'):
                     fp = os.path.join(DOWNLOAD_DIR, f)
-                    if os.path.getsize(fp) > 5000:
-                        logger.info(f"✅ Reel: {f}")
-                        return {"success": True, "file_path": fp, "is_video": True}
+                    size_mb = os.path.getsize(fp) / (1024*1024)
+                    print(f"✅ Found: {f} ({size_mb:.1f} MB)")
+                    return {"success": True, "file_path": fp, "is_video": True, "size_mb": size_mb}
             
             return {"success": False, "error": "Reel file not found after download"}
             
         except Exception as e:
-            logger.error(f"Reel error: {e}")
-            return {"success": False, "error": f"Reel: {str(e)[:150]}"}
+            error_str = str(e)
+            print(f"❌ Reel error: {error_str}")
+            
+            if '403' in error_str or '401' in error_str:
+                return {"success": False, "error": "🔒 Cookies EXPIRED! Fresh cookies banao."}
+            if 'login' in error_str.lower():
+                return {"success": False, "error": "🔒 Login required! Cookies invalid."}
+            
+            return {"success": False, "error": f"Reel download failed: {error_str[:200]}"}
     
     @staticmethod
     def _download_post(shortcode, url):
-        """Download post photos with verbose logging"""
+        print("📸 Downloading POST photos...")
         
-        # First attempt: With playlist (for carousel)
+        # First, try to get info without downloading
+        info_opts = {
+            'cookiefile': 'cookies.txt',
+            'quiet': True,
+            'no_warnings': True,
+        }
+        
+        try:
+            with yt_dlp.YoutubeDL(info_opts) as ydl:
+                info = ydl.extract_info(url, download=False)
+                entries = info.get('entries', [])
+                if entries:
+                    print(f"📸 Carousel detected: {len(entries)} photos")
+                else:
+                    print(f"📸 Single photo post")
+        except Exception as e:
+            print(f"⚠️ Info extraction failed: {e}")
+        
+        # Now download with proper settings
         ydl_opts = {
             'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}_%(playlist_index)s.%(ext)s'),
             'format': 'best[ext=jpg]/best[ext=png]/best[ext=webp]/best',
@@ -136,13 +173,10 @@ class InstaDownloader:
             'no_playlist': False,
             'quiet': False,
             'no_warnings': False,
-            'verbose': True,
-            'progress_hooks': [lambda d: logger.debug(f"Progress: {d.get('status')} - {d.get('filename', 'N/A')}")],
-            'logger': logger,
         }
         
         try:
-            logger.info(f"Attempt 1: Downloading with playlist mode...")
+            print("📥 Downloading with playlist mode...")
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([url])
             
@@ -155,10 +189,10 @@ class InstaDownloader:
                     fp = os.path.join(DOWNLOAD_DIR, f)
                     if os.path.exists(fp) and os.path.getsize(fp) > 1000:
                         photos.append(fp)
-                        logger.info(f"  Found: {f} ({os.path.getsize(fp)} bytes)")
+                        print(f"  ✅ Found: {f} ({os.path.getsize(fp)} bytes)")
             
-            if photos:
-                # Remove duplicates
+            # Remove duplicates
+            if len(photos) > 1:
                 unique = []
                 sizes = set()
                 for fp in photos:
@@ -168,38 +202,35 @@ class InstaDownloader:
                         unique.append(fp)
                     else:
                         os.remove(fp)
-                        logger.debug(f"  Removed duplicate: {fp}")
-                
-                logger.info(f"✅ Total unique photos: {len(unique)}")
-                
-                if len(unique) == 1:
-                    return {"success": True, "file_path": unique[0], "is_video": False}
+                photos = unique
+            
+            if photos:
+                print(f"✅ Total photos: {len(photos)}")
+                if len(photos) == 1:
+                    return {"success": True, "file_path": photos[0], "is_video": False}
                 else:
                     return {
                         "success": True,
-                        "file_paths": sorted(unique),
+                        "file_paths": sorted(photos),
                         "is_video": False,
                         "is_multiple": True,
-                        "total": len(unique)
+                        "total": len(photos)
                     }
             
-            logger.warning("No photos found in first attempt, trying fallback...")
+            print("⚠️ No files found in first attempt, trying fallback...")
             
         except Exception as e:
-            logger.error(f"Attempt 1 failed: {e}")
+            print(f"⚠️ First attempt error: {e}")
         
-        # Fallback: Without playlist index
-        logger.info("Attempt 2: Simple download...")
-        
+        # Fallback: Simple download
+        print("📥 Fallback: Simple download mode...")
         ydl_opts2 = {
             'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
-            'format': 'best[ext=jpg]/best[ext=png]/best[ext=webp]/best',
+            'format': 'best[ext=jpg]/best[ext=png]/best',
             'cookiefile': 'cookies.txt',
             'retries': 5,
             'quiet': False,
             'no_warnings': False,
-            'verbose': True,
-            'progress_hooks': [lambda d: logger.debug(f"Progress: {d.get('status')} - {d.get('filename', 'N/A')}")],
         }
         
         try:
@@ -214,10 +245,10 @@ class InstaDownloader:
                     fp = os.path.join(DOWNLOAD_DIR, f)
                     if os.path.exists(fp) and os.path.getsize(fp) > 1000:
                         photos.append(fp)
-                        logger.info(f"  Found: {f} ({os.path.getsize(fp)} bytes)")
+                        print(f"  ✅ Found: {f} ({os.path.getsize(fp)} bytes)")
             
             if photos:
-                logger.info(f"✅ Fallback found {len(photos)} photos")
+                print(f"✅ Fallback found {len(photos)} photos")
                 if len(photos) == 1:
                     return {"success": True, "file_path": photos[0], "is_video": False}
                 else:
@@ -229,17 +260,21 @@ class InstaDownloader:
                         "total": len(photos)
                     }
             
-            logger.error("No photos found in both attempts!")
-            
             # Check downloads folder
             all_files = os.listdir(DOWNLOAD_DIR)
-            logger.debug(f"All files in downloads: {all_files}")
-            
-            return {"success": False, "error": f"No photos found. Downloads folder has {len(all_files)} files. Check bot_debug.log"}
+            print(f"❌ No photos found! Downloads folder: {all_files}")
+            return {"success": False, "error": f"No photos downloaded. Downloads folder has {len(all_files)} files."}
             
         except Exception as e:
-            logger.error(f"Fallback error: {e}")
-            return {"success": False, "error": f"Download error: {str(e)[:200]}"}
+            error_str = str(e)
+            print(f"❌ Fallback error: {error_str}")
+            
+            if '403' in error_str or '401' in error_str:
+                return {"success": False, "error": "🔒 Cookies EXPIRED! Fresh cookies banao."}
+            if 'login' in error_str.lower():
+                return {"success": False, "error": "🔒 Login required! Cookies invalid."}
+            
+            return {"success": False, "error": f"Download error: {error_str[:300]}"}
     
     @staticmethod
     def extract_audio(video_path, name=None):
@@ -254,15 +289,12 @@ class InstaDownloader:
             if not ffmpeg:
                 return {"success": False, "error": "FFmpeg not found"}
             
-            result = subprocess.run(
-                ['ffmpeg', '-i', video_path, '-vn', '-acodec', 'libmp3lame', '-ab', '192k', '-y', apath],
-                capture_output=True, text=True, timeout=180
-            )
+            subprocess.run(['ffmpeg', '-i', video_path, '-vn', '-acodec', 'libmp3lame', '-ab', '192k', '-y', apath], 
+                          capture_output=True, timeout=180)
             
             if os.path.exists(apath) and os.path.getsize(apath) > 1000:
                 return {"success": True, "file_path": apath}
-            
-            return {"success": False, "error": f"FFmpeg: {result.stderr[:100]}"}
+            return {"success": False, "error": "Extraction failed"}
         except Exception as e:
             return {"success": False, "error": str(e)[:50]}
     
@@ -282,16 +314,19 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id not in AUTHORIZED_USERS:
         return
     
-    has_cookies = "✅ Found" if os.path.exists('cookies.txt') else "❌ Missing!"
+    # Test cookies
+    cookie_ok, cookie_msg = InstaDownloader.test_cookies()
+    cookie_status = f"✅ {cookie_msg}" if cookie_ok else f"❌ {cookie_msg}"
     
     await update.message.reply_text(
-        f"📥 **Instagram Downloader Bot v5**\n\n"
-        f"🔐 **cookies.txt:** {has_cookies}\n\n"
-        f"✅ **Reel** → HD Video 🎬\n"
-        f"✅ **Post** → ALL Photos 📸\n"
-        f"✅ **Carousel** → 1-by-1 photos 🔄\n"
-        f"✅ **Audio** → MP3 ⚡\n\n"
-        f"🔍 **Debug log:** bot_debug.log",
+        f"📥 **Instagram Downloader Bot**\n\n"
+        f"🔐 **Cookies:** {cookie_status}\n"
+        f"📁 **Downloads:** {DOWNLOAD_DIR}\n\n"
+        f"✅ Reel → HD Video 🎬\n"
+        f"✅ Post → ALL Photos 📸\n"
+        f"✅ Carousel → 1-by-1 photos 🔄\n"
+        f"✅ Audio → MP3 ⚡\n\n"
+        f"🔍 **Railway Logs:** Real-time errors visible",
         parse_mode="Markdown"
     )
 
@@ -319,20 +354,27 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     context.user_data['current_url'] = url
-    msg = await update.message.reply_text("⏳ **Processing...**\n🔍 Check bot_debug.log for details", parse_mode="Markdown")
+    shortcode = InstaDownloader.get_shortcode(url)
+    
+    msg = await update.message.reply_text(
+        f"⏳ **Processing...**\n"
+        f"📋 Shortcode: `{shortcode}`\n"
+        f"🔍 Check Railway logs for details...",
+        parse_mode="Markdown"
+    )
     
     try:
-        logger.info(f"Processing URL: {url}")
         result = InstaDownloader.download_media(url)
         
         if not result.get("success"):
-            error = result.get('error', 'Unknown')
-            logger.error(f"Failed: {error}")
-            await msg.edit_text(
-                f"❌ **Failed!**\n\n{error}\n\n"
-                f"📝 **Debug info:** Check `bot_debug.log` file",
-                parse_mode="Markdown"
-            )
+            error = result.get('error', 'Unknown error')
+            debug = result.get('debug', '')
+            
+            error_msg = f"❌ **Failed!**\n\n{error}"
+            if debug:
+                error_msg += f"\n\n📝 **Debug:**\n```\n{debug[:300]}\n```"
+            
+            await msg.edit_text(error_msg, parse_mode="Markdown")
             return
         
         # Multiple photos
@@ -340,7 +382,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             photos = result["file_paths"]
             total = result.get("total", len(photos))
             
-            logger.info(f"Sending {total} photos")
             await msg.edit_text(f"📤 **{total} Photos bhej raha hun...**")
             
             for i, fp in enumerate(photos, 1):
@@ -351,12 +392,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             if i == 1:
                                 caption += f"\n🔗 [Post Link]({url})"
                             await update.message.reply_photo(photo=f, caption=caption, parse_mode="Markdown")
-                            logger.info(f"Sent photo {i}/{total}")
                         
                         if i < total:
                             await asyncio.sleep(0.3)
                     except Exception as e:
-                        logger.error(f"Photo {i} send error: {e}")
                         await update.message.reply_text(f"❌ Photo {i}: {str(e)[:50]}")
                     InstaDownloader.cleanup(fp)
             
@@ -366,43 +405,56 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Single file
         fp = result["file_path"]
         if not os.path.exists(fp):
-            await msg.edit_text("❌ File not found")
+            await msg.edit_text("❌ File not found after download")
             return
         
         size_mb = os.path.getsize(fp) / (1024*1024)
         if size_mb > 50:
-            await msg.edit_text(f"❌ {size_mb:.1f}MB > 50MB limit")
+            await msg.edit_text(f"❌ File too large: {size_mb:.1f}MB (Telegram limit: 50MB)")
             InstaDownloader.cleanup(fp)
             return
         
         is_video = result.get("is_video", False) or fp.endswith(('.mp4', '.mov', '.webm'))
         
         if is_video:
-            logger.info(f"Uploading video: {fp}")
-            await msg.edit_text("📤 **Uploading Video...**")
+            await msg.edit_text(f"📤 **Uploading Video...** ({size_mb:.1f}MB)")
             kb = [[InlineKeyboardButton("🎵 Download Audio", callback_data="get_audio")]]
             with open(fp, 'rb') as f:
-                await update.message.reply_video(video=f, caption=f"✅ Done\n🔗 [Link]({url})",
-                    parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(kb), supports_streaming=True)
+                await update.message.reply_video(
+                    video=f, 
+                    caption=f"✅ **Downloaded**\n🔗 [Link]({url})",
+                    parse_mode="Markdown", 
+                    reply_markup=InlineKeyboardMarkup(kb), 
+                    supports_streaming=True
+                )
         else:
-            logger.info(f"Uploading photo: {fp}")
-            await msg.edit_text("📤 **Uploading Photo...**")
+            await msg.edit_text(f"📤 **Uploading Photo...** ({size_mb:.1f}MB)")
             with open(fp, 'rb') as f:
-                await update.message.reply_photo(photo=f, caption=f"✅ Done\n🔗 [Link]({url})", parse_mode="Markdown")
+                await update.message.reply_photo(
+                    photo=f, 
+                    caption=f"✅ **Downloaded**\n🔗 [Link]({url})", 
+                    parse_mode="Markdown"
+                )
         
         await msg.delete()
         InstaDownloader.cleanup(fp)
         
     except Exception as e:
-        logger.error(f"Handler error: {e}", exc_info=True)
-        await msg.edit_text(f"❌ **Error:** {str(e)[:100]}")
+        error_details = traceback.format_exc()
+        print(f"❌ HANDLER ERROR:\n{error_details}")
+        await msg.edit_text(
+            f"❌ **FATAL ERROR**\n\n"
+            f"```\n{error_details[:400]}\n```\n\n"
+            f"📝 Check Railway logs for full error.",
+            parse_mode="Markdown"
+        )
 
 async def extract_audio_handler(update, context, url, name):
     msg = await update.message.reply_text(f"🎵 **{name}...**", parse_mode="Markdown")
     try:
         result = InstaDownloader.download_media(url)
         if not result.get("success"):
-            await msg.edit_text("❌ Failed")
+            await msg.edit_text(f"❌ Failed: {result.get('error')}")
             return
         
         vp = result["file_paths"][0] if result.get("is_multiple") else result["file_path"]
@@ -429,32 +481,45 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['awaiting_audio'] = True
 
 def main():
-    print("="*50)
-    print("  INSTAGRAM BOT v5 - DEBUG MODE")
-    print("="*50)
+    print("=" * 60)
+    print("  INSTAGRAM BOT - RAILWAY DEPLOY")
+    print("=" * 60)
     
-    if not shutil.which('ffmpeg'):
-        print("⚠️ Installing FFmpeg...")
-        os.system('apt-get update && apt-get install ffmpeg -y 2>/dev/null')
-    print(f"✅ FFmpeg: {shutil.which('ffmpeg')}")
-    
-    # Check cookies
-    if os.path.exists('cookies.txt'):
-        with open('cookies.txt', 'r') as f:
-            content = f.read()
-            has_session = 'sessionid' in content
-            print(f"✅ cookies.txt ({os.path.getsize('cookies.txt')} bytes)")
-            print(f"   sessionid: {'✅ Found' if has_session else '❌ MISSING!'}")
+    # FFmpeg
+    ffmpeg = shutil.which('ffmpeg')
+    if ffmpeg:
+        print(f"✅ FFmpeg: {ffmpeg}")
     else:
-        print("❌ cookies.txt NOT FOUND!")
+        print("⚠️ Installing FFmpeg...")
+        os.system('apt-get update -qq && apt-get install ffmpeg -y -qq 2>/dev/null')
+        ffmpeg = shutil.which('ffmpeg')
+        print(f"{'✅' if ffmpeg else '❌'} FFmpeg: {ffmpeg}")
+    
+    # Cookies check
+    print("\n📋 COOKIES CHECK:")
+    cookie_ok, cookie_msg = InstaDownloader.test_cookies()
+    print(f"  {'✅' if cookie_ok else '❌'} {cookie_msg}")
+    
+    if not cookie_ok:
+        print("\n⚠️  COOKIES BANANE KA TARIKA:")
+        print("  1. Firefox → cookies.txt extension install karo")
+        print("  2. Instagram.com login karo")
+        print("  3. Extension → Export cookies.txt")
+        print("  4. File Railway pe upload karo\n")
+    
+    # Python version
+    print(f"\n🐍 Python: {sys.version.split()[0]}")
+    print(f"📁 Downloads: {DOWNLOAD_DIR}")
     
     # Clean
     for f in os.listdir(DOWNLOAD_DIR):
         try: os.remove(os.path.join(DOWNLOAD_DIR, f))
         except: pass
     
-    print(f"📝 Debug log: bot_debug.log")
-    print("✅ Bot Started!")
+    print("\n" + "=" * 60)
+    print("✅ BOT STARTED - Railway Logs Active")
+    print("📝 Har download ka detail Railway logs mein dikhega")
+    print("=" * 60 + "\n")
     
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
