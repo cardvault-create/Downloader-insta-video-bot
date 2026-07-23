@@ -194,28 +194,43 @@ class InstaDownloader:
         else: return InstaDownloader._download_photo(shortcode, url)
     
     @staticmethod
-    def _download_video(shortcode, url):
-        ydl_opts = {
-            'quiet': True, 'no_warnings': True,
-            'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
-            'retries': 20, 'fragment_retries': 20, 'socket_timeout': 120,
-            'http_headers': {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'},
+def _download_video(shortcode, url):
+    """Download video - simple working format"""
+    ydl_opts = {
+        'quiet': True,
+        'no_warnings': True,
+        'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
+        'format': 'best',
+        'retries': 10,
+        'socket_timeout': 60,
+        'http_headers': {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         }
-        if os.path.exists('cookies.txt'): ydl_opts['cookiefile'] = 'cookies.txt'
-        
-        for fmt in ['mp4', 'best[ext=mp4]', 'bv*+ba/b', 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best', 'bestvideo+bestaudio/best', 'best']:
-            try:
-                ydl_opts['format'] = fmt
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    ydl.extract_info(url, download=True)
-                    time.sleep(0.5)
-                    for ext in ['.mp4', '.mkv', '.webm']:
-                        for f in sorted([f for f in os.listdir(DOWNLOAD_DIR) if f.endswith(ext)], key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
-                            fp = os.path.join(DOWNLOAD_DIR, f)
-                            if os.path.exists(fp) and os.path.getsize(fp) > 50000:
-                                return {"success": True, "file_path": fp, "is_video": True}
-            except: continue
-        return {"success": False, "error": "Download failed - Try again"}
+    }
+    if os.path.exists('cookies.txt'):
+        ydl_opts['cookiefile'] = 'cookies.txt'
+    
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+            if info:
+                time.sleep(0.5)
+                # Find ANY video file
+                for ext in ['.mp4', '.mkv', '.webm', '.mov']:
+                    files = sorted(
+                        [f for f in os.listdir(DOWNLOAD_DIR) if f.endswith(ext)],
+                        key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)),
+                        reverse=True
+                    )
+                    for f in files:
+                        fp = os.path.join(DOWNLOAD_DIR, f)
+                        if os.path.exists(fp) and os.path.getsize(fp) > 10000:
+                            print(f"✅ Downloaded: {f} ({os.path.getsize(fp)} bytes)")
+                            return {"success": True, "file_path": fp, "is_video": True}
+    except Exception as e:
+        print(f"❌ Error: {e}")
+    
+    return {"success": False, "error": "Download failed - Try again"}
     
     @staticmethod
     def _download_photo(shortcode, url):
