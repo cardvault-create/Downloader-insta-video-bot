@@ -191,15 +191,23 @@ class InstaDownloader:
     
     @staticmethod
     def _download_video(shortcode, url):
+        """VIDEO WITH AUDIO - yt-dlp bestvideo+bestaudio MERGED"""
         ydl_opts = {
-            'quiet': True, 'no_warnings': True,
+            'quiet': True,
+            'no_warnings': True,
             'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
             'format': 'bestvideo+bestaudio/best',
             'merge_output_format': 'mp4',
-            'retries': 15, 'socket_timeout': 120,
+            'retries': 15,
+            'fragment_retries': 15,
+            'socket_timeout': 120,
+            'extractor_retries': 5,
+            'postprocessors': [{'key': 'FFmpegVideoConvertor', 'preferedformat': 'mp4'}],
         }
         if os.path.exists('cookies.txt'): ydl_opts['cookiefile'] = 'cookies.txt'
-        if shutil.which('ffmpeg'): ydl_opts['ffmpeg_location'] = shutil.which('ffmpeg')
+        
+        ffmpeg = shutil.which('ffmpeg')
+        if ffmpeg: ydl_opts['ffmpeg_location'] = ffmpeg
         
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -216,11 +224,13 @@ class InstaDownloader:
     
     @staticmethod
     def _download_photo(shortcode, url):
-        # Method 1: yt-dlp for carousel posts
+        """PHOTOS - yt-dlp for ALL including carousel"""
         ydl_opts = {
             'quiet': True, 'no_warnings': True,
             'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}_%(index)s.%(ext)s'),
-            'format': 'best', 'retries': 10, 'socket_timeout': 120, 'ignoreerrors': True,
+            'format': 'best',
+            'retries': 10, 'socket_timeout': 120,
+            'ignoreerrors': True,
         }
         if os.path.exists('cookies.txt'): ydl_opts['cookiefile'] = 'cookies.txt'
         
@@ -239,7 +249,7 @@ class InstaDownloader:
                     return r
         except: pass
         
-        # Method 2: Direct page scrape with cookies
+        # Fallback scrape
         try:
             cookies = get_cookie_dict()
             s = requests.Session()
@@ -255,8 +265,7 @@ class InstaDownloader:
             
             html = r.text
             img_urls = set()
-            for p in [r'"display_url"\s*:\s*"([^"]+)"', r'"display_src"\s*:\s*"([^"]+)"',
-                       r'<meta\s+property="og:image"\s+content="([^"]+)"',
+            for p in [r'"display_url"\s*:\s*"([^"]+)"', r'<meta\s+property="og:image"\s+content="([^"]+)"',
                        r'https?://[^"\'\s]+\.(?:jpg|jpeg|png|webp)[^"\'\s]*']:
                 for u in re.findall(p, html):
                     u = u.replace('\\u0026', '&').strip()
@@ -420,11 +429,11 @@ async def activate_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("✅ **𝗔𝗹𝗿𝗲𝗮𝗱𝘆 𝗮𝗰𝘁𝗶𝘃𝗮𝘁𝗲𝗱!**", parse_mode="Markdown")
     else:
         activate_group(chat.id)
-        await update.message.reply_text("✅ **𝗔𝗰𝘁𝗶𝘃𝗮𝘁𝗲𝗱!** 🚀\n𝗦𝗲𝗻𝗱 𝗜𝗻𝘀𝘁𝗮𝗴𝗿𝗮𝗺 𝗹𝗶𝗻𝗸 𝗻𝗼𝘄!", parse_mode="Markdown")
+        await update.message.reply_text("✅ **𝗔𝗰𝘁𝗶𝘃𝗮𝘁𝗲𝗱!** 🚀\n𝗦𝗲𝗻𝗱 𝗜𝗻𝘀𝘁𝗮ɢ𝗿𝗮𝗺 𝗹𝗶𝗻𝗸 𝗻𝗼𝘄!", parse_mode="Markdown")
 
 async def settings_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
-    await update.message.reply_text("⚙️ **𝗖𝗢𝗠𝗠𝗔𝗡𝗗𝗦**\n\n👑 **𝗢𝗪𝗡𝗘𝗥:** /start /disable /enable /settings\n👥 **𝗚𝗥𝗢𝗨𝗣:** /activate\n🎨 **𝗘𝗠𝗢𝗝𝗜:** /addemoji /removeemoji /listemojis\n❄ **𝗦𝗧𝗜𝗖𝗞𝗘𝗥:** /addsticker /removesticker /liststickers\n📹 **𝗩𝗜𝗗𝗘𝗢:** /addvideo /delvideo /videos /clearvideos", parse_mode="Markdown", disable_web_page_preview=True)
+    await update.message.reply_text("⚙️ **𝗖𝗢𝗠𝗠𝗔𝗡𝗗𝗦**\n\n👑 /start /disable /enable /settings\n👥 /activate\n🎨 /addemoji /removeemoji /listemojis\n❄ /addsticker /removesticker /liststickers\n📹 /addvideo /delvideo /videos /clearvideos", parse_mode="Markdown", disable_web_page_preview=True)
 
 async def bot_added_to_group(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_bot_enabled(): return
@@ -670,12 +679,13 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
     print("╔══════════════════════════╗")
-    print("║  🤖 INSTAGRAM BOT v36   ║")
-    print("║  ✅ ALL BOLD + WORKING  ║")
+    print("║  🤖 INSTAGRAM BOT v37   ║")
+    print("║  ✅ VIDEO AUDIO FIXED   ║")
     print("╚══════════════════════════╝")
     
     os.system('apt-get update -qq && apt-get install -y -qq ffmpeg 2>/dev/null')
     print(f"🍪 Cookies: {'✅ Found' if os.path.exists('cookies.txt') else '❌ Missing'}")
+    print(f"🎬 FFmpeg: {'✅ Found' if shutil.which('ffmpeg') else '❌ Missing'}")
     
     for f in os.listdir(DOWNLOAD_DIR):
         try: os.remove(os.path.join(DOWNLOAD_DIR, f))
