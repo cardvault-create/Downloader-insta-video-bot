@@ -82,7 +82,7 @@ class InstaDownloader:
             ydl_opts = {
                 'quiet': True,
                 'no_warnings': True,
-                'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}_%(playlist_index)s.%(ext)s'),
+                'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
                 'format': 'best[ext=mp4]/best',
                 'retries': 3,
             }
@@ -141,18 +141,17 @@ class InstaDownloader:
         
         # METHOD 1: oEmbed API - Instagram ka official public API
         # Yeh sabse reliable hai, kisi login ki zaroorat nahi
-        print("📥 Method 1: yt-dlp")
-        result = InstaDownloader._method_ytdlp(shortcode)
-        if result.get("success"):
-            return result
-
-        print("📥 Method 2: Instagram oEmbed API")
+        print("📥 Method 1: Instagram oEmbed API")
         result = InstaDownloader._method_oembed(shortcode)
         if result.get("success"):
             return result
         
         # METHOD 2: yt-dlp (same engine jo video ke liye kaam kar raha hai)
-                
+        print("📥 Method 2: yt-dlp")
+        result = InstaDownloader._method_ytdlp(shortcode)
+        if result.get("success"):
+            return result
+        
         # METHOD 3: Direct page scrape with session
         print("📥 Method 3: Page scrape")
         result = InstaDownloader._method_scrape(shortcode)
