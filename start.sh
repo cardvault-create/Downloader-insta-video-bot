@@ -1,6 +1,6 @@
 #!/bin/bash
 echo "========================================"
-echo "  INSTAGRAM BOT - AUTO SETUP"
+echo "  INSTAGRAM BOT - SETUP"
 echo "========================================"
 
 # Update yt-dlp
@@ -14,7 +14,6 @@ pip install -r requirements.txt --quiet
 # Show versions
 echo "✅ yt-dlp: $(yt-dlp --version)"
 echo "✅ Python: $(python3 --version)"
-echo "✅ FFmpeg: $(ffmpeg -version 2>&1 | head -1)"
 
 # Run bot
 echo "🚀 Starting Bot..."
