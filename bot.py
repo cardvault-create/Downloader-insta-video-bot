@@ -25,25 +25,6 @@ DOWNLOAD_DIR = "downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
 # ═══════════════════════════
-# 🔧 FFMPEG AUTO-INSTALL
-# ═══════════════════════════
-
-def ensure_ffmpeg():
-    ffmpeg_path = shutil.which('ffmpeg')
-    if ffmpeg_path:
-        try:
-            result = subprocess.run(['ffmpeg', '-version'], capture_output=True, text=True, timeout=10)
-            if result.returncode == 0:
-                print(f"✅ FFmpeg: {ffmpeg_path}")
-                return ffmpeg_path
-        except: pass
-    print("⚠️ Installing FFmpeg...")
-    os.system('apt-get update -qq && apt-get install -y -qq ffmpeg 2>/dev/null')
-    ffmpeg_path = shutil.which('ffmpeg')
-    if ffmpeg_path: print(f"✅ FFmpeg installed: {ffmpeg_path}")
-    return ffmpeg_path
-
-# ═══════════════════════════
 # 📊 DATABASES
 # ═══════════════════════════
 
@@ -195,31 +176,43 @@ class InstaDownloader:
     
     @staticmethod
     def _download_video(shortcode, url):
-        """100% AUDIO GUARANTEED - 4 formats try"""
-        ffmpeg_path = ensure_ffmpeg()
-        
+        """100% WORKING - NO FFMPEG NEEDED"""
         ydl_opts = {
-            'quiet': True, 'no_warnings': True,
+            'quiet': True,
+            'no_warnings': True,
             'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
-            'merge_output_format': 'mp4',
-            'retries': 20, 'fragment_retries': 20, 'socket_timeout': 120,
-            'http_headers': {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'},
+            'format': 'mp4/best',
+            'retries': 15,
+            'socket_timeout': 120,
+            'http_headers': {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            }
         }
-        if ffmpeg_path: ydl_opts['ffmpeg_location'] = ffmpeg_path
-        if os.path.exists('cookies.txt'): ydl_opts['cookiefile'] = 'cookies.txt'
         
-        for fmt in ['bv*+ba/b', 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best', 'bestvideo+bestaudio/best', 'best']:
-            try:
-                ydl_opts['format'] = fmt
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    ydl.extract_info(url, download=True)
+        if os.path.exists('cookies.txt'):
+            ydl_opts['cookiefile'] = 'cookies.txt'
+        
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+                if info:
                     time.sleep(0.5)
-                    for f in sorted([f for f in os.listdir(DOWNLOAD_DIR) if f.endswith('.mp4')], key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
-                        fp = os.path.join(DOWNLOAD_DIR, f)
-                        if os.path.exists(fp) and os.path.getsize(fp) > 50000:
-                            return {"success": True, "file_path": fp, "is_video": True}
-            except: continue
-        return {"success": False, "error": "Failed - FFmpeg may not be installed"}
+                    for ext in ['.mp4', '.mkv', '.webm', '.mov']:
+                        files = sorted(
+                            [f for f in os.listdir(DOWNLOAD_DIR) if f.endswith(ext)],
+                            key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)),
+                            reverse=True
+                        )
+                        for f in files:
+                            fp = os.path.join(DOWNLOAD_DIR, f)
+                            if os.path.exists(fp) and os.path.getsize(fp) > 50000:
+                                print(f"✅ Downloaded: {f} ({os.path.getsize(fp)} bytes)")
+                                return {"success": True, "file_path": fp, "is_video": True}
+        except Exception as e:
+            print(f"❌ Video error: {e}")
+            return {"success": False, "error": str(e)[:80]}
+        
+        return {"success": False, "error": "No video file found - try with cookies"}
     
     @staticmethod
     def _download_photo(shortcode, url):
@@ -813,19 +806,19 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
     print("╔══════════════════════════╗")
-    print("║  🤖 INSTAGRAM BOT v23   ║")
-    print("║  ✅ ALL FIXED FINAL     ║")
+    print("║  🤖 INSTAGRAM BOT v24   ║")
+    print("║  ✅ NO FFMPEG NEEDED    ║")
     print("╚══════════════════════════╝")
     
-    ensure_ffmpeg()
     print(f"🔹 Bot: {'ENABLED' if is_bot_enabled() else 'DISABLED'}")
+    print(f"🍪 Cookies: {'Found' if os.path.exists('cookies.txt') else 'Missing'}")
     print(f"🎨 E:{len(get_emojis())} S:{len(get_stickers())} V:{len(get_video_list())}")
     
     for f in os.listdir(DOWNLOAD_DIR):
         try: os.remove(os.path.join(DOWNLOAD_DIR, f))
         except: pass
     
-    app = Application.builder().token(BOT_TOKEN).read_timeout(60).write_timeout(60).connect_timeout(60).pool_timeout(60).build()
+    app = Application.builder().token(BOT_TOKEN).read_timeout(120).write_timeout(120).connect_timeout(120).pool_timeout(120).build()
     
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("activate", activate_cmd))
