@@ -212,7 +212,6 @@ def _download_video(shortcode, url):
     if os.path.exists('cookies.txt'):
         ydl_opts['cookiefile'] = 'cookies.txt'
     
-    # Try formats - 'mp4' first (already merged audio+video, no FFmpeg needed)
     formats_to_try = [
         'mp4',
         'best[ext=mp4]',
@@ -231,7 +230,6 @@ def _download_video(shortcode, url):
                 info = ydl.extract_info(url, download=True)
                 if info:
                     time.sleep(0.5)
-                    # Find ANY video file
                     for ext in ['.mp4', '.mkv', '.webm']:
                         files = sorted(
                             [f for f in os.listdir(DOWNLOAD_DIR) if f.endswith(ext)],
