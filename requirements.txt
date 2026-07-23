@@ -1,3 +1,4 @@
 instaloader
 python-telegram-bot
 requests
+yt-dlp
