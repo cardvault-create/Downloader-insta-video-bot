@@ -5,6 +5,7 @@ import shutil
 import time
 import sys
 import requests
+import json
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 import yt_dlp
@@ -29,13 +30,14 @@ class InstaDownloader:
     def is_instagram_url(text):
         if not text:
             return False
-        text = text.split('?')[0]  # Remove query params
-        return bool(re.search(r'(instagram\.com|instagr\.am)/(p|reel|tv)/[a-zA-Z0-9_\-]+/?$', text))
+        text = text.split('?')[0]
+        return bool(re.search(r'(instagram\.com|instagr\.am)/(p|reel|tv)/[a-zA-Z0-9_\-]+', text))
     
     @staticmethod
     def extract_url(text):
         if not text:
             return None
+        text = text.split('?')[0]
         m = re.search(r'(instagram\.com|instagr\.am)/(p|reel|tv)/([a-zA-Z0-9_\-]+)', text)
         if m:
             return f"https://www.instagram.com/{m.group(2)}/{m.group(3)}/"
@@ -45,6 +47,24 @@ class InstaDownloader:
     def get_shortcode(url):
         m = re.search(r'/(p|reel|tv)/([a-zA-Z0-9_\-]+)', url)
         return m.group(2) if m else None
+    
+    @staticmethod
+    def load_cookies():
+        """Load cookies from cookies.txt file"""
+        cookies = {}
+        if not os.path.exists('cookies.txt'):
+            return cookies
+        
+        with open('cookies.txt', 'r') as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+                parts = line.split('\t')
+                if len(parts) >= 7:
+                    cookies[parts[5]] = parts[6]
+        
+        return cookies
     
     @staticmethod
     def download_media(url):
@@ -60,26 +80,21 @@ class InstaDownloader:
                 try: os.remove(os.path.join(DOWNLOAD_DIR, f))
                 except: pass
         
-        if not os.path.exists('cookies.txt'):
-            return {"success": False, "error": "cookies.txt not found!"}
-        
         print(f"\n📥 {shortcode} | {'Reel' if is_reel else 'Post'}")
         
         try:
             if is_reel:
                 return InstaDownloader._download_reel(shortcode, url)
             else:
-                return InstaDownloader._download_post_photos(shortcode, url)
+                return InstaDownloader._download_post_direct(shortcode)
         except Exception as e:
             err = str(e)
             print(f"❌ Error: {err}")
-            if '403' in err or '401' in err:
-                return {"success": False, "error": "Cookies EXPIRED! Naya banao."}
             return {"success": False, "error": f"{err[:200]}"}
     
     @staticmethod
     def _download_reel(shortcode, url):
-        """Reel download using yt-dlp (working)"""
+        """Reel download using yt-dlp"""
         print("🎬 Downloading reel...")
         
         ydl_opts = {
@@ -105,196 +120,240 @@ class InstaDownloader:
         return {"success": False, "error": "Reel not found"}
     
     @staticmethod
-    def _download_post_photos(shortcode, url):
+    def _download_post_direct(shortcode):
         """
-        POST PHOTOS - DIRECT URL METHOD
-        yt-dlp se info extract karo, phir direct download
+        DIRECT PHOTO DOWNLOAD - NO yt-dlp!
+        Uses Instagram's embed API + direct scraping
         """
-        print("📸 Downloading post photos...")
+        print("📸 Downloading photos DIRECT METHOD...")
         
-        # Step 1: Extract info using yt-dlp with cookies
-        info_opts = {
-            'cookiefile': 'cookies.txt',
-            'quiet': True,
-            'no_warnings': True,
-        }
+        cookies = InstaDownloader.load_cookies()
+        session = requests.Session()
         
+        # Set cookies
+        for name, value in cookies.items():
+            session.cookies.set(name, value, domain='.instagram.com')
+        
+        session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br',
+        })
+        
+        all_image_urls = []
+        
+        # ============================================
+        # METHOD 1: oEmbed API (PUBLIC - always works)
+        # ============================================
+        print("  Method 1: oEmbed API...")
         try:
-            print("  📡 Fetching post info...")
-            with yt_dlp.YoutubeDL(info_opts) as ydl:
-                info = ydl.extract_info(url, download=False)
+            post_url = f"https://www.instagram.com/p/{shortcode}/"
+            api_url = f"https://api.instagram.com/oembed?url={post_url}"
             
-            if not info:
-                return {"success": False, "error": "Could not get post info"}
+            resp = session.get(api_url, timeout=15)
             
-            # Check if it's a carousel
-            entries = info.get('entries', [])
-            
-            # Agar entries nahi hai to single post hai
-            if not entries:
-                # Single post - check if it has display_url
-                if 'display_url' in info:
-                    entries = [info]
-                else:
-                    # Try to find image in formats
-                    entries = [info]
-            
-            print(f"  📸 Found {len(entries)} photo(s)")
-            
-            # Step 2: Extract all image URLs
-            image_urls = []
-            
-            for entry in entries:
-                img_url = None
+            if resp.status_code == 200:
+                data = resp.json()
+                thumbnail = data.get('thumbnail_url', '')
                 
-                # Method 1: display_url (most common)
-                if 'display_url' in entry:
-                    img_url = entry['display_url']
-                
-                # Method 2: thumbnail
-                elif 'thumbnail' in entry:
-                    img_url = entry['thumbnail']
-                
-                # Method 3: Check in image_versions2
-                elif 'image_versions2' in entry:
-                    candidates = entry['image_versions2'].get('candidates', [])
-                    if candidates:
-                        img_url = candidates[0].get('url')
-                
-                # Method 4: Check in formats
-                elif 'formats' in entry:
-                    for fmt in entry['formats']:
-                        if fmt.get('ext') in ['jpg', 'jpeg', 'png', 'webp']:
-                            img_url = fmt.get('url')
-                            break
-                
-                # Method 5: Direct url field
-                elif 'url' in entry:
-                    img_url = entry['url']
-                
-                if img_url:
-                    image_urls.append(img_url)
-                    print(f"    🔗 Found URL: {img_url[:80]}...")
+                if thumbnail:
+                    # Get HD version
+                    hd_url = re.sub(r'/s\d+x\d+/', '/s1080x1080/', thumbnail)
+                    hd_url = hd_url.split('?')[0]
+                    if hd_url not in all_image_urls:
+                        all_image_urls.append(hd_url)
+                        print(f"    ✅ oEmbed: {hd_url[:80]}...")
+        except Exception as e:
+            print(f"    ⚠️ oEmbed: {e}")
+        
+        # ============================================
+        # METHOD 2: Embed page scrape (carousel support)
+        # ============================================
+        print("  Method 2: Embed page scrape...")
+        try:
+            embed_url = f"https://www.instagram.com/p/{shortcode}/embed/captioned/"
+            resp = session.get(embed_url, timeout=15)
             
-            if not image_urls:
-                # Last resort: Try yt-dlp download
-                print("  ⚠️ No URLs found, trying yt-dlp direct download...")
-                return InstaDownloader._fallback_ytdlp_download(shortcode, url)
-            
-            # Step 3: Download all images
-            print(f"  📥 Downloading {len(image_urls)} photo(s)...")
-            
-            downloaded = []
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
-                'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
-                'Referer': 'https://www.instagram.com/',
-            }
-            
-            for i, img_url in enumerate(image_urls, 1):
-                try:
-                    # Determine extension
-                    ext = 'jpg'
-                    if '.png' in img_url.lower():
-                        ext = 'png'
-                    elif '.webp' in img_url.lower():
-                        ext = 'webp'
-                    
-                    # Filename
-                    if len(image_urls) > 1:
-                        filename = f"{shortcode}_{i}.{ext}"
-                    else:
-                        filename = f"{shortcode}.{ext}"
-                    
-                    filepath = os.path.join(DOWNLOAD_DIR, filename)
-                    
-                    # Download with retries
-                    for attempt in range(3):
+            if resp.status_code == 200:
+                html = resp.text
+                
+                # Find JSON data in script tags
+                json_patterns = [
+                    r'<script[^>]*>\s*window\.__INITIAL_STATE__\s*=\s*({.*?});\s*</script>',
+                    r'<script[^>]*>({.*?"shortcode_media".*?})</script>',
+                ]
+                
+                for pattern in json_patterns:
+                    matches = re.findall(pattern, html, re.DOTALL)
+                    for match in matches:
                         try:
-                            response = requests.get(img_url, headers=headers, timeout=30)
+                            data = json.loads(match)
                             
-                            if response.status_code == 200 and len(response.content) > 1000:
-                                with open(filepath, 'wb') as f:
-                                    f.write(response.content)
+                            # Extract all image URLs
+                            def extract_urls(obj, depth=0):
+                                if depth > 15:
+                                    return []
+                                urls = []
                                 
-                                if os.path.exists(filepath) and os.path.getsize(filepath) > 1000:
-                                    downloaded.append(filepath)
-                                    print(f"    ✅ Photo {i}: {filename} ({os.path.getsize(filepath)} bytes)")
-                                    break
-                                else:
-                                    print(f"    ⚠️ Attempt {attempt+1}: File too small")
-                            else:
-                                print(f"    ⚠️ Attempt {attempt+1}: HTTP {response.status_code}")
-                        except Exception as e:
-                            print(f"    ⚠️ Attempt {attempt+1}: {e}")
-                            time.sleep(0.5)
+                                if isinstance(obj, dict):
+                                    # Carousel media
+                                    if 'carousel_media' in obj:
+                                        for item in obj['carousel_media']:
+                                            if 'image_versions2' in item:
+                                                candidates = item['image_versions2'].get('candidates', [])
+                                                if candidates:
+                                                    urls.append(candidates[0]['url'])
+                                            elif 'display_url' in item:
+                                                urls.append(item['display_url'])
+                                    
+                                    # Single image
+                                    if 'display_url' in obj:
+                                        u = obj['display_url']
+                                        if u not in urls:
+                                            urls.append(u)
+                                    
+                                    if 'image_versions2' in obj:
+                                        candidates = obj['image_versions2'].get('candidates', [])
+                                        if candidates:
+                                            u = candidates[0]['url']
+                                            if u not in urls:
+                                                urls.append(u)
+                                    
+                                    # edge_sidecar
+                                    if 'edge_sidecar_to_children' in obj:
+                                        for edge in obj['edge_sidecar_to_children'].get('edges', []):
+                                            node = edge.get('node', {})
+                                            if 'display_url' in node:
+                                                urls.append(node['display_url'])
+                                            elif 'image_versions2' in node:
+                                                candidates = node['image_versions2'].get('candidates', [])
+                                                if candidates:
+                                                    urls.append(candidates[0]['url'])
+                                    
+                                    for v in obj.values():
+                                        urls.extend(extract_urls(v, depth + 1))
+                                
+                                elif isinstance(obj, list):
+                                    for item in obj:
+                                        urls.extend(extract_urls(item, depth + 1))
+                                
+                                return urls
+                            
+                            found = extract_urls(data)
+                            for u in found:
+                                u = u.split('?')[0]
+                                if u not in all_image_urls and '.mp4' not in u:
+                                    all_image_urls.append(u)
+                            
+                            if len(all_image_urls) > 1:
+                                break
+                        except:
+                            continue
                     
-                except Exception as e:
-                    print(f"    ❌ Photo {i} error: {e}")
-                    continue
-            
-            if downloaded:
-                print(f"✅ Downloaded {len(downloaded)} photo(s)")
-                
-                if len(downloaded) == 1:
-                    return {"success": True, "file_path": downloaded[0], "is_video": False}
-                else:
-                    return {
-                        "success": True,
-                        "file_paths": sorted(downloaded),
-                        "is_video": False,
-                        "is_multiple": True,
-                        "total": len(downloaded)
-                    }
-            
-            return {"success": False, "error": "Could not download photos"}
-            
+                    if len(all_image_urls) > 1:
+                        break
         except Exception as e:
-            print(f"  ❌ Error: {e}")
-            return {"success": False, "error": f"Error: {str(e)[:200]}"}
-    
-    @staticmethod
-    def _fallback_ytdlp_download(shortcode, url):
-        """Last resort - yt-dlp direct download"""
-        print("  🔄 Fallback: yt-dlp direct download...")
+            print(f"    ⚠️ Embed scrape: {e}")
         
-        ydl_opts = {
-            'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
-            'cookiefile': 'cookies.txt',
-            'quiet': True,
-            'no_warnings': True,
-            'retries': 5,
+        # ============================================
+        # METHOD 3: Direct page scrape
+        # ============================================
+        if not all_image_urls:
+            print("  Method 3: Direct page scrape...")
+            try:
+                page_url = f"https://www.instagram.com/p/{shortcode}/"
+                resp = session.get(page_url, timeout=15)
+                
+                if resp.status_code == 200:
+                    html = resp.text
+                    
+                    # Find all display_url in JSON
+                    json_blocks = re.findall(r'\{[^}]*"display_url"[^}]*\}', html)
+                    for block in json_blocks:
+                        url_match = re.search(r'"display_url"\s*:\s*"([^"]+)"', block)
+                        if url_match:
+                            u = url_match.group(1).replace('\\u0026', '&').split('?')[0]
+                            if u not in all_image_urls and '.mp4' not in u:
+                                all_image_urls.append(u)
+            except Exception as e:
+                print(f"    ⚠️ Direct scrape: {e}")
+        
+        # ============================================
+        # DOWNLOAD ALL FOUND PHOTOS
+        # ============================================
+        if not all_image_urls:
+            print("❌ No image URLs found!")
+            return {"success": False, "error": "No photos found. Post may be private."}
+        
+        print(f"\n✅ Found {len(all_image_urls)} photo URL(s)")
+        
+        downloaded = []
+        img_headers = {
+            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
+            'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+            'Referer': 'https://www.instagram.com/',
         }
         
-        try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([url])
-            
-            time.sleep(2)
-            
-            photos = []
-            for f in os.listdir(DOWNLOAD_DIR):
-                if shortcode in f and not f.endswith(('.mp4', '.mov', '.webm', '.part', '.ytdl')):
-                    fp = os.path.join(DOWNLOAD_DIR, f)
-                    if os.path.exists(fp) and os.path.getsize(fp) > 1000:
-                        photos.append(fp)
-            
-            if photos:
-                print(f"  ✅ Fallback: {len(photos)} photos")
-                if len(photos) == 1:
-                    return {"success": True, "file_path": photos[0], "is_video": False}
+        for i, img_url in enumerate(all_image_urls, 1):
+            try:
+                # Fix URL
+                if img_url.startswith('//'):
+                    img_url = 'https:' + img_url
+                
+                # Extension
+                ext = 'jpg'
+                if '.png' in img_url.lower():
+                    ext = 'png'
+                elif '.webp' in img_url.lower():
+                    ext = 'webp'
+                
+                # Filename
+                if len(all_image_urls) > 1:
+                    filename = f"{shortcode}_{i}.{ext}"
                 else:
-                    return {
-                        "success": True,
-                        "file_paths": sorted(photos),
-                        "is_video": False,
-                        "is_multiple": True,
-                        "total": len(photos)
-                    }
-        except Exception as e:
-            print(f"  ❌ Fallback error: {e}")
+                    filename = f"{shortcode}.{ext}"
+                
+                filepath = os.path.join(DOWNLOAD_DIR, filename)
+                
+                # Download with retries
+                for attempt in range(3):
+                    try:
+                        img_resp = session.get(img_url, headers=img_headers, timeout=30)
+                        
+                        if img_resp.status_code == 200 and len(img_resp.content) > 1000:
+                            with open(filepath, 'wb') as f:
+                                f.write(img_resp.content)
+                            
+                            if os.path.exists(filepath) and os.path.getsize(filepath) > 1000:
+                                downloaded.append(filepath)
+                                print(f"  ✅ Photo {i}/{len(all_image_urls)}: {filename} ({os.path.getsize(filepath)} bytes)")
+                                break
+                        else:
+                            time.sleep(0.5)
+                    except:
+                        time.sleep(0.5)
+                        continue
+                        
+            except Exception as e:
+                print(f"  ❌ Photo {i}: {e}")
+                continue
         
-        return {"success": False, "error": "All methods failed"}
+        if downloaded:
+            print(f"\n✅ Total downloaded: {len(downloaded)} photo(s)")
+            
+            if len(downloaded) == 1:
+                return {"success": True, "file_path": downloaded[0], "is_video": False}
+            else:
+                return {
+                    "success": True,
+                    "file_paths": sorted(downloaded),
+                    "is_video": False,
+                    "is_multiple": True,
+                    "total": len(downloaded)
+                }
+        
+        return {"success": False, "error": "Could not download any photos"}
     
     @staticmethod
     def extract_audio(video_path, name=None):
@@ -335,11 +394,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     await update.message.reply_text(
-        "📥 **Instagram Downloader Bot**\n\n"
-        "✅ **Reel** → HD Video 🎬\n"
-        "✅ **Post** → ALL Photos 📸\n"
-        "✅ **Carousel** → 1-by-1 🔄\n"
-        "✅ **Audio** → MP3 ⚡\n\n"
+        "📥 **Instagram Downloader**\n\n"
+        "✅ Reel → HD Video 🎬\n"
+        "✅ Post → ALL Photos 📸\n"
+        "✅ Carousel → 1-by-1 🔄\n"
+        "✅ Audio → MP3 ⚡\n\n"
         "🔗 **Link bhejo!**",
         parse_mode="Markdown"
     )
@@ -352,17 +411,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not text:
         return
     
-    # Audio name input
     if context.user_data.get('awaiting_audio'):
         context.user_data['awaiting_audio'] = False
         url = context.user_data.get('current_url')
         if url:
             await extract_audio_handler(update, context, url, text)
         return
-    
-    # Clean URL - remove tracking params
-    if '?' in text:
-        text = text.split('?')[0]
     
     if not InstaDownloader.is_instagram_url(text):
         return
@@ -382,7 +436,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await msg.edit_text(f"❌ **Failed!**\n\n{result.get('error', 'Unknown')}", parse_mode="Markdown")
             return
         
-        # Multiple photos
         if result.get("is_multiple"):
             photos = result["file_paths"]
             total = result.get("total", len(photos))
@@ -395,7 +448,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         with open(fp, 'rb') as f:
                             caption = f"✅ **Photo {i}/{total}**"
                             if i == 1:
-                                caption += f"\n🔗 [Instagram Post]({url})"
+                                caption += f"\n🔗 [Post]({url})"
                             await update.message.reply_photo(photo=f, caption=caption, parse_mode="Markdown")
                         
                         if i < total:
@@ -407,7 +460,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await msg.edit_text(f"✅ **{total} Photos sent!** 🔥")
             return
         
-        # Single file
         fp = result["file_path"]
         if not os.path.exists(fp):
             await msg.edit_text("❌ File not found")
@@ -415,7 +467,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         size_mb = os.path.getsize(fp) / (1024*1024)
         if size_mb > 50:
-            await msg.edit_text(f"❌ {size_mb:.1f}MB > 50MB limit")
+            await msg.edit_text(f"❌ {size_mb:.1f}MB > 50MB")
             InstaDownloader.cleanup(fp)
             return
         
@@ -472,21 +524,19 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def main():
     print("=" * 50)
-    print("  INSTAGRAM BOT - FINAL v8")
-    print(f"  yt-dlp: {yt_dlp.version.__version__}")
+    print("  INSTAGRAM BOT - DIRECT METHOD")
     print("=" * 50)
     
     if not shutil.which('ffmpeg'):
         os.system('apt-get update -qq && apt-get install ffmpeg -y -qq 2>/dev/null')
-    print(f"✅ FFmpeg: {shutil.which('ffmpeg')}")
     
     for f in os.listdir(DOWNLOAD_DIR):
         try: os.remove(os.path.join(DOWNLOAD_DIR, f))
         except: pass
     
     print("✅ Bot Started!")
-    print("📸 Photos: Direct URL download method")
-    print("🎬 Reels: yt-dlp method")
+    print("📸 Photos: Direct download (NO yt-dlp)")
+    print("🎬 Reels: yt-dlp")
     
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
