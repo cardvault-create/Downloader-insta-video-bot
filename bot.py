@@ -38,6 +38,9 @@ last_emoji_index = -1
 last_sticker_index = -1
 last_video_index = -1
 
+EMOJI_DISPLAY_TIME = 3  # seconds
+STICKER_DELETE_AFTER_FINAL = 5  # seconds
+
 def jload(f, d=None):
     try:
         if os.path.exists(f):
@@ -209,22 +212,20 @@ class InstaDownloader:
             print(f"📸 Downloading Photo: {shortcode}")
             return InstaDownloader._download_photo(shortcode)
     
+    # ═══════════════════════════
+    # 🎬 VIDEO - DIRECT INSTAGRAM WITH AUDIO
+    # ═══════════════════════════
+    
     @staticmethod
     def _download_video(shortcode, url):
         try:
-            instagram_api_url = f"https://www.instagram.com/p/{shortcode}/?__a=1&__d=1"
-            
+            # Method 1: Direct Instagram API
             session = requests.Session()
             session.headers.update({
                 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
                 'Accept-Language': 'en-US,en;q=0.9',
-                'Accept-Encoding': 'gzip, deflate, br',
-                'Connection': 'keep-alive',
                 'Referer': 'https://www.instagram.com/',
-                'Sec-Fetch-Dest': 'document',
-                'Sec-Fetch-Mode': 'navigate',
-                'Sec-Fetch-Site': 'none',
             })
             
             if os.path.exists('cookies.txt'):
@@ -240,73 +241,67 @@ class InstaDownloader:
                 for name, value in cookies.items():
                     session.cookies.set(name, value, domain='.instagram.com')
             
-            video_url = None
+            # Try to get direct video URL from Instagram page
+            page_url = f"https://www.instagram.com/p/{shortcode}/"
             try:
-                resp = session.get(instagram_api_url, timeout=15)
+                resp = session.get(page_url, timeout=15)
                 if resp.status_code == 200:
-                    data = resp.json()
-                    def extract_video_url(data_dict, depth=0):
-                        if depth > 5:
-                            return None
-                        if isinstance(data_dict, dict):
-                            if 'video_url' in data_dict:
-                                return data_dict['video_url']
-                            if 'video_versions' in data_dict:
-                                versions = data_dict['video_versions']
-                                if versions:
-                                    return versions[0].get('url')
-                            for k, v in data_dict.items():
-                                result = extract_video_url(v, depth + 1)
-                                if result:
-                                    return result
-                        elif isinstance(data_dict, list):
-                            for item in data_dict:
-                                result = extract_video_url(item, depth + 1)
-                                if result:
-                                    return result
-                        return None
-                    video_url = extract_video_url(data)
+                    html = resp.text
+                    # Extract video URL
+                    video_match = re.search(r'"video_url":"([^"]+)"', html)
+                    if video_match:
+                        video_url = video_match.group(1).replace('\\u0026', '&')
+                        file_path = os.path.join(DOWNLOAD_DIR, f"{shortcode}.mp4")
+                        
+                        dl_headers = {
+                            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X)',
+                            'Referer': 'https://www.instagram.com/',
+                            'Accept': '*/*',
+                        }
+                        
+                        vr = session.get(video_url, headers=dl_headers, stream=True, timeout=120)
+                        if vr.status_code == 200:
+                            with open(file_path, 'wb') as f:
+                                for chunk in vr.iter_content(chunk_size=8192):
+                                    if chunk: f.write(chunk)
+                            
+                            if os.path.exists(file_path) and os.path.getsize(file_path) > 5000:
+                                print(f"✅ Direct video with audio: {shortcode}")
+                                return {"success": True, "file_path": file_path, "is_video": True}
             except:
                 pass
             
-            if not video_url:
-                ydl_opts = {
-                    'quiet': True,
-                    'no_warnings': True,
-                    'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
-                    'format': 'mp4',
-                    'retries': 3,
-                    'merge_output_format': 'mp4',
-                }
-                if os.path.exists('cookies.txt'):
-                    ydl_opts['cookiefile'] = 'cookies.txt'
-                
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    info = ydl.extract_info(url, download=True)
-                    if info:
-                        for f in os.listdir(DOWNLOAD_DIR):
-                            if shortcode in f and f.endswith('.mp4'):
-                                fp = os.path.join(DOWNLOAD_DIR, f)
-                                if os.path.exists(fp) and os.path.getsize(fp) > 5000:
-                                    return {"success": True, "file_path": fp, "is_video": True}
-                return {"success": False, "error": "File not found"}
+            # Method 2: yt-dlp with best format
+            print("📡 Using yt-dlp...")
+            ydl_opts = {
+                'quiet': True,
+                'no_warnings': True,
+                'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
+                'format': 'bestvideo+bestaudio/best',
+                'merge_output_format': 'mp4',
+                'retries': 5,
+                'fragment_retries': 5,
+            }
             
-            if video_url:
-                video_url = video_url.replace('\\u0026', '&')
-                file_path = os.path.join(DOWNLOAD_DIR, f"{shortcode}.mp4")
-                dl_headers = {
-                    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15',
-                    'Referer': 'https://www.instagram.com/',
-                }
-                vr = session.get(video_url, headers=dl_headers, stream=True, timeout=60)
-                if vr.status_code == 200:
-                    with open(file_path, 'wb') as f:
-                        for chunk in vr.iter_content(chunk_size=8192):
-                            if chunk: f.write(chunk)
-                    if os.path.exists(file_path) and os.path.getsize(file_path) > 5000:
-                        return {"success": True, "file_path": file_path, "is_video": True}
+            if os.path.exists('cookies.txt'):
+                ydl_opts['cookiefile'] = 'cookies.txt'
             
-            return {"success": False, "error": "Download failed"}
+            ffmpeg = shutil.which('ffmpeg')
+            if ffmpeg:
+                ydl_opts['ffmpeg_location'] = ffmpeg
+            
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+                if info:
+                    time.sleep(1)
+                    for f in os.listdir(DOWNLOAD_DIR):
+                        if shortcode in f and f.endswith('.mp4'):
+                            fp = os.path.join(DOWNLOAD_DIR, f)
+                            if os.path.exists(fp) and os.path.getsize(fp) > 5000:
+                                print(f"✅ Video via yt-dlp: {os.path.basename(fp)}")
+                                return {"success": True, "file_path": fp, "is_video": True}
+            
+            return {"success": False, "error": "Video download failed"}
             
         except Exception as e:
             err = str(e)
@@ -314,98 +309,389 @@ class InstaDownloader:
                 return {"success": False, "error": "cookies.txt expired!"}
             return {"success": False, "error": f"{err[:80]}"}
     
+    # ═══════════════════════════
+    # 📸 PHOTO - ORIGINAL 5 METHODS (RESTORED)
+    # ═══════════════════════════
+    
     @staticmethod
     def _download_photo(shortcode):
+        """Photo download - 5 methods, ek to pakka kaam karega"""
+        
+        print("📥 Method 1: Instagram oEmbed API")
         result = InstaDownloader._method_oembed(shortcode)
-        if result.get("success"): return result
+        if result.get("success"):
+            return result
+        
+        print("📥 Method 2: yt-dlp")
         result = InstaDownloader._method_ytdlp(shortcode)
-        if result.get("success"): return result
+        if result.get("success"):
+            return result
+        
+        print("📥 Method 3: Page scrape")
         result = InstaDownloader._method_scrape(shortcode)
-        if result.get("success"): return result
-        return {"success": False, "error": "Photo download failed"}
+        if result.get("success"):
+            return result
+        
+        print("📥 Method 4: Bibliogram")
+        result = InstaDownloader._method_bibliogram(shortcode)
+        if result.get("success"):
+            return result
+        
+        print("📥 Method 5: Direct CDN")
+        result = InstaDownloader._method_cdn(shortcode)
+        if result.get("success"):
+            return result
+        
+        return {"success": False, "error": "Photo download failed. Instagram may be blocking."}
     
     @staticmethod
     def _method_oembed(shortcode):
+        """Method 1: Instagram Official oEmbed API - PUBLIC, NO LOGIN NEEDED"""
         try:
             post_url = f"https://www.instagram.com/p/{shortcode}/"
             api_url = f"https://api.instagram.com/oembed?url={urllib.parse.quote(post_url)}&maxwidth=1080"
-            resp = requests.get(api_url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=15)
+            
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Accept': 'application/json',
+            }
+            
+            resp = requests.get(api_url, headers=headers, timeout=15)
+            
             if resp.status_code != 200:
+                print(f"⚠️ oEmbed returned {resp.status_code}")
                 return {"success": False}
+            
             data = resp.json()
-            image_urls = []
+            
             thumbnail_url = data.get('thumbnail_url', '')
-            if thumbnail_url:
-                hd_url = re.sub(r'/s\d+x\d+/', '/', thumbnail_url).split('?')[0]
-                image_urls.append(hd_url)
-            for img_url in image_urls:
-                if img_url.startswith('//'): img_url = 'https:' + img_url
-                ext = 'jpg'
-                file_path = os.path.join(DOWNLOAD_DIR, f"{shortcode}.{ext}")
-                r = requests.get(img_url, headers={'User-Agent': 'Mozilla/5.0'}, stream=True, timeout=30)
-                if r.status_code == 200:
-                    with open(file_path, 'wb') as f:
-                        for chunk in r.iter_content(chunk_size=8192):
-                            if chunk: f.write(chunk)
-                    if os.path.exists(file_path) and os.path.getsize(file_path) > 1000:
-                        return {"success": True, "file_path": file_path, "is_video": False}
-            return {"success": False}
-        except:
-            return {"success": False}
-    
-    @staticmethod
-    def _method_ytdlp(shortcode):
-        try:
-            url = f"https://www.instagram.com/p/{shortcode}/"
-            ydl_opts = {'quiet': True, 'no_warnings': True, 'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'), 'format': 'best', 'retries': 3}
-            if os.path.exists('cookies.txt'): ydl_opts['cookiefile'] = 'cookies.txt'
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=True)
-                if info:
-                    time.sleep(1)
-                    for f in os.listdir(DOWNLOAD_DIR):
-                        if shortcode in f:
-                            fp = os.path.join(DOWNLOAD_DIR, f)
-                            if os.path.exists(fp) and os.path.getsize(fp) > 1000 and not f.endswith(('.mp4', '.mov', '.webm')):
-                                return {"success": True, "file_path": fp, "is_video": False}
-        except:
-            pass
-        return {"success": False}
-    
-    @staticmethod
-    def _method_scrape(shortcode):
-        try:
-            session = requests.Session()
-            session.headers.update({'User-Agent': 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36'})
-            page_url = f"https://www.instagram.com/p/{shortcode}/"
-            resp = session.get(page_url, timeout=15)
-            if resp.status_code != 200:
-                return {"success": False}
-            html = resp.text
+            embed_html = data.get('html', '')
+            
             image_urls = []
-            urls = re.findall(r'"display_url":"([^"]+)"', html)
-            for u in urls:
-                image_urls.append(u.replace('\\u0026', '&'))
+            
+            if thumbnail_url:
+                hd_url = re.sub(r'/s\d+x\d+/', '/', thumbnail_url)
+                hd_url = hd_url.split('?')[0]
+                image_urls.append(hd_url)
+                image_urls.append(thumbnail_url)
+            
+            if embed_html:
+                img_matches = re.findall(r'<img[^>]+src="([^"]+)"', embed_html)
+                for img_url in img_matches:
+                    if img_url not in image_urls:
+                        image_urls.append(img_url)
+            
             if not image_urls:
-                og = re.findall(r'<meta\s+property="og:image"\s+content="([^"]+)"', html)
-                image_urls = list(set(og))
-            for img_url in image_urls[:5]:
+                print("⚠️ No image URLs found in oEmbed response")
+                return {"success": False}
+            
+            print(f"🔗 Found {len(image_urls)} image URLs")
+            
+            downloaded = []
+            for img_url in image_urls:
                 try:
-                    if '.mp4' in img_url: continue
+                    if img_url.startswith('//'):
+                        img_url = 'https:' + img_url
+                    if img_url.startswith('http://'):
+                        img_url = img_url.replace('http://', 'https://')
+                    
+                    if '.mp4' in img_url or '.mov' in img_url:
+                        continue
+                    
                     ext = 'jpg'
-                    file_path = os.path.join(DOWNLOAD_DIR, f"{shortcode}.{ext}")
-                    r = session.get(img_url, headers={'User-Agent': 'Mozilla/5.0'}, stream=True, timeout=30)
+                    if '.png' in img_url: ext = 'png'
+                    elif '.webp' in img_url: ext = 'webp'
+                    
+                    file_name = f"{shortcode}.{ext}"
+                    file_path = os.path.join(DOWNLOAD_DIR, file_name)
+                    
+                    img_headers = {
+                        'User-Agent': 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+                        'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+                        'Referer': 'https://www.instagram.com/',
+                        'Sec-Fetch-Dest': 'image',
+                        'Sec-Fetch-Mode': 'no-cors',
+                        'Sec-Fetch-Site': 'cross-site',
+                    }
+                    
+                    r = requests.get(img_url, headers=img_headers, stream=True, timeout=30)
                     if r.status_code == 200:
                         with open(file_path, 'wb') as f:
                             for chunk in r.iter_content(chunk_size=8192):
                                 if chunk: f.write(chunk)
+                        
                         if os.path.exists(file_path) and os.path.getsize(file_path) > 1000:
+                            downloaded.append(file_path)
+                            print(f"✅ Photo via oEmbed: {os.path.basename(file_path)} ({os.path.getsize(file_path)} bytes)")
+                            break
+                except Exception as e:
+                    print(f"⚠️ oEmbed download error: {e}")
+                    continue
+            
+            if downloaded:
+                return {"success": True, "file_path": downloaded[0], "is_video": False}
+            
+            return {"success": False}
+            
+        except Exception as e:
+            print(f"⚠️ oEmbed method error: {e}")
+            return {"success": False}
+    
+    @staticmethod
+    def _method_ytdlp(shortcode):
+        """Method 2: yt-dlp"""
+        try:
+            url = f"https://www.instagram.com/p/{shortcode}/"
+            ydl_opts = {
+                'quiet': True,
+                'no_warnings': True,
+                'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
+                'format': 'best',
+                'retries': 3,
+            }
+            if os.path.exists('cookies.txt'):
+                ydl_opts['cookiefile'] = 'cookies.txt'
+            
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+                if info:
+                    time.sleep(1)
+                    
+                    for f in os.listdir(DOWNLOAD_DIR):
+                        if shortcode in f:
+                            fp = os.path.join(DOWNLOAD_DIR, f)
+                            if os.path.exists(fp) and os.path.getsize(fp) > 1000:
+                                if not f.endswith(('.mp4', '.mov', '.webm')):
+                                    print(f"✅ Photo via yt-dlp: {f}")
+                                    return {"success": True, "file_path": fp, "is_video": False}
+                    
+                    for f in os.listdir(DOWNLOAD_DIR):
+                        if shortcode in f and f.endswith('.mp4'):
+                            fp = os.path.join(DOWNLOAD_DIR, f)
+                            print(f"⚠️ yt-dlp returned video for photo URL: {f}")
+                            try: os.remove(fp)
+                            except: pass
+        except Exception as e:
+            print(f"⚠️ yt-dlp photo error: {e}")
+        return {"success": False}
+    
+    @staticmethod
+    def _method_scrape(shortcode):
+        """Method 3: Direct page scrape with session"""
+        try:
+            session = requests.Session()
+            
+            if os.path.exists('cookies.txt'):
+                cookies = {}
+                with open('cookies.txt', 'r') as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line or line.startswith('#'):
+                            continue
+                        parts = line.split('\t')
+                        if len(parts) >= 7:
+                            cookies[parts[5]] = parts[6]
+                
+                for name, value in cookies.items():
+                    session.cookies.set(name, value, domain='.instagram.com')
+            
+            session.headers.update({
+                'User-Agent': 'Mozilla/5.0 (Linux; Android 13; SM-S908B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1',
+                'Sec-Fetch-Dest': 'document',
+                'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-Site': 'none',
+                'Sec-Fetch-User': '?1',
+                'Cache-Control': 'max-age=0',
+            })
+            
+            page_url = f"https://www.instagram.com/p/{shortcode}/"
+            resp = session.get(page_url, timeout=15)
+            
+            if resp.status_code != 200:
+                print(f"⚠️ Page scrape returned {resp.status_code}")
+                return {"success": False}
+            
+            html = resp.text
+            
+            image_urls = []
+            
+            nd = re.search(r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>', html, re.DOTALL)
+            if nd:
+                try:
+                    data = json.loads(nd.group(1))
+                    def find_urls(obj, depth=0):
+                        if depth > 5:
+                            return []
+                        urls = []
+                        if isinstance(obj, dict):
+                            du = obj.get('display_url') or obj.get('display_src') or ''
+                            if isinstance(du, str) and du.startswith('http') and '.mp4' not in du:
+                                urls.append(du)
+                            for v in obj.values():
+                                urls.extend(find_urls(v, depth + 1))
+                        elif isinstance(obj, list):
+                            for item in obj:
+                                urls.extend(find_urls(item, depth + 1))
+                        return urls
+                    image_urls = find_urls(data)
+                except:
+                    pass
+            
+            if not image_urls:
+                urls = re.findall(r'"display_url":"([^"]+)"', html)
+                for u in urls:
+                    image_urls.append(u.replace('\\u0026', '&'))
+            
+            if not image_urls:
+                urls = re.findall(r'"display_src":"([^"]+)"', html)
+                for u in urls:
+                    image_urls.append(u.replace('\\u0026', '&'))
+            
+            if not image_urls:
+                og = re.findall(r'<meta\s+property="og:image"\s+content="([^"]+)"', html)
+                image_urls = list(set(og))
+            
+            if not image_urls:
+                all_imgs = re.findall(r'<img[^>]+src="([^"]+)"', html)
+                for img in all_imgs:
+                    if shortcode in img or 'cdninstagram' in img or 'instagram' in img:
+                        if '.mp4' not in img:
+                            image_urls.append(img)
+            
+            if not image_urls:
+                print("⚠️ No image URLs found in page")
+                return {"success": False}
+            
+            print(f"🔗 Found {len(image_urls)} image URLs from page scrape")
+            
+            downloaded = []
+            for i, img_url in enumerate(image_urls[:10]):
+                try:
+                    if img_url.startswith('//'):
+                        img_url = 'https:' + img_url
+                    if img_url.startswith('http://'):
+                        img_url = img_url.replace('http://', 'https://')
+                    
+                    img_url = img_url.split('?')[0]
+                    
+                    ext = 'jpg'
+                    if '.png' in img_url: ext = 'png'
+                    elif '.webp' in img_url: ext = 'webp'
+                    
+                    file_name = f"{shortcode}_{i+1}.{ext}" if len(image_urls) > 1 else f"{shortcode}.{ext}"
+                    file_path = os.path.join(DOWNLOAD_DIR, file_name)
+                    
+                    img_headers = {
+                        'User-Agent': 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36',
+                        'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+                        'Referer': 'https://www.instagram.com/',
+                        'Sec-Fetch-Dest': 'image',
+                        'Sec-Fetch-Mode': 'no-cors',
+                        'Sec-Fetch-Site': 'cross-site',
+                    }
+                    
+                    ir = session.get(img_url, headers=img_headers, stream=True, timeout=30)
+                    if ir.status_code == 200:
+                        with open(file_path, 'wb') as f:
+                            for chunk in ir.iter_content(chunk_size=8192):
+                                if chunk: f.write(chunk)
+                        
+                        if os.path.exists(file_path) and os.path.getsize(file_path) > 1000:
+                            downloaded.append(file_path)
+                            print(f"✅ Downloaded: {os.path.basename(file_path)} ({os.path.getsize(file_path)} bytes)")
+                            if len(image_urls) == 1:
+                                break
+                except Exception as e:
+                    print(f"⚠️ Download error: {e}")
+                    continue
+            
+            if downloaded:
+                if len(downloaded) == 1:
+                    return {"success": True, "file_path": downloaded[0], "is_video": False}
+                else:
+                    return {"success": True, "file_paths": downloaded, "is_video": False, "is_multiple": True}
+            
+            return {"success": False}
+            
+        except Exception as e:
+            print(f"⚠️ Scrape method error: {e}")
+            return {"success": False}
+    
+    @staticmethod
+    def _method_bibliogram(shortcode):
+        """Method 4: Bibliogram"""
+        bibliogram_instances = [
+            f"https://bibliogram.art/u/p/{shortcode}/",
+            f"https://bibliogram.pussthecat.org/u/p/{shortcode}/",
+            f"https://bibliogram.nixnet.services/u/p/{shortcode}/",
+        ]
+        
+        for instance_url in bibliogram_instances:
+            try:
+                headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+                resp = requests.get(instance_url, headers=headers, timeout=15)
+                
+                if resp.status_code == 200:
+                    imgs = re.findall(r'<img[^>]+src="([^"]+)"', resp.text)
+                    for img_url in imgs:
+                        if shortcode in img_url or 'jpg' in img_url or 'png' in img_url:
+                            if img_url.startswith('//'):
+                                img_url = 'https:' + img_url
+                            
+                            file_path = os.path.join(DOWNLOAD_DIR, f"{shortcode}.jpg")
+                            img_headers = {'User-Agent': 'Mozilla/5.0', 'Referer': instance_url}
+                            
+                            ir = requests.get(img_url, headers=img_headers, stream=True, timeout=30)
+                            if ir.status_code == 200:
+                                with open(file_path, 'wb') as f:
+                                    for chunk in ir.iter_content(chunk_size=8192):
+                                        if chunk: f.write(chunk)
+                                
+                                if os.path.exists(file_path) and os.path.getsize(file_path) > 1000:
+                                    print(f"✅ Photo via Bibliogram: {os.path.basename(file_path)}")
+                                    return {"success": True, "file_path": file_path, "is_video": False}
+            except:
+                continue
+        
+        return {"success": False}
+    
+    @staticmethod
+    def _method_cdn(shortcode):
+        """Method 5: Direct CDN"""
+        try:
+            cdn_urls = [
+                f"https://www.instagram.com/p/{shortcode}/media/?size=l",
+                f"https://i.instagram.com/{shortcode}.jpg",
+            ]
+            
+            for cdn_url in cdn_urls:
+                try:
+                    headers = {
+                        'User-Agent': 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36',
+                        'Accept': 'image/*',
+                        'Referer': 'https://www.instagram.com/',
+                    }
+                    
+                    r = requests.get(cdn_url, headers=headers, stream=True, timeout=30)
+                    if r.status_code == 200 and 'image' in r.headers.get('content-type', ''):
+                        file_path = os.path.join(DOWNLOAD_DIR, f"{shortcode}.jpg")
+                        with open(file_path, 'wb') as f:
+                            for chunk in r.iter_content(chunk_size=8192):
+                                if chunk: f.write(chunk)
+                        
+                        if os.path.exists(file_path) and os.path.getsize(file_path) > 1000:
+                            print(f"✅ Photo via CDN: {os.path.basename(file_path)}")
                             return {"success": True, "file_path": file_path, "is_video": False}
                 except:
                     continue
-            return {"success": False}
         except:
-            return {"success": False}
+            pass
+        return {"success": False}
     
     @staticmethod
     def extract_audio(video_path, custom_name=None):
@@ -463,7 +749,7 @@ async def welcome_animation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = user.id
     user_mention = f"[{first_name}](tg://user?id={user_id})"
 
-    # Step 1: Send random emoji sticker
+    # Step 1: Send random emoji sticker (3 sec display)
     emoji_id = get_random_emoji()
     emoji_msg = None
     if emoji_id:
@@ -472,7 +758,16 @@ async def welcome_animation(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except:
             pass
 
-    await asyncio.sleep(0.3)
+    await asyncio.sleep(EMOJI_DISPLAY_TIME)
+
+    # Delete emoji after 3 seconds
+    if emoji_msg:
+        try:
+            await emoji_msg.delete()
+        except:
+            pass
+
+    await asyncio.sleep(0.2)
 
     # Step 2: Welcome animation text
     welcome_emojis = ["🩷", "🌸", "🏖️", "🍰", "🥂"]
@@ -486,12 +781,6 @@ async def welcome_animation(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await asyncio.sleep(0.3)
         try:
             await welcome_msg.edit_text(f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ ꨄ {user_mention}...{emoji}", parse_mode="Markdown")
-        except:
-            pass
-
-    if emoji_msg:
-        try:
-            await emoji_msg.delete()
         except:
             pass
 
@@ -524,9 +813,10 @@ async def welcome_animation(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Step 4: Send random welcome sticker
     sticker_id = get_random_sticker()
+    sticker_msg = None
     if sticker_id:
         try:
-            await context.bot.send_sticker(chat_id, sticker_id)
+            sticker_msg = await context.bot.send_sticker(chat_id, sticker_id)
         except:
             pass
 
@@ -564,6 +854,14 @@ async def welcome_animation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await context.bot.send_message(chat_id, final_text, parse_mode="Markdown", reply_markup=kb)
 
+    # Step 6: Delete sticker 5 seconds after final message
+    if sticker_msg:
+        await asyncio.sleep(STICKER_DELETE_AFTER_FINAL)
+        try:
+            await sticker_msg.delete()
+        except:
+            pass
+
 # ═══════════════════════════
 # 🤖 COMMANDS
 # ═══════════════════════════
@@ -580,10 +878,7 @@ async def add_emoji_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     if not update.message.reply_to_message or not update.message.reply_to_message.sticker:
-        await update.message.reply_text(
-            "⎘ **ADD EMOJI**\n\nReply to a premium emoji sticker with `/addemoji`",
-            parse_mode="Markdown"
-        )
+        await update.message.reply_text("⎘ **ADD EMOJI**\n\nReply to a premium emoji sticker with `/addemoji`", parse_mode="Markdown")
         return
     
     emoji_id = update.message.reply_to_message.sticker.file_id
@@ -636,10 +931,7 @@ async def add_sticker_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     if not update.message.reply_to_message or not update.message.reply_to_message.sticker:
-        await update.message.reply_text(
-            "⎘ **ADD STICKER**\n\nReply to a sticker with `/addsticker`",
-            parse_mode="Markdown"
-        )
+        await update.message.reply_text("⎘ **ADD STICKER**\n\nReply to a sticker with `/addsticker`", parse_mode="Markdown")
         return
     
     sticker_id = update.message.reply_to_message.sticker.file_id
@@ -692,10 +984,7 @@ async def add_video_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     if not update.message.reply_to_message or not update.message.reply_to_message.video:
-        await update.message.reply_text(
-            "⎘ **ADD VIDEO**\n\nReply to a video with `/addvideo`",
-            parse_mode="Markdown"
-        )
+        await update.message.reply_text("⎘ **ADD VIDEO**\n\nReply to a video with `/addvideo`", parse_mode="Markdown")
         return
     
     msg = await update.message.reply_text("📂 Adding Video...")
@@ -782,16 +1071,37 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     context.user_data['current_url'] = url
     
+    # Send random sticker before processing
+    sticker_id = get_random_sticker()
+    if sticker_id:
+        try:
+            await context.bot.send_sticker(update.effective_chat.id, sticker_id)
+        except:
+            pass
+    
     msg = await update.message.reply_text("⏳ **Processing...**", parse_mode="Markdown")
     
     try:
-        is_reel = '/reel/' in url or '/tv/' in url
         await msg.edit_text("📥 **Downloading...**", parse_mode="Markdown")
         
         result = InstaDownloader.download_media(url)
         
         if not result.get("success"):
             await msg.edit_text(f"❌ **Failed!**\n\n{result.get('error', 'Unknown')}", parse_mode="Markdown")
+            return
+        
+        if result.get("is_multiple"):
+            photo_paths = result.get("file_paths", [])
+            await msg.edit_text(f"📤 **Uploading {len(photo_paths)} photos...**", parse_mode="Markdown")
+            for fp in photo_paths:
+                if os.path.exists(fp) and os.path.getsize(fp) > 1000:
+                    try:
+                        with open(fp, 'rb') as f:
+                            await update.message.reply_photo(photo=f, caption=CAPTION, parse_mode="Markdown")
+                    except Exception as e:
+                        await update.message.reply_text(f"❌ Error: {str(e)[:50]}")
+                    InstaDownloader.cleanup(fp)
+            await msg.delete()
             return
         
         fp = result["file_path"]
@@ -813,20 +1123,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
             with open(fp, 'rb') as f:
                 await update.message.reply_video(
-                    video=f,
-                    caption=CAPTION,
-                    parse_mode="Markdown",
-                    reply_markup=InlineKeyboardMarkup(keyboard),
-                    supports_streaming=True
+                    video=f, caption=CAPTION, parse_mode="Markdown",
+                    reply_markup=InlineKeyboardMarkup(keyboard), supports_streaming=True
                 )
         else:
             await msg.edit_text("📤 **Uploading Photo...**", parse_mode="Markdown")
             with open(fp, 'rb') as f:
-                await update.message.reply_photo(
-                    photo=f,
-                    caption=CAPTION,
-                    parse_mode="Markdown"
-                )
+                await update.message.reply_photo(photo=f, caption=CAPTION, parse_mode="Markdown")
         await msg.delete()
         InstaDownloader.cleanup(fp)
         
@@ -875,8 +1178,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if query.data == "get_audio":
         await query.edit_message_reply_markup(reply_markup=None)
         await query.message.reply_text(
-            "🎵 **Audio ka naam likhein:**\n\n"
-            "Jaise: `Meri Song`\nYa: `skip`\n\n⬇️ Type karo:",
+            "🎵 **Audio ka naam likhein:**\n\nJaise: `Meri Song`\nYa: `skip`\n\n⬇️ Type karo:",
             parse_mode="Markdown"
         )
         context.user_data['awaiting_audio'] = True
@@ -914,7 +1216,6 @@ def main():
     
     app = Application.builder().token(BOT_TOKEN).build()
     
-    # Commands
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("addemoji", add_emoji_cmd))
     app.add_handler(CommandHandler("removeemoji", remove_emoji_cmd))
@@ -927,7 +1228,6 @@ def main():
     app.add_handler(CommandHandler("videos", list_videos_cmd))
     app.add_handler(CommandHandler("clearvideos", clear_videos_cmd))
     
-    # Message handler
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(CallbackQueryHandler(button_handler))
     
