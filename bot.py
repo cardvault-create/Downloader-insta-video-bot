@@ -755,14 +755,32 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user not in AUTHORIZED_USERS:
         return
     
+    user_name = update.effective_user.first_name
+    user_mention = f"[{user_name}](tg://user?id={user})"
+    
     await update.message.reply_text(
-        "📥 **Instagram Downloader Bot**\n\n"
-        "✅ **Reel link** → HD Video + Audio 🎬\n"
-        "✅ **Post link** → HD Photo(s) 📸\n"
-        "✅ **Multiple photos** → 1-1 karke 🔄\n"
-        "✅ **Audio button** → Naam do → MP3 ⚡\n\n"
-        "**Sirf link bhejo!** 🔗",
-        parse_mode="Markdown"
+        f"ʜᴇʏ, {user_mention} 👋🏻\n"
+        f"ɪ'ᴍ [˹𝚰𝖓𝖘𝖙𝖆𝖌𝖗𝖆𝖒 ✘ 𝚫𝐨𝐰𝐧𝐥𝐨𝐚𝐝𝐞𝐫˼ ♪](https://t.me/Instagram_LinkToVideo_Bot),\n\n"
+        f"┏━━━━━━━━━━━━━━━━━⧫\n"
+        f"┠ ◆ ˹ɪ ʜᴀᴠᴇ sᴘᴇᴄɪᴀʟ ғᴇᴀᴛᴜʀᴇs˼\n"
+        f"┠ ◆ ˹ᴀʟʟ-ɪɴ-ᴏɴᴇ ʙᴏᴛ˼\n"
+        f"┗━━━━━━━━━━━━━━━━━⧫\n"
+        f"┏━━━━━━━━━━━━━━━━━⧫\n"
+        f"┠ ◆ ˹ʏᴏᴜ ᴄᴀɴ ᴅᴏᴡɴʟᴏᴀᴅ ɪɴsᴛᴀɢʀᴀᴍ ʀᴇᴇʟs˼\n"
+        f"┠ ◆ ˹ʏᴏᴜ ᴄᴀɴ ᴅᴏᴡɴʟᴏᴀᴅ ɪɴsᴛᴀɢʀᴀᴍ ᴘʜᴏᴛᴏs˼\n"
+        f"┠ ◆ ˹ʏᴏᴜ ᴄᴀɴ ᴇxᴛʀᴀᴄᴛ ᴀᴜᴅɪᴏ ғʀᴏᴍ ᴠɪᴅᴇᴏs˼\n"
+        f"┠ ◆ ˹ʜᴅ ᴠɪᴅᴇᴏ + ᴏʀɪɢɪɴᴀʟ ᴀᴜᴅɪᴏ sᴜᴘᴘᴏʀᴛ˼\n"
+        f"┠ ◆ ˹ᴍᴜʟᴛɪᴘʟᴇ ᴘʜᴏᴛᴏ ᴅᴏᴡɴʟᴏᴀᴅ sᴜᴘᴘᴏʀᴛ˼\n"
+        f"┠ ◆ ˹ɢʀᴏᴜᴘ sᴜᴘᴘᴏʀᴛ ᴀᴠᴀɪʟᴀʙʟᴇ˼\n"
+        f"┗━━━━━━━━━━━━━━━━━⧫\n\n"
+        f"⚡ ˹ᴸⁱⁿᵏ ᴮʰᵉʲᵒ → ⱽⁱᵈᵉᵒ ᴾᵃᵒ → ᴬᵘᵈⁱᵒ ᴺᵃᵃᵐ ᴮᵃᵗᵃᵒ → ᴬᵘᵈⁱᵒ ᴾᵃᵒ˼\n\n"
+        f"✦◆ ◇ ◆ ◇ ◆ ◇ ◆ ◇✦\n"
+        f"๏ ˹ᴄʟɪᴄᴋ ᴏɴ ᴛʜᴇ ʜᴇʟᴩ ʙᴜᴛᴛᴏɴ ᴛᴏ ɢᴇᴛ ɪɴғᴏʀᴍᴀᴛɪᴏɴ ᴀʙᴏᴜᴛ ᴍʏ ᴍᴏᴅᴜʟᴇ𝓼 ᴀɴᴅ ᴄᴏᴍᴍᴀɴᴅ𝓼˼\n\n"
+        f"🫧 ˹ᴅᴇᴠᴇʟᴏᴩᴇʀ˼ 🪽 ➪ [𝜝𝜣𝜯 𝑭𝜟𝜯𝜢𝜮𝜞](https://t.me/FathersOfCreater) ✔︎",
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("◆ ➪ ˹𝜟𝙙𝙙 𝜯𝜣 𝑮𝜞𝜭𝑼𝝆˼ ♪☬", url=f"https://t.me/{(await context.bot.get_me()).username}?startgroup=true")]
+        ])
     )
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
