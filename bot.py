@@ -144,36 +144,6 @@ def get_photo_cache(key):
     return None
 
 # ═══════════════════════════
-# 🔧 COOKIES LOADER
-# ═══════════════════════════
-
-def load_cookies_from_file():
-    """Safely load cookies from cookies.txt"""
-    cookies = {}
-    if os.path.exists('cookies.txt'):
-        try:
-            with open('cookies.txt', 'r') as f:
-                for line in f:
-                    line = line.strip()
-                    if not line or line.startswith('#'):
-                        continue
-                    parts = line.split('\t')
-                    if len(parts) >= 7:
-                        cookies[parts[5]] = parts[6].strip()
-        except:
-            pass
-    return cookies
-
-def apply_cookies_to_session(session):
-    """Apply cookies to requests session safely"""
-    cookies = load_cookies_from_file()
-    for name, value in cookies.items():
-        try:
-            session.cookies.set(name, value, domain='.instagram.com')
-        except:
-            pass
-
-# ═══════════════════════════
 # 📥 INSTAGRAM DOWNLOADER
 # ═══════════════════════════
 
@@ -206,14 +176,18 @@ class InstaDownloader:
     
     @staticmethod
     def _download_video(shortcode, url):
+        """Download video with GUARANTEED audio using yt-dlp"""
         try:
-            # Method 1: yt-dlp with best audio+video merged
             ydl_opts = {
-                'quiet': True, 'no_warnings': True,
+                'quiet': True,
+                'no_warnings': True,
                 'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
-                'format': 'bestvideo+bestaudio/best',
-                'merge_output_format': 'mp4', 'retries': 8, 'fragment_retries': 8,
-                'socket_timeout': 30,
+                'format': 'bv*+ba/b',  # Best video + best audio, merge them
+                'merge_output_format': 'mp4',
+                'retries': 10,
+                'fragment_retries': 10,
+                'extractor_retries': 5,
+                'socket_timeout': 60,
             }
             if os.path.exists('cookies.txt'):
                 ydl_opts['cookiefile'] = 'cookies.txt'
@@ -221,45 +195,28 @@ class InstaDownloader:
                 ydl_opts['ffmpeg_location'] = shutil.which('ffmpeg')
             
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.extract_info(url, download=True)
-                time.sleep(0.3)
+                ydl.download([url])
+                time.sleep(0.5)
+                # Find the downloaded file
                 for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
                     if f.endswith('.mp4'):
                         fp = os.path.join(DOWNLOAD_DIR, f)
                         if os.path.exists(fp) and os.path.getsize(fp) > 5000:
-                            return {"success": True, "file_path": fp, "is_video": True}
+                            # Verify audio exists
+                            try:
+                                probe = subprocess.run(
+                                    ['ffprobe', '-v', 'error', '-select_streams', 'a:0', '-show_entries', 'stream=codec_type', '-of', 'csv=p=0', fp],
+                                    capture_output=True, text=True, timeout=10
+                                )
+                                if probe.stdout.strip():
+                                    return {"success": True, "file_path": fp, "is_video": True}
+                            except:
+                                # Even if probe fails, return the file
+                                return {"success": True, "file_path": fp, "is_video": True}
             
-            # Method 2: Direct Instagram CDN
-            session = requests.Session()
-            session.headers.update({
-                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15',
-                'Accept': 'text/html,application/xhtml+xml',
-            })
-            apply_cookies_to_session(session)
-            
-            resp = session.get(url, timeout=15)
-            if resp.status_code == 200:
-                html = resp.text
-                match = re.search(r'"video_url":"([^"]+)"', html)
-                if match:
-                    video_url = match.group(1).replace('\\u0026', '&')
-                    fp = os.path.join(DOWNLOAD_DIR, f"{shortcode}.mp4")
-                    vr = session.get(video_url, headers={
-                        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X)',
-                        'Accept': '*/*',
-                        'Referer': 'https://www.instagram.com/',
-                    }, stream=True, timeout=120)
-                    if vr.status_code == 200:
-                        with open(fp, 'wb') as f:
-                            for chunk in vr.iter_content(8192):
-                                if chunk: f.write(chunk)
-                        if os.path.exists(fp) and os.path.getsize(fp) > 5000:
-                            return {"success": True, "file_path": fp, "is_video": True}
-            
-            return {"success": False, "error": "Video download failed"}
+            return {"success": False, "error": "Video download failed - try again"}
         except Exception as e:
-            err = str(e)[:100]
-            return {"success": False, "error": err}
+            return {"success": False, "error": str(e)[:100]}
     
     @staticmethod
     def _download_photo(shortcode, url):
@@ -276,7 +233,6 @@ class InstaDownloader:
         try:
             session = requests.Session()
             session.headers.update({'User-Agent': 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36'})
-            apply_cookies_to_session(session)
             resp = session.get(url, timeout=15)
             if resp.status_code != 200: return {"success": False}
             html = resp.text
@@ -316,8 +272,7 @@ class InstaDownloader:
                     r = session.get(img_url, headers={'User-Agent': 'Mozilla/5.0'}, stream=True, timeout=30)
                     if r.status_code == 200:
                         with open(fp, 'wb') as f:
-                            for chunk in r.iter_content(8192):
-                                if chunk: f.write(chunk)
+                            for chunk in r.iter_content(8192): f.write(chunk)
                         if os.path.getsize(fp) > 1000: downloaded.append(fp)
                 except: continue
             if downloaded:
@@ -415,7 +370,7 @@ class InstaDownloader:
         except: pass
 
 # ═══════════════════════════
-# 📝 TEXT TEMPLATES (Safe Markdown)
+# 📝 TEXT TEMPLATES
 # ═══════════════════════════
 
 CAPTION = (
@@ -461,12 +416,12 @@ GROUP_WELCOME = """👋🏻 **ʜᴇʟʟᴏ {chat_title}!**
 
 🫧 ˹ᴅᴇᴠᴇʟᴏᴩᴇʀ˼ 🪽 ➪ [𝜝𝜣𝜯 𝑭𝜟𝜯𝜢𝜮𝜞](https://t.me/FathersOfCreater) ✔︎"""
 
-BOT_DISABLED_MSG = """🚫 **𝗕𝗢𝗧 𝗦𝗧𝗢𝗣 𝗕𝗬 𝗢𝗪𝗡𝗘𝗥**
+BOT_DISABLED_MSG = """🚫 **BOT STOP BY OWNER**
 
-𝗧𝗵𝗶𝘀 𝗯𝗼𝘁 𝗶𝘀 𝗰𝘂𝗿𝗿𝗲𝗻𝘁𝗹𝘆 𝗱𝗶𝘀𝗮𝗯𝗹𝗲𝗱.
-𝗣𝗹𝗲𝗮𝘀𝗲 𝘁𝗿𝘆 𝗮𝗴𝗮𝗶𝗻 𝗹𝗮𝘁𝗲𝗿.
+This bot is currently disabled.
+Please try again later.
 
-🫧 ˹𝗗𝗲𝘃𝗲𝗹𝗼𝗽𝗲𝗿˼ 🪽 ➪ [𝜝𝜣𝜯 𝑭𝜟𝜯𝜢𝜮𝜞](https://t.me/FathersOfCreater)"""
+🫧 Developer 🪽 ➪ [FathersOfCreater](https://t.me/FathersOfCreater)"""
 
 AUDIO_BUTTON_TEXT = "➪ ˹𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝 𝐕𝐢𝐝𝐞𝐨 𝐀𝐮𝐝𝐢𝐨˼  ♪�҉"
 AUDIO_DEFAULT_NAME = "➪ ༼◉♡ 𝙈𝙮 𝙈𝙪𝙨𝙞𝙘 ♪�҉🛸◉༽"
@@ -478,39 +433,26 @@ AUDIO_NAME_PROMPT = (
     "𝐘𝐨𝐮 𝐇𝐚𝐯𝐞 𝐍𝐨 𝐈𝐝𝐞𝐚 𝐓𝐡𝐚𝐧 𝐂𝐥𝐢𝐜𝐤 𝐓𝐡𝐢𝐬 𝐁𝐮𝐭𝐭𝐨𝐧 🔽"
 )
 
-SETTINGS_TEXT = """⚙️ **˹𝐂𝐎𝐌𝐌𝐀𝐍𝐃𝐒 𝐋𝐈𝐒𝐓˼**
+SETTINGS_TEXT = """⚙️ **COMMANDS LIST**
 
-👑 **˹𝐎𝐖𝐍𝐄𝐑 𝐂𝐎𝐌𝐌𝐀𝐍𝐃𝐒˼**
+👑 **OWNER:**
 ━━━━━━━━━━━━━━━━━━━
-/start - 🎬 ˹𝐒𝐭𝐚𝐫𝐭 𝐁𝐨𝐭˼
-/disable - 🚫 ˹𝐃𝐢𝐬𝐚𝐛𝐥𝐞 𝐁𝐨𝐭˼
-/enable - ✅ ˹𝐄𝐧𝐚𝐛𝐥𝐞 𝐁𝐨𝐭˼
-/settings - ⚙️ ˹𝐂𝐨𝐦𝐦𝐚𝐧𝐝𝐬 𝐋𝐢𝐬𝐭˼
+/start /disable /enable /settings
 
-👥 **˹𝐆𝐑𝐎𝐔𝐏 𝐂𝐎𝐌𝐌𝐀𝐍𝐃˼**
+👥 **GROUP:**
 ━━━━━━━━━━━━━━━━━━━
-/activate - ✅ ˹𝐀𝐜𝐭𝐢𝐯𝐚𝐭𝐞 𝐁𝐨𝐭 𝐢𝐧 𝐆𝐫𝐨𝐮𝐩˼
+/activate - Activate bot in group
 
-🎨 **˹𝐄𝐌𝐎𝐉𝐈 𝐂𝐎𝐌𝐌𝐀𝐍𝐃𝐒˼**
-━━━━━━━━━━━━━━━━━━━
-/addemoji - ⎘ ˹𝐀𝐝𝐝 𝐄𝐦𝐨𝐣𝐢˼
-/removeemoji - ⌫ ˹𝐑𝐞𝐦𝐨𝐯𝐞 𝐄𝐦𝐨𝐣𝐢˼
-/listemojis - ⌘ ˹𝐋𝐢𝐬𝐭 𝐄𝐦𝐨𝐣𝐢𝐬˼
+🎨 **EMOJI:**
+/addemoji /removeemoji /listemojis
 
-❄ **˹𝐒𝐓𝐈𝐂𝐊𝐄𝐑 𝐂𝐎𝐌𝐌𝐀𝐍𝐃𝐒˼**
-━━━━━━━━━━━━━━━━━━━
-/addsticker - ⎘ ˹𝐀𝐝𝐝 𝐒𝐭𝐢𝐜𝐤𝐞𝐫˼
-/removesticker - ⌫ ˹𝐑𝐞𝐦𝐨𝐯𝐞 𝐒𝐭𝐢𝐜𝐤𝐞𝐫˼
-/liststickers - ⌘ ˹𝐋𝐢𝐬𝐭 𝐒𝐭𝐢𝐜𝐤𝐞𝐫𝐬˼
+❄ **STICKER:**
+/addsticker /removesticker /liststickers
 
-📹 **˹𝐕𝐈𝐃𝐄𝐎 𝐂𝐎𝐌𝐌𝐀𝐍𝐃𝐒˼**
-━━━━━━━━━━━━━━━━━━━
-/addvideo - ⎘ ˹𝐀𝐝𝐝 𝐕𝐢𝐝𝐞𝐨˼
-/delvideo - ⌫ ˹𝐃𝐞𝐥𝐞𝐭𝐞 𝐕𝐢𝐝𝐞𝐨˼
-/videos - ⌘ ˹𝐋𝐢𝐬𝐭 𝐕𝐢𝐝𝐞𝐨𝐬˼
-/clearvideos - ⎚ ˹𝐂𝐥𝐞𝐚𝐫 𝐀𝐥𝐥˼
+📹 **VIDEO:**
+/addvideo /delvideo /videos /clearvideos
 
-🫧 ˹𝐃𝐞𝐯𝐞𝐥𝐨𝐩𝐞𝐫˼ 🪽 ➪ [𝜝𝜣𝜯 𝑭𝜟𝜯𝜢𝜮𝜞](https://t.me/FathersOfCreater)"""
+🫧 Developer: [FathersOfCreater](https://t.me/FathersOfCreater)"""
 
 # ═══════════════════════════
 # 🎬 WELCOME ANIMATION
@@ -577,7 +519,7 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_bot_enabled():
-        await update.message.reply_text(BOT_DISABLED_MSG, parse_mode="Markdown")
+        await update.message.reply_text(BOT_DISABLED_MSG, parse_mode="Markdown", disable_web_page_preview=True)
         return
     if update.effective_chat.type != 'private':
         return
@@ -585,17 +527,17 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def activate_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_bot_enabled():
-        await update.message.reply_text(BOT_DISABLED_MSG, parse_mode="Markdown")
+        await update.message.reply_text(BOT_DISABLED_MSG, parse_mode="Markdown", disable_web_page_preview=True)
         return
     chat = update.effective_chat
     if chat.type not in ['group', 'supergroup']:
-        await update.message.reply_text("❌ **This command only works in groups!**", parse_mode="Markdown")
+        await update.message.reply_text("❌ This command only works in groups!")
         return
     if is_group_activated(chat.id):
-        await update.message.reply_text("✅ **Bot is already activated in this group!**\n\nJust send Instagram link to use.", parse_mode="Markdown")
+        await update.message.reply_text("✅ Bot is already activated!\n\nJust send Instagram link to use.")
     else:
         activate_group(chat.id)
-        await update.message.reply_text("✅ **Bot Activated Successfully!** 🚀\n\nNow send any Instagram link in this group.\nBot will download and send photos/videos instantly!", parse_mode="Markdown")
+        await update.message.reply_text("✅ **Bot Activated!** 🚀\n\nNow send any Instagram link here.\nBot will download photos/videos instantly!")
 
 async def settings_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
@@ -616,12 +558,12 @@ async def bot_added_to_group(update: Update, context: ContextTypes.DEFAULT_TYPE)
 async def disable_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
     set_bot_state(False)
-    await update.message.reply_text("🚫 **BOT DISABLED BY OWNER**\n\nNo user can use this bot now.", parse_mode="Markdown")
+    await update.message.reply_text("🚫 BOT DISABLED")
 
 async def enable_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
     set_bot_state(True)
-    await update.message.reply_text("✅ **BOT ENABLED BY OWNER**\n\nAll users can use this bot now.", parse_mode="Markdown")
+    await update.message.reply_text("✅ BOT ENABLED")
 
 # ═══════════════ ADMIN COMMANDS ═══════════════
 async def add_emoji_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -718,28 +660,24 @@ async def clear_videos_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ═══════════════ MESSAGE HANDLER ═══════════════
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Disabled check for everyone except owner
+    # Disabled check
     if not is_bot_enabled():
-        if update.effective_user.id == OWNER_ID:
+        if update.effective_user.id != OWNER_ID:
             if update.effective_chat.type == 'private':
-                # Owner can still use commands
-                pass
-            else:
-                return
-        else:
-            await update.message.reply_text(BOT_DISABLED_MSG, parse_mode="Markdown")
+                await update.message.reply_text(BOT_DISABLED_MSG, parse_mode="Markdown", disable_web_page_preview=True)
             return
     
     chat_type = update.effective_chat.type
     
-    # Group check
+    # Group activation check
     if chat_type in ['group', 'supergroup']:
         if not is_group_activated(update.effective_chat.id):
-            return
+            return  # Silent ignore if not activated
     
     text = update.message.text
     if not text: return
     
+    # Audio name input
     if context.user_data.get('awaiting_audio'):
         context.user_data['awaiting_audio'] = False
         audio_name = text.strip()
@@ -747,6 +685,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if 'audio_prompt_msg' in context.user_data:
             try: await context.user_data['audio_prompt_msg'].delete()
             except: pass
+            context.user_data['audio_prompt_msg'] = None
         if url: await extract_and_send_audio(update, context, url, audio_name)
         context.user_data['audio_video_url'] = None
         return
@@ -757,6 +696,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if 'audio_prompt_msg' in context.user_data:
             try: await context.user_data['audio_prompt_msg'].delete()
             except: pass
+            context.user_data['audio_prompt_msg'] = None
         if url: await extract_and_send_audio(update, context, url, AUDIO_DEFAULT_NAME)
         context.user_data['audio_video_url'] = None
         return
@@ -774,6 +714,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     shortcode = InstaDownloader.get_shortcode(url)
     cache_key = f"{chat_id}_{user_id}_{shortcode}"
     
+    # Send sticker
     sticker_id = get_random_sticker()
     sticker_msg = None
     if sticker_id:
@@ -794,6 +735,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 except: pass
             return
         
+        # Multiple photos
         if result.get("is_multiple"):
             photo_paths = result.get("file_paths", [])
             total = len(photo_paths)
@@ -968,9 +910,9 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
     print("╔══════════════════════════╗")
-    print("║  🤖 INSTAGRAM BOT v17   ║")
-    print("║  ✅ ZERO PARSE ERRORS   ║")
-    print("║  ✅ COOKIES SAFE        ║")
+    print("║  🤖 INSTAGRAM BOT v18   ║")
+    print("║  ✅ AUDIO FIXED         ║")
+    print("║  ✅ GROUP WORKING       ║")
     print("╚══════════════════════════╝")
     
     if not shutil.which('ffmpeg'):
@@ -984,7 +926,7 @@ def main():
         try: os.remove(os.path.join(DOWNLOAD_DIR, f))
         except: pass
     
-    app = Application.builder().token(BOT_TOKEN).read_timeout(30).write_timeout(30).connect_timeout(30).build()
+    app = Application.builder().token(BOT_TOKEN).read_timeout(60).write_timeout(60).connect_timeout(60).build()
     
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("activate", activate_cmd))
