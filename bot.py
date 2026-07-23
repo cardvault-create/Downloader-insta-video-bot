@@ -709,8 +709,22 @@ def main():
     
     app = Application.builder().token(BOT_TOKEN).read_timeout(120).write_timeout(120).connect_timeout(120).pool_timeout(120).build()
     
-    for cmd in ["start", "activate", "settings", "disable", "enable", "addemoji", "removeemoji", "listemojis", "addsticker", "removesticker", "liststickers", "addvideo", "delvideo", "videos", "clearvideos"]:
-        app.add_handler(CommandHandler(cmd, globals()[f"{cmd}_cmd" if cmd != "start" else "start"]))
+    # All command handlers
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("activate", activate_cmd))
+    app.add_handler(CommandHandler("settings", settings_cmd))
+    app.add_handler(CommandHandler("disable", disable_cmd))
+    app.add_handler(CommandHandler("enable", enable_cmd))
+    app.add_handler(CommandHandler("addemoji", add_emoji_cmd))
+    app.add_handler(CommandHandler("removeemoji", remove_emoji_cmd))
+    app.add_handler(CommandHandler("listemojis", list_emojis_cmd))
+    app.add_handler(CommandHandler("addsticker", add_sticker_cmd))
+    app.add_handler(CommandHandler("removesticker", remove_sticker_cmd))
+    app.add_handler(CommandHandler("liststickers", list_stickers_cmd))
+    app.add_handler(CommandHandler("addvideo", add_video_cmd))
+    app.add_handler(CommandHandler("delvideo", del_video_cmd))
+    app.add_handler(CommandHandler("videos", list_videos_cmd))
+    app.add_handler(CommandHandler("clearvideos", clear_videos_cmd))
     
     app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, bot_added_to_group))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
@@ -718,6 +732,3 @@ def main():
     
     print("✅ Bot Started! 🚀")
     app.run_polling(drop_pending_updates=True)
-
-if __name__ == "__main__":
-    main()
