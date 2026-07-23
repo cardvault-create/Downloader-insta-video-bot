@@ -73,27 +73,197 @@ class InstaDownloader:
             return InstaDownloader._download_photo(shortcode)
     
     # ═══════════════════════════
-    # 🎬 VIDEO - FIXED FOR AUDIO
+    # 🎬 VIDEO - DIRECT INSTAGRAM STREAM WITH AUDIO
     # ═══════════════════════════
     
     @staticmethod
     def _download_video(shortcode, url):
         try:
+            # Instagram ke API se direct video+audio stream nikalo
+            instagram_api_url = f"https://www.instagram.com/p/{shortcode}/?__a=1&__d=1"
+            
+            session = requests.Session()
+            session.headers.update({
+                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Connection': 'keep-alive',
+                'Referer': 'https://www.instagram.com/',
+                'Sec-Fetch-Dest': 'document',
+                'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-Site': 'none',
+            })
+            
+            # Load cookies if available
+            if os.path.exists('cookies.txt'):
+                cookies = {}
+                with open('cookies.txt', 'r') as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line or line.startswith('#'):
+                            continue
+                        parts = line.split('\t')
+                        if len(parts) >= 7:
+                            cookies[parts[5]] = parts[6]
+                
+                for name, value in cookies.items():
+                    session.cookies.set(name, value, domain='.instagram.com')
+            
+            # Try API method first
+            video_url = None
+            try:
+                print("📡 Fetching Instagram API...")
+                resp = session.get(instagram_api_url, timeout=15)
+                
+                if resp.status_code == 200:
+                    data = resp.json()
+                    
+                    # Extract video URL from API response
+                    def extract_video_url(data_dict, depth=0):
+                        if depth > 5:
+                            return None
+                        if isinstance(data_dict, dict):
+                            # Check for video_url
+                            if 'video_url' in data_dict:
+                                return data_dict['video_url']
+                            # Check for video_versions
+                            if 'video_versions' in data_dict:
+                                versions = data_dict['video_versions']
+                                if versions:
+                                    return versions[0].get('url')
+                            # Check for video_dash_manifest
+                            if 'video_dash_manifest' in data_dict:
+                                manifest = data_dict['video_dash_manifest']
+                                if isinstance(manifest, str):
+                                    return manifest
+                            # Recurse
+                            for k, v in data_dict.items():
+                                result = extract_video_url(v, depth + 1)
+                                if result:
+                                    return result
+                        elif isinstance(data_dict, list):
+                            for item in data_dict:
+                                result = extract_video_url(item, depth + 1)
+                                if result:
+                                    return result
+                        return None
+                    
+                    video_url = extract_video_url(data)
+                    
+                    if video_url:
+                        print(f"✅ Found video URL from API")
+                    
+            except Exception as e:
+                print(f"⚠️ API method failed: {e}")
+            
+            # If API fails, use yt-dlp but force video+audio format
+            if not video_url:
+                print("📡 API failed, using yt-dlp with forced audio...")
+                ydl_opts = {
+                    'quiet': True,
+                    'no_warnings': True,
+                    'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
+                    'format': 'mp4',  # Force MP4 format which includes audio
+                    'retries': 3,
+                    'merge_output_format': 'mp4',
+                }
+                
+                if os.path.exists('cookies.txt'):
+                    ydl_opts['cookiefile'] = 'cookies.txt'
+                
+                ffmpeg = shutil.which('ffmpeg')
+                if ffmpeg:
+                    ydl_opts['ffmpeg_location'] = ffmpeg
+                
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    info = ydl.extract_info(url, download=True)
+                    
+                    if not info:
+                        return {"success": False, "error": "No response from Instagram"}
+                    
+                    # Find downloaded file
+                    file_path = None
+                    for f in os.listdir(DOWNLOAD_DIR):
+                        if shortcode in f and f.endswith('.mp4'):
+                            fp = os.path.join(DOWNLOAD_DIR, f)
+                            if os.path.exists(fp) and os.path.getsize(fp) > 5000:
+                                file_path = fp
+                                break
+                    
+                    if not file_path:
+                        # Get most recent mp4
+                        mp4_files = sorted(
+                            [f for f in os.listdir(DOWNLOAD_DIR) if f.endswith('.mp4')],
+                            key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)),
+                            reverse=True
+                        )
+                        if mp4_files:
+                            file_path = os.path.join(DOWNLOAD_DIR, mp4_files[0])
+                    
+                    if file_path:
+                        print(f"✅ Video via yt-dlp: {os.path.basename(file_path)}")
+                        return {"success": True, "file_path": file_path, "is_video": True}
+                    
+                return {"success": False, "error": "File not found after download"}
+            
+            # If we have a direct URL from API, download it
+            if video_url:
+                print(f"📥 Downloading directly from Instagram CDN...")
+                
+                # Clean the URL
+                video_url = video_url.replace('\\u0026', '&')
+                
+                file_path = os.path.join(DOWNLOAD_DIR, f"{shortcode}.mp4")
+                
+                # Download headers (mobile user-agent for direct CDN access)
+                dl_headers = {
+                    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
+                    'Accept': '*/*',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                    'Accept-Encoding': 'identity',
+                    'Referer': 'https://www.instagram.com/',
+                    'Origin': 'https://www.instagram.com',
+                    'Connection': 'keep-alive',
+                    'Sec-Fetch-Dest': 'video',
+                    'Sec-Fetch-Mode': 'cors',
+                    'Sec-Fetch-Site': 'cross-site',
+                }
+                
+                # Download the video
+                video_response = session.get(video_url, headers=dl_headers, stream=True, timeout=60)
+                
+                if video_response.status_code == 200:
+                    total_size = int(video_response.headers.get('content-length', 0))
+                    
+                    with open(file_path, 'wb') as f:
+                        downloaded = 0
+                        for chunk in video_response.iter_content(chunk_size=8192):
+                            if chunk:
+                                f.write(chunk)
+                                downloaded += len(chunk)
+                    
+                    if os.path.exists(file_path) and os.path.getsize(file_path) > 5000:
+                        print(f"✅ Direct download: {os.path.basename(file_path)} ({os.path.getsize(file_path)} bytes)")
+                        return {"success": True, "file_path": file_path, "is_video": True}
+                    else:
+                        print(f"⚠️ Direct download too small, trying yt-dlp fallback...")
+                        os.remove(file_path)
+                else:
+                    print(f"⚠️ Direct download failed with status {video_response.status_code}")
+            
+            # Final fallback: yt-dlp
+            print("📡 Final fallback using yt-dlp...")
             ydl_opts = {
                 'quiet': True,
                 'no_warnings': True,
                 'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
-                'format': 'bv*+ba/b',  # FIXED: Best video + best audio, merge them
-                'merge_output_format': 'mp4',  # FIXED: Ensure output is mp4 with audio
+                'format': 'mp4',
                 'retries': 3,
             }
             
             if os.path.exists('cookies.txt'):
                 ydl_opts['cookiefile'] = 'cookies.txt'
-            
-            ffmpeg = shutil.which('ffmpeg')
-            if ffmpeg:
-                ydl_opts['ffmpeg_location'] = ffmpeg
             
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
@@ -102,57 +272,19 @@ class InstaDownloader:
                     return {"success": False, "error": "No response from Instagram"}
                 
                 file_path = None
-                # Look for merged mp4 file first
                 for f in os.listdir(DOWNLOAD_DIR):
                     if shortcode in f and f.endswith('.mp4'):
-                        file_path = os.path.join(DOWNLOAD_DIR, f)
-                        break
-                
-                if not file_path:
-                    # Check for any video file
-                    for f in os.listdir(DOWNLOAD_DIR):
-                        if shortcode in f and f.endswith(('.mp4', '.webm', '.mkv')):
-                            file_path = os.path.join(DOWNLOAD_DIR, f)
+                        fp = os.path.join(DOWNLOAD_DIR, f)
+                        if os.path.exists(fp) and os.path.getsize(fp) > 5000:
+                            file_path = fp
                             break
                 
-                if not file_path:
-                    # Fallback: get most recent mp4
-                    mp4_files = sorted(
-                        [f for f in os.listdir(DOWNLOAD_DIR) if f.endswith('.mp4')],
-                        key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)),
-                        reverse=True
-                    )
-                    if mp4_files:
-                        file_path = os.path.join(DOWNLOAD_DIR, mp4_files[0])
-                
-                if file_path and os.path.exists(file_path) and os.path.getsize(file_path) > 5000:
-                    # Verify audio exists in the file
-                    probe = subprocess.run(
-                        ['ffprobe', '-v', 'error', '-select_streams', 'a:0', '-show_entries', 'stream=codec_type', '-of', 'csv=p=0', file_path],
-                        capture_output=True, text=True, timeout=30
-                    )
-                    
-                    if probe.stdout.strip():
-                        print(f"✅ Video with Audio: {os.path.basename(file_path)}")
-                        return {"success": True, "file_path": file_path, "is_video": True}
-                    else:
-                        print(f"⚠️ Video without audio detected, retrying with different format...")
-                        # Try alternative format
-                        ydl_opts['format'] = 'best'  # Fallback to best single format
-                        with yt_dlp.YoutubeDL(ydl_opts) as ydl2:
-                            info2 = ydl2.extract_info(url, download=True)
-                            # Check again for file
-                            for f in os.listdir(DOWNLOAD_DIR):
-                                if shortcode in f and f.endswith('.mp4'):
-                                    file_path = os.path.join(DOWNLOAD_DIR, f)
-                                    break
-                        
-                        if file_path and os.path.exists(file_path) and os.path.getsize(file_path) > 5000:
-                            print(f"✅ Video (fallback): {os.path.basename(file_path)}")
-                            return {"success": True, "file_path": file_path, "is_video": True}
-                
-                return {"success": False, "error": "File not found or no audio track"}
-                
+                if file_path:
+                    print(f"✅ Video via yt-dlp fallback: {os.path.basename(file_path)}")
+                    return {"success": True, "file_path": file_path, "is_video": True}
+            
+            return {"success": False, "error": "File not found"}
+            
         except Exception as e:
             err = str(e)
             if 'HTTP Error 403' in err or 'HTTP Error 401' in err:
@@ -824,7 +956,7 @@ def main():
     
     print("✅ Bot Started! 🚀")
     print("📸 Photos: oEmbed API + yt-dlp + Scrape + Bibliogram + CDN")
-    print("🎬 Videos: yt-dlp best format")
+    print("🎬 Videos: Direct Instagram API + yt-dlp fallback")
     
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
