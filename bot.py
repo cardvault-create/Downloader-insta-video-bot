@@ -193,59 +193,29 @@ class InstaDownloader:
         if is_reel: return InstaDownloader._download_video(shortcode, url)
         else: return InstaDownloader._download_photo(shortcode, url)
     
-@staticmethod
-def _download_video(shortcode, url):
-    """100% AUDIO - FFmpeg optional"""
-    
-    ydl_opts = {
-        'quiet': True,
-        'no_warnings': True,
-        'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
-        'retries': 20,
-        'fragment_retries': 20,
-        'socket_timeout': 120,
-        'http_headers': {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    @staticmethod
+    def _download_video(shortcode, url):
+        ydl_opts = {
+            'quiet': True, 'no_warnings': True,
+            'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
+            'retries': 20, 'fragment_retries': 20, 'socket_timeout': 120,
+            'http_headers': {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'},
         }
-    }
-    
-    if os.path.exists('cookies.txt'):
-        ydl_opts['cookiefile'] = 'cookies.txt'
-    
-    formats_to_try = [
-        'mp4',
-        'best[ext=mp4]',
-        'bv*+ba/b',
-        'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
-        'bestvideo+bestaudio/best',
-        'best',
-    ]
-    
-    for fmt in formats_to_try:
-        try:
-            ydl_opts['format'] = fmt
-            print(f"🔄 Trying: {fmt}")
-            
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=True)
-                if info:
+        if os.path.exists('cookies.txt'): ydl_opts['cookiefile'] = 'cookies.txt'
+        
+        for fmt in ['mp4', 'best[ext=mp4]', 'bv*+ba/b', 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best', 'bestvideo+bestaudio/best', 'best']:
+            try:
+                ydl_opts['format'] = fmt
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.extract_info(url, download=True)
                     time.sleep(0.5)
                     for ext in ['.mp4', '.mkv', '.webm']:
-                        files = sorted(
-                            [f for f in os.listdir(DOWNLOAD_DIR) if f.endswith(ext)],
-                            key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)),
-                            reverse=True
-                        )
-                        for f in files:
+                        for f in sorted([f for f in os.listdir(DOWNLOAD_DIR) if f.endswith(ext)], key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
                             fp = os.path.join(DOWNLOAD_DIR, f)
                             if os.path.exists(fp) and os.path.getsize(fp) > 50000:
-                                print(f"✅ Downloaded: {f} ({os.path.getsize(fp)} bytes)")
                                 return {"success": True, "file_path": fp, "is_video": True}
-        except Exception as e:
-            print(f"⚠️ {fmt}: {str(e)[:50]}")
-            continue
-    
-    return {"success": False, "error": "Download failed - Try again"}
+            except: continue
+        return {"success": False, "error": "Download failed - Try again"}
     
     @staticmethod
     def _download_photo(shortcode, url):
@@ -839,8 +809,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
     print("╔══════════════════════════╗")
-    print("║  🤖 INSTAGRAM BOT v23   ║")
-    print("║  ✅ ALL FIXED FINAL     ║")
+    print("║  🤖 INSTAGRAM BOT v24   ║")
+    print("║  ✅ INDENTATION FIXED   ║")
     print("╚══════════════════════════╝")
     
     ensure_ffmpeg()
