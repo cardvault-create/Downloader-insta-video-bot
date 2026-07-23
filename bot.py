@@ -5,7 +5,6 @@ import shutil
 import time
 import sys
 import requests
-import json
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 import yt_dlp
@@ -49,24 +48,6 @@ class InstaDownloader:
         return m.group(2) if m else None
     
     @staticmethod
-    def load_cookies():
-        """Load cookies from cookies.txt file"""
-        cookies = {}
-        if not os.path.exists('cookies.txt'):
-            return cookies
-        
-        with open('cookies.txt', 'r') as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith('#'):
-                    continue
-                parts = line.split('\t')
-                if len(parts) >= 7:
-                    cookies[parts[5]] = parts[6]
-        
-        return cookies
-    
-    @staticmethod
     def download_media(url):
         shortcode = InstaDownloader.get_shortcode(url)
         if not shortcode:
@@ -86,7 +67,7 @@ class InstaDownloader:
             if is_reel:
                 return InstaDownloader._download_reel(shortcode, url)
             else:
-                return InstaDownloader._download_post_direct(shortcode)
+                return InstaDownloader._download_post_instaloader(shortcode)
         except Exception as e:
             err = str(e)
             print(f"❌ Error: {err}")
@@ -120,37 +101,139 @@ class InstaDownloader:
         return {"success": False, "error": "Reel not found"}
     
     @staticmethod
-    def _download_post_direct(shortcode):
-        """
-        DIRECT PHOTO DOWNLOAD - NO yt-dlp!
-        Uses Instagram's embed API + direct scraping
-        """
-        print("📸 Downloading photos DIRECT METHOD...")
+    def _download_post_instaloader(shortcode):
+        """Photos using instaloader - MOST RELIABLE"""
+        print("📸 Downloading photos via instaloader...")
         
-        cookies = InstaDownloader.load_cookies()
+        try:
+            from instaloader import Instaloader, Post
+            
+            # Create instaloader instance
+            L = Instaloader(
+                download_pictures=True,
+                download_videos=False,
+                download_video_thumbnails=False,
+                download_geotags=False,
+                download_comments=False,
+                save_metadata=False,
+                compress_json=False,
+                dirname_pattern=DOWNLOAD_DIR,
+                filename_pattern='{shortcode}',
+                max_connection_attempts=3,
+            )
+            
+            # Load cookies from file
+            if os.path.exists('cookies.txt'):
+                import http.cookiejar
+                cj = http.cookiejar.MozillaCookieJar('cookies.txt')
+                cj.load(ignore_discard=True, ignore_expires=True)
+                
+                # Convert to requests cookies
+                cookie_dict = {}
+                for cookie in cj:
+                    if 'instagram' in cookie.domain:
+                        cookie_dict[cookie.name] = cookie.value
+                
+                # Login with cookies
+                L.context._session.cookies.update(cookie_dict)
+            
+            # Download post
+            post = Post.from_shortcode(L.context, shortcode)
+            
+            if post.is_video:
+                print("⚠️ This is a video post, not photo!")
+                return {"success": False, "error": "This is a video, send as reel link"}
+            
+            # Download all photos
+            L.download_post(post, target=shortcode)
+            
+            # Move files to downloads folder
+            time.sleep(2)
+            
+            # Find downloaded photos
+            photos = []
+            
+            # Check main downloads folder
+            for f in sorted(os.listdir(DOWNLOAD_DIR)):
+                if shortcode in f and not f.endswith(('.mp4', '.mov', '.webm', '.txt', '.json', '.xz')):
+                    fp = os.path.join(DOWNLOAD_DIR, f)
+                    if os.path.exists(fp) and os.path.getsize(fp) > 1000:
+                        photos.append(fp)
+                        print(f"  ✅ Found: {f} ({os.path.getsize(fp)} bytes)")
+            
+            # Check subfolder
+            subfolder = os.path.join(DOWNLOAD_DIR, shortcode)
+            if os.path.exists(subfolder):
+                for f in sorted(os.listdir(subfolder)):
+                    if not f.endswith(('.mp4', '.mov', '.webm', '.txt', '.json', '.xz')):
+                        fp = os.path.join(subfolder, f)
+                        if os.path.exists(fp) and os.path.getsize(fp) > 1000:
+                            # Move to main folder
+                            new_fp = os.path.join(DOWNLOAD_DIR, f"{shortcode}_{f}")
+                            shutil.move(fp, new_fp)
+                            photos.append(new_fp)
+                            print(f"  ✅ Found in subfolder: {f} ({os.path.getsize(new_fp)} bytes)")
+                
+                # Clean subfolder
+                try:
+                    shutil.rmtree(subfolder)
+                except:
+                    pass
+            
+            if photos:
+                print(f"✅ Total photos: {len(photos)}")
+                
+                if len(photos) == 1:
+                    return {"success": True, "file_path": photos[0], "is_video": False}
+                else:
+                    return {
+                        "success": True,
+                        "file_paths": sorted(photos),
+                        "is_video": False,
+                        "is_multiple": True,
+                        "total": len(photos)
+                    }
+            
+            return {"success": False, "error": "No photos found"}
+            
+        except ImportError:
+            print("❌ instaloader not installed, trying fallback...")
+            return InstaDownloader._download_post_fallback(shortcode)
+        except Exception as e:
+            print(f"❌ instaloader error: {e}")
+            return InstaDownloader._download_post_fallback(shortcode)
+    
+    @staticmethod
+    def _download_post_fallback(shortcode):
+        """Fallback: Direct URL method using cookies"""
+        print("🔄 Fallback: Direct URL method...")
+        
+        # Load cookies
+        cookies = {}
+        if os.path.exists('cookies.txt'):
+            with open('cookies.txt', 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith('#'):
+                        continue
+                    parts = line.split('\t')
+                    if len(parts) >= 7:
+                        cookies[parts[5]] = parts[6]
+        
         session = requests.Session()
-        
-        # Set cookies
         for name, value in cookies.items():
             session.cookies.set(name, value, domain='.instagram.com')
         
         session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Accept-Encoding': 'gzip, deflate, br',
+            'X-IG-App-ID': '936619743392459',
+            'X-Requested-With': 'XMLHttpRequest',
         })
         
-        all_image_urls = []
-        
-        # ============================================
-        # METHOD 1: oEmbed API (PUBLIC - always works)
-        # ============================================
-        print("  Method 1: oEmbed API...")
+        # Try oEmbed first
         try:
-            post_url = f"https://www.instagram.com/p/{shortcode}/"
-            api_url = f"https://api.instagram.com/oembed?url={post_url}"
-            
+            api_url = f"https://api.instagram.com/oembed?url=https://www.instagram.com/p/{shortcode}/"
             resp = session.get(api_url, timeout=15)
             
             if resp.status_code == 200:
@@ -158,202 +241,66 @@ class InstaDownloader:
                 thumbnail = data.get('thumbnail_url', '')
                 
                 if thumbnail:
-                    # Get HD version
-                    hd_url = re.sub(r'/s\d+x\d+/', '/s1080x1080/', thumbnail)
-                    hd_url = hd_url.split('?')[0]
-                    if hd_url not in all_image_urls:
-                        all_image_urls.append(hd_url)
-                        print(f"    ✅ oEmbed: {hd_url[:80]}...")
+                    hd_url = re.sub(r'/s\d+x\d+/', '/s1080x1080/', thumbnail).split('?')[0]
+                    
+                    filepath = os.path.join(DOWNLOAD_DIR, f"{shortcode}.jpg")
+                    
+                    img_resp = session.get(hd_url, timeout=30)
+                    if img_resp.status_code == 200 and len(img_resp.content) > 1000:
+                        with open(filepath, 'wb') as f:
+                            f.write(img_resp.content)
+                        
+                        print(f"✅ Fallback photo: {os.path.getsize(filepath)} bytes")
+                        return {"success": True, "file_path": filepath, "is_video": False}
         except Exception as e:
-            print(f"    ⚠️ oEmbed: {e}")
+            print(f"⚠️ oEmbed fallback: {e}")
         
-        # ============================================
-        # METHOD 2: Embed page scrape (carousel support)
-        # ============================================
-        print("  Method 2: Embed page scrape...")
+        # Try direct Instagram page
         try:
-            embed_url = f"https://www.instagram.com/p/{shortcode}/embed/captioned/"
-            resp = session.get(embed_url, timeout=15)
+            page_url = f"https://www.instagram.com/p/{shortcode}/"
+            resp = session.get(page_url, timeout=15)
             
             if resp.status_code == 200:
                 html = resp.text
                 
-                # Find JSON data in script tags
-                json_patterns = [
-                    r'<script[^>]*>\s*window\.__INITIAL_STATE__\s*=\s*({.*?});\s*</script>',
-                    r'<script[^>]*>({.*?"shortcode_media".*?})</script>',
-                ]
+                # Find display_url
+                urls = re.findall(r'"display_url"\s*:\s*"([^"]+)"', html)
                 
-                for pattern in json_patterns:
-                    matches = re.findall(pattern, html, re.DOTALL)
-                    for match in matches:
-                        try:
-                            data = json.loads(match)
-                            
-                            # Extract all image URLs
-                            def extract_urls(obj, depth=0):
-                                if depth > 15:
-                                    return []
-                                urls = []
-                                
-                                if isinstance(obj, dict):
-                                    # Carousel media
-                                    if 'carousel_media' in obj:
-                                        for item in obj['carousel_media']:
-                                            if 'image_versions2' in item:
-                                                candidates = item['image_versions2'].get('candidates', [])
-                                                if candidates:
-                                                    urls.append(candidates[0]['url'])
-                                            elif 'display_url' in item:
-                                                urls.append(item['display_url'])
-                                    
-                                    # Single image
-                                    if 'display_url' in obj:
-                                        u = obj['display_url']
-                                        if u not in urls:
-                                            urls.append(u)
-                                    
-                                    if 'image_versions2' in obj:
-                                        candidates = obj['image_versions2'].get('candidates', [])
-                                        if candidates:
-                                            u = candidates[0]['url']
-                                            if u not in urls:
-                                                urls.append(u)
-                                    
-                                    # edge_sidecar
-                                    if 'edge_sidecar_to_children' in obj:
-                                        for edge in obj['edge_sidecar_to_children'].get('edges', []):
-                                            node = edge.get('node', {})
-                                            if 'display_url' in node:
-                                                urls.append(node['display_url'])
-                                            elif 'image_versions2' in node:
-                                                candidates = node['image_versions2'].get('candidates', [])
-                                                if candidates:
-                                                    urls.append(candidates[0]['url'])
-                                    
-                                    for v in obj.values():
-                                        urls.extend(extract_urls(v, depth + 1))
-                                
-                                elif isinstance(obj, list):
-                                    for item in obj:
-                                        urls.extend(extract_urls(item, depth + 1))
-                                
-                                return urls
-                            
-                            found = extract_urls(data)
-                            for u in found:
-                                u = u.split('?')[0]
-                                if u not in all_image_urls and '.mp4' not in u:
-                                    all_image_urls.append(u)
-                            
-                            if len(all_image_urls) > 1:
-                                break
-                        except:
-                            continue
-                    
-                    if len(all_image_urls) > 1:
-                        break
-        except Exception as e:
-            print(f"    ⚠️ Embed scrape: {e}")
-        
-        # ============================================
-        # METHOD 3: Direct page scrape
-        # ============================================
-        if not all_image_urls:
-            print("  Method 3: Direct page scrape...")
-            try:
-                page_url = f"https://www.instagram.com/p/{shortcode}/"
-                resp = session.get(page_url, timeout=15)
-                
-                if resp.status_code == 200:
-                    html = resp.text
-                    
-                    # Find all display_url in JSON
-                    json_blocks = re.findall(r'\{[^}]*"display_url"[^}]*\}', html)
-                    for block in json_blocks:
-                        url_match = re.search(r'"display_url"\s*:\s*"([^"]+)"', block)
-                        if url_match:
-                            u = url_match.group(1).replace('\\u0026', '&').split('?')[0]
-                            if u not in all_image_urls and '.mp4' not in u:
-                                all_image_urls.append(u)
-            except Exception as e:
-                print(f"    ⚠️ Direct scrape: {e}")
-        
-        # ============================================
-        # DOWNLOAD ALL FOUND PHOTOS
-        # ============================================
-        if not all_image_urls:
-            print("❌ No image URLs found!")
-            return {"success": False, "error": "No photos found. Post may be private."}
-        
-        print(f"\n✅ Found {len(all_image_urls)} photo URL(s)")
-        
-        downloaded = []
-        img_headers = {
-            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
-            'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
-            'Referer': 'https://www.instagram.com/',
-        }
-        
-        for i, img_url in enumerate(all_image_urls, 1):
-            try:
-                # Fix URL
-                if img_url.startswith('//'):
-                    img_url = 'https:' + img_url
-                
-                # Extension
-                ext = 'jpg'
-                if '.png' in img_url.lower():
-                    ext = 'png'
-                elif '.webp' in img_url.lower():
-                    ext = 'webp'
-                
-                # Filename
-                if len(all_image_urls) > 1:
-                    filename = f"{shortcode}_{i}.{ext}"
-                else:
-                    filename = f"{shortcode}.{ext}"
-                
-                filepath = os.path.join(DOWNLOAD_DIR, filename)
-                
-                # Download with retries
-                for attempt in range(3):
-                    try:
-                        img_resp = session.get(img_url, headers=img_headers, timeout=30)
-                        
-                        if img_resp.status_code == 200 and len(img_resp.content) > 1000:
-                            with open(filepath, 'wb') as f:
-                                f.write(img_resp.content)
-                            
-                            if os.path.exists(filepath) and os.path.getsize(filepath) > 1000:
-                                downloaded.append(filepath)
-                                print(f"  ✅ Photo {i}/{len(all_image_urls)}: {filename} ({os.path.getsize(filepath)} bytes)")
-                                break
-                        else:
-                            time.sleep(0.5)
-                    except:
-                        time.sleep(0.5)
+                photos = []
+                for i, url in enumerate(urls):
+                    url = url.replace('\\u0026', '&').split('?')[0]
+                    if '.mp4' in url:
                         continue
-                        
-            except Exception as e:
-                print(f"  ❌ Photo {i}: {e}")
-                continue
+                    
+                    ext = 'jpg'
+                    if '.png' in url: ext = 'png'
+                    elif '.webp' in url: ext = 'webp'
+                    
+                    filename = f"{shortcode}_{i+1}.{ext}" if len(urls) > 1 else f"{shortcode}.{ext}"
+                    filepath = os.path.join(DOWNLOAD_DIR, filename)
+                    
+                    img_resp = session.get(url, timeout=30)
+                    if img_resp.status_code == 200 and len(img_resp.content) > 1000:
+                        with open(filepath, 'wb') as f:
+                            f.write(img_resp.content)
+                        photos.append(filepath)
+                        print(f"  ✅ {filename} ({os.path.getsize(filepath)} bytes)")
+                
+                if photos:
+                    if len(photos) == 1:
+                        return {"success": True, "file_path": photos[0], "is_video": False}
+                    else:
+                        return {
+                            "success": True,
+                            "file_paths": sorted(photos),
+                            "is_video": False,
+                            "is_multiple": True,
+                            "total": len(photos)
+                        }
+        except Exception as e:
+            print(f"⚠️ Page scrape fallback: {e}")
         
-        if downloaded:
-            print(f"\n✅ Total downloaded: {len(downloaded)} photo(s)")
-            
-            if len(downloaded) == 1:
-                return {"success": True, "file_path": downloaded[0], "is_video": False}
-            else:
-                return {
-                    "success": True,
-                    "file_paths": sorted(downloaded),
-                    "is_video": False,
-                    "is_multiple": True,
-                    "total": len(downloaded)
-                }
-        
-        return {"success": False, "error": "Could not download any photos"}
+        return {"success": False, "error": "All methods failed. Try fresh cookies.txt"}
     
     @staticmethod
     def extract_audio(video_path, name=None):
@@ -524,7 +471,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def main():
     print("=" * 50)
-    print("  INSTAGRAM BOT - DIRECT METHOD")
+    print("  INSTAGRAM BOT - instaloader")
     print("=" * 50)
     
     if not shutil.which('ffmpeg'):
@@ -535,8 +482,6 @@ def main():
         except: pass
     
     print("✅ Bot Started!")
-    print("📸 Photos: Direct download (NO yt-dlp)")
-    print("🎬 Reels: yt-dlp")
     
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
