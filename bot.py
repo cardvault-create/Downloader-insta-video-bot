@@ -54,7 +54,6 @@ class InstaDownloader:
         if 'sessionid' not in content:
             return False, "No sessionid in cookies"
         
-        # Check sessionid expiry
         for line in content.split('\n'):
             if 'sessionid' in line and not line.startswith('#'):
                 parts = line.split('\t')
@@ -89,6 +88,7 @@ class InstaDownloader:
         print(f"📥 Downloading: {shortcode}")
         print(f"🔐 Cookies: {cookie_msg}")
         print(f"📹 Type: {'Reel' if is_reel else 'Post'}")
+        print(f"📦 yt-dlp version: {yt_dlp.version.__version__}")
         print(f"{'='*50}\n")
         
         try:
@@ -108,11 +108,12 @@ class InstaDownloader:
         
         ydl_opts = {
             'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
-            'format': 'best[ext=mp4]/best',
+            'format': 'bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/best',
             'cookiefile': 'cookies.txt',
-            'retries': 3,
+            'retries': 5,
             'quiet': False,
             'no_warnings': False,
+            'extractor_args': {'instagram': {'skip_invisible_stories': True}},
         }
         
         try:
@@ -136,8 +137,6 @@ class InstaDownloader:
             
             if '403' in error_str or '401' in error_str:
                 return {"success": False, "error": "🔒 Cookies EXPIRED! Fresh cookies banao."}
-            if 'login' in error_str.lower():
-                return {"success": False, "error": "🔒 Login required! Cookies invalid."}
             
             return {"success": False, "error": f"Reel download failed: {error_str[:200]}"}
     
@@ -145,7 +144,7 @@ class InstaDownloader:
     def _download_post(shortcode, url):
         print("📸 Downloading POST photos...")
         
-        # First, try to get info without downloading
+        # First, try to get info
         info_opts = {
             'cookiefile': 'cookies.txt',
             'quiet': True,
@@ -163,7 +162,7 @@ class InstaDownloader:
         except Exception as e:
             print(f"⚠️ Info extraction failed: {e}")
         
-        # Now download with proper settings
+        # Download with playlist mode (for carousel)
         ydl_opts = {
             'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}_%(playlist_index)s.%(ext)s'),
             'format': 'best[ext=jpg]/best[ext=png]/best[ext=webp]/best',
@@ -173,6 +172,7 @@ class InstaDownloader:
             'no_playlist': False,
             'quiet': False,
             'no_warnings': False,
+            'extract_flat': False,
         }
         
         try:
@@ -217,16 +217,16 @@ class InstaDownloader:
                         "total": len(photos)
                     }
             
-            print("⚠️ No files found in first attempt, trying fallback...")
+            print("⚠️ No files in first attempt, trying fallback...")
             
         except Exception as e:
             print(f"⚠️ First attempt error: {e}")
         
-        # Fallback: Simple download
+        # Fallback: Simple download without playlist index
         print("📥 Fallback: Simple download mode...")
         ydl_opts2 = {
             'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
-            'format': 'best[ext=jpg]/best[ext=png]/best',
+            'format': 'best[ext=jpg]/best[ext=png]/best[ext=webp]/best',
             'cookiefile': 'cookies.txt',
             'retries': 5,
             'quiet': False,
@@ -260,7 +260,6 @@ class InstaDownloader:
                         "total": len(photos)
                     }
             
-            # Check downloads folder
             all_files = os.listdir(DOWNLOAD_DIR)
             print(f"❌ No photos found! Downloads folder: {all_files}")
             return {"success": False, "error": f"No photos downloaded. Downloads folder has {len(all_files)} files."}
@@ -314,19 +313,18 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id not in AUTHORIZED_USERS:
         return
     
-    # Test cookies
     cookie_ok, cookie_msg = InstaDownloader.test_cookies()
     cookie_status = f"✅ {cookie_msg}" if cookie_ok else f"❌ {cookie_msg}"
     
     await update.message.reply_text(
         f"📥 **Instagram Downloader Bot**\n\n"
         f"🔐 **Cookies:** {cookie_status}\n"
-        f"📁 **Downloads:** {DOWNLOAD_DIR}\n\n"
+        f"📦 **yt-dlp:** {yt_dlp.version.__version__}\n\n"
         f"✅ Reel → HD Video 🎬\n"
         f"✅ Post → ALL Photos 📸\n"
-        f"✅ Carousel → 1-by-1 photos 🔄\n"
+        f"✅ Carousel → 1-by-1 🔄\n"
         f"✅ Audio → MP3 ⚡\n\n"
-        f"🔍 **Railway Logs:** Real-time errors visible",
+        f"🔗 Sirf link bhejo!",
         parse_mode="Markdown"
     )
 
@@ -357,9 +355,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     shortcode = InstaDownloader.get_shortcode(url)
     
     msg = await update.message.reply_text(
-        f"⏳ **Processing...**\n"
-        f"📋 Shortcode: `{shortcode}`\n"
-        f"🔍 Check Railway logs for details...",
+        f"⏳ **Processing...**\n📋 `{shortcode}`",
         parse_mode="Markdown"
     )
     
@@ -405,12 +401,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Single file
         fp = result["file_path"]
         if not os.path.exists(fp):
-            await msg.edit_text("❌ File not found after download")
+            await msg.edit_text("❌ File not found")
             return
         
         size_mb = os.path.getsize(fp) / (1024*1024)
         if size_mb > 50:
-            await msg.edit_text(f"❌ File too large: {size_mb:.1f}MB (Telegram limit: 50MB)")
+            await msg.edit_text(f"❌ File too large: {size_mb:.1f}MB")
             InstaDownloader.cleanup(fp)
             return
         
@@ -443,9 +439,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         error_details = traceback.format_exc()
         print(f"❌ HANDLER ERROR:\n{error_details}")
         await msg.edit_text(
-            f"❌ **FATAL ERROR**\n\n"
-            f"```\n{error_details[:400]}\n```\n\n"
-            f"📝 Check Railway logs for full error.",
+            f"❌ **FATAL ERROR**\n\n```\n{error_details[:400]}\n```",
             parse_mode="Markdown"
         )
 
@@ -482,7 +476,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def main():
     print("=" * 60)
-    print("  INSTAGRAM BOT - RAILWAY DEPLOY")
+    print("  INSTAGRAM BOT - RAILWAY v2")
+    print(f"  yt-dlp: {yt_dlp.version.__version__}")
     print("=" * 60)
     
     # FFmpeg
@@ -492,34 +487,17 @@ def main():
     else:
         print("⚠️ Installing FFmpeg...")
         os.system('apt-get update -qq && apt-get install ffmpeg -y -qq 2>/dev/null')
-        ffmpeg = shutil.which('ffmpeg')
-        print(f"{'✅' if ffmpeg else '❌'} FFmpeg: {ffmpeg}")
     
     # Cookies check
-    print("\n📋 COOKIES CHECK:")
     cookie_ok, cookie_msg = InstaDownloader.test_cookies()
-    print(f"  {'✅' if cookie_ok else '❌'} {cookie_msg}")
-    
-    if not cookie_ok:
-        print("\n⚠️  COOKIES BANANE KA TARIKA:")
-        print("  1. Firefox → cookies.txt extension install karo")
-        print("  2. Instagram.com login karo")
-        print("  3. Extension → Export cookies.txt")
-        print("  4. File Railway pe upload karo\n")
-    
-    # Python version
-    print(f"\n🐍 Python: {sys.version.split()[0]}")
-    print(f"📁 Downloads: {DOWNLOAD_DIR}")
+    print(f"{'✅' if cookie_ok else '❌'} Cookies: {cookie_msg}")
     
     # Clean
     for f in os.listdir(DOWNLOAD_DIR):
         try: os.remove(os.path.join(DOWNLOAD_DIR, f))
         except: pass
     
-    print("\n" + "=" * 60)
-    print("✅ BOT STARTED - Railway Logs Active")
-    print("📝 Har download ka detail Railway logs mein dikhega")
-    print("=" * 60 + "\n")
+    print("✅ Bot Started!")
     
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
