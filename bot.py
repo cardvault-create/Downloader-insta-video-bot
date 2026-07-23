@@ -138,10 +138,14 @@ class InstaDownloader:
         return None
     
     @staticmethod
+    def get_shortcode(url):
+        m = re.search(r'/(p|reel|tv)/([a-zA-Z0-9_\-]+)', url)
+        return m.group(2) if m else None
+    
+    @staticmethod
     def download_media(url):
-        shortcode = re.search(r'/(p|reel|tv)/([a-zA-Z0-9_\-]+)', url)
-        if not shortcode: return {"success": False, "error": "Invalid shortcode"}
-        shortcode = shortcode.group(2)
+        shortcode = InstaDownloader.get_shortcode(url)
+        if not shortcode: return {"success": False, "error": "Invalid"}
         is_reel = '/reel/' in url or '/tv/' in url
         if is_reel: return InstaDownloader._download_video(shortcode, url)
         else: return InstaDownloader._download_photo(shortcode)
@@ -153,34 +157,104 @@ class InstaDownloader:
                 'quiet': True, 'no_warnings': True,
                 'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
                 'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
-                'merge_output_format': 'mp4', 'retries': 5,
+                'merge_output_format': 'mp4', 'retries': 5, 'fragment_retries': 5,
             }
             if os.path.exists('cookies.txt'): ydl_opts['cookiefile'] = 'cookies.txt'
             if shutil.which('ffmpeg'): ydl_opts['ffmpeg_location'] = shutil.which('ffmpeg')
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.extract_info(url, download=True)
-                time.sleep(0.2)
+                time.sleep(0.3)
                 for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
                     if f.endswith('.mp4'):
                         fp = os.path.join(DOWNLOAD_DIR, f)
                         if os.path.exists(fp) and os.path.getsize(fp) > 5000:
                             return {"success": True, "file_path": fp, "is_video": True}
             return {"success": False, "error": "𝗩𝗶𝗱𝗲𝗼 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱 𝗙𝗮𝗶𝗹𝗲𝗱"}
-        except Exception as e:
-            err = str(e)
-            if '403' in err or '401' in err: return {"success": False, "error": "𝗖𝗼𝗼𝗸𝗶𝗲𝘀 𝗘𝘅𝗽𝗶𝗿𝗲𝗱!"}
-            return {"success": False, "error": f"𝗘𝗿𝗿𝗼𝗿: {err[:80]}"}
+        except Exception as e: return {"success": False, "error": f"𝗘𝗿𝗿𝗼𝗿: {str(e)[:80]}"}
     
     @staticmethod
     def _download_photo(shortcode):
+        # Multiple photo support
+        result = InstaDownloader._method_scrape_multi(shortcode)
+        if result.get("success"): return result
+        
         methods = [
             InstaDownloader._method_oembed, InstaDownloader._method_ytdlp,
-            InstaDownloader._method_scrape, InstaDownloader._method_bibliogram, InstaDownloader._method_cdn,
+            InstaDownloader._method_scrape_single, InstaDownloader._method_cdn,
         ]
         for method in methods:
             result = method(shortcode)
             if result.get("success"): return result
         return {"success": False, "error": "𝗣𝗵𝗼𝘁𝗼 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱 𝗙𝗮𝗶𝗹𝗲𝗱"}
+    
+    @staticmethod
+    def _method_scrape_multi(shortcode):
+        """Multiple photos from carousel posts"""
+        try:
+            session = requests.Session()
+            session.headers.update({'User-Agent': 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36'})
+            if os.path.exists('cookies.txt'):
+                cookies = {}
+                with open('cookies.txt') as f:
+                    for line in f:
+                        if line.strip() and not line.startswith('#'):
+                            parts = line.split('\t')
+                            if len(parts) >= 7: cookies[parts[5]] = parts[6]
+                for k, v in cookies.items(): session.cookies.set(k, v, domain='.instagram.com')
+            
+            resp = session.get(f"https://www.instagram.com/p/{shortcode}/", timeout=15)
+            if resp.status_code != 200: return {"success": False}
+            html = resp.text
+            
+            # Extract all display_urls for carousel
+            image_urls = []
+            
+            # Try __NEXT_DATA__ first
+            nd = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', html, re.DOTALL)
+            if nd:
+                try:
+                    data = json.loads(nd.group(1))
+                    def find_urls(obj, depth=0):
+                        if depth > 6: return []
+                        urls = []
+                        if isinstance(obj, dict):
+                            du = obj.get('display_url', '')
+                            if du and '.mp4' not in du and du not in urls: urls.append(du)
+                            for v in obj.values(): urls.extend(find_urls(v, depth+1))
+                        elif isinstance(obj, list):
+                            for item in obj: urls.extend(find_urls(item, depth+1))
+                        return urls
+                    image_urls = find_urls(data)
+                except: pass
+            
+            # Fallback: regex
+            if not image_urls:
+                urls = re.findall(r'"display_url":"([^"]+)"', html)
+                image_urls = [u.replace('\\u0026', '&') for u in urls if '.mp4' not in u]
+            
+            if len(image_urls) > 1:
+                # Multiple photos found
+                downloaded = []
+                for i, img_url in enumerate(image_urls[:10]):
+                    try:
+                        fp = os.path.join(DOWNLOAD_DIR, f"{shortcode}_{i+1}.jpg")
+                        r = session.get(img_url, headers={'User-Agent': 'Mozilla/5.0'}, stream=True, timeout=20)
+                        if r.status_code == 200:
+                            with open(fp, 'wb') as f:
+                                for chunk in r.iter_content(8192):
+                                    if chunk: f.write(chunk)
+                            if os.path.getsize(fp) > 1000:
+                                downloaded.append(fp)
+                    except: continue
+                
+                if downloaded:
+                    if len(downloaded) == 1:
+                        return {"success": True, "file_path": downloaded[0], "is_video": False}
+                    else:
+                        return {"success": True, "file_paths": downloaded, "is_video": False, "is_multiple": True, "current_index": 0}
+            
+            return {"success": False}
+        except: return {"success": False}
     
     @staticmethod
     def _method_oembed(shortcode):
@@ -192,7 +266,7 @@ class InstaDownloader:
             if thumb:
                 hd = re.sub(r'/s\d+x\d+/', '/', thumb).split('?')[0]
                 fp = os.path.join(DOWNLOAD_DIR, f"{shortcode}.jpg")
-                r = requests.get(hd, headers={'User-Agent': 'Mozilla/5.0'}, stream=True, timeout=20)
+                r = requests.get(hd, headers={'User-Agent': 'Mozilla/5.0', 'Referer': 'https://www.instagram.com/'}, stream=True, timeout=20)
                 if r.status_code == 200:
                     with open(fp, 'wb') as f:
                         for chunk in r.iter_content(8192): f.write(chunk)
@@ -207,7 +281,7 @@ class InstaDownloader:
             if os.path.exists('cookies.txt'): ydl_opts['cookiefile'] = 'cookies.txt'
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.extract_info(f"https://www.instagram.com/p/{shortcode}/", download=True)
-                time.sleep(0.2)
+                time.sleep(0.3)
                 for f in os.listdir(DOWNLOAD_DIR):
                     if shortcode in f and not f.endswith(('.mp4','.mov','.webm')):
                         fp = os.path.join(DOWNLOAD_DIR, f)
@@ -216,7 +290,7 @@ class InstaDownloader:
         return {"success": False}
     
     @staticmethod
-    def _method_scrape(shortcode):
+    def _method_scrape_single(shortcode):
         try:
             session = requests.Session()
             session.headers.update({'User-Agent': 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36'})
@@ -226,7 +300,7 @@ class InstaDownloader:
             if not image_urls:
                 og = re.findall(r'<meta\s+property="og:image"\s+content="([^"]+)"', resp.text)
                 image_urls = list(set(og))
-            for img_url in image_urls[:5]:
+            for img_url in image_urls[:3]:
                 try:
                     if '.mp4' in img_url: continue
                     fp = os.path.join(DOWNLOAD_DIR, f"{shortcode}.jpg")
@@ -238,23 +312,6 @@ class InstaDownloader:
                 except: continue
             return {"success": False}
         except: return {"success": False}
-    
-    @staticmethod
-    def _method_bibliogram(shortcode):
-        for url in [f"https://bibliogram.art/u/p/{shortcode}/"]:
-            try:
-                resp = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=10)
-                if resp.status_code == 200:
-                    for img in re.findall(r'<img[^>]+src="([^"]+)"', resp.text):
-                        if shortcode in img or 'jpg' in img:
-                            fp = os.path.join(DOWNLOAD_DIR, f"{shortcode}.jpg")
-                            r = requests.get(img, headers={'User-Agent': 'Mozilla/5.0'}, stream=True, timeout=20)
-                            if r.status_code == 200:
-                                with open(fp, 'wb') as f:
-                                    for chunk in r.iter_content(8192): f.write(chunk)
-                                if os.path.getsize(fp) > 1000: return {"success": True, "file_path": fp, "is_video": False}
-            except: continue
-        return {"success": False}
     
     @staticmethod
     def _method_cdn(shortcode):
@@ -352,8 +409,38 @@ AUDIO_NAME_PROMPT = (
     "𝐘𝐨𝐮 𝐇𝐚𝐯𝐞 𝐍𝐨 𝐈𝐝𝐞𝐚 𝐓𝐡𝐚𝐧 𝐂𝐥𝐢𝐜𝐤 𝐓𝐡𝐢𝐬 𝐁𝐮𝐭𝐭𝐨𝐧 🔽"
 )
 
+SETTINGS_TEXT = """⚙️ **˹𝐂𝐎𝐌𝐌𝐀𝐍𝐃𝐒 𝐋𝐈𝐒𝐓˼**
+
+👑 **˹𝐎𝐖𝐍𝐄𝐑 𝐂𝐎𝐌𝐌𝐀𝐍𝐃𝐒˼**
+━━━━━━━━━━━━━━━━━━━
+/start - 🎬 ˹𝐒𝐭𝐚𝐫𝐭 𝐁𝐨𝐭˼
+/disable - 🚫 ˹𝐃𝐢𝐬𝐚𝐛𝐥𝐞 𝐁𝐨𝐭˼
+/enable - ✅ ˹𝐄𝐧𝐚𝐛𝐥𝐞 𝐁𝐨𝐭˼
+/settings - ⚙️ ˹𝐂𝐨𝐦𝐦𝐚𝐧𝐝𝐬 𝐋𝐢𝐬𝐭˼
+
+🎨 **˹𝐄𝐌𝐎𝐉𝐈 𝐂𝐎𝐌𝐌𝐀𝐍𝐃𝐒˼**
+━━━━━━━━━━━━━━━━━━━
+/addemoji - ⎘ ˹𝐀𝐝𝐝 𝐄𝐦𝐨𝐣𝐢˼
+/removeemoji - ⌫ ˹𝐑𝐞𝐦𝐨𝐯𝐞 𝐄𝐦𝐨𝐣𝐢˼
+/listemojis - ⌘ ˹𝐋𝐢𝐬𝐭 𝐄𝐦𝐨𝐣𝐢𝐬˼
+
+❄ **˹𝐒𝐓𝐈𝐂𝐊𝐄𝐑 𝐂𝐎𝐌𝐌𝐀𝐍𝐃𝐒˼**
+━━━━━━━━━━━━━━━━━━━
+/addsticker - ⎘ ˹𝐀𝐝𝐝 𝐒𝐭𝐢𝐜𝐤𝐞𝐫˼
+/removesticker - ⌫ ˹𝐑𝐞𝐦𝐨𝐯𝐞 𝐒𝐭𝐢𝐜𝐤𝐞𝐫˼
+/liststickers - ⌘ ˹𝐋𝐢𝐬𝐭 𝐒𝐭𝐢𝐜𝐤𝐞𝐫𝐬˼
+
+📹 **˹𝐕𝐈𝐃𝐄𝐎 𝐂𝐎𝐌𝐌𝐀𝐍𝐃𝐒˼**
+━━━━━━━━━━━━━━━━━━━
+/addvideo - ⎘ ˹𝐀𝐝𝐝 𝐕𝐢𝐝𝐞𝐨˼
+/delvideo - ⌫ ˹𝐃𝐞𝐥𝐞𝐭𝐞 𝐕𝐢𝐝𝐞𝐨˼
+/videos - ⌘ ˹𝐋𝐢𝐬𝐭 𝐕𝐢𝐝𝐞𝐨𝐬˼
+/clearvideos - ⎚ ˹𝐂𝐥𝐞𝐚𝐫 𝐀𝐥𝐥˼
+
+🫧 ˹𝐃𝐞𝐯𝐞𝐥𝐨𝐩𝐞𝐫˼ 🪽 ➪ [𝜝𝜣𝜯 𝑭𝜟𝜯𝜢𝜮𝜞](https://t.me/FathersOfCreater)"""
+
 # ═══════════════════════════
-# 🎬 FULL WELCOME ANIMATION
+# 🎬 WELCOME ANIMATION
 # ═══════════════════════════
 
 async def welcome_animation(bot, chat_id, user_id, first_name):
@@ -414,16 +501,10 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
             [InlineKeyboardButton("◆ ➪ ˹𝜟𝙙𝙙 𝜯𝜣 𝑮𝜞𝜭𝑼𝝆˼ ♪☬", url=f"https://t.me/{(await bot.get_me()).username}?startgroup=true")]
         ])
         
-        sent = False
         if video_data and os.path.exists(video_data["path"]):
-            try:
-                await bot.send_video(chat_id, video_data["path"], caption=final_text, parse_mode="Markdown", reply_markup=kb)
-                sent = True
-            except: pass
-        
-        if not sent:
-            try: await bot.send_message(chat_id, final_text, parse_mode="Markdown", reply_markup=kb)
-            except: pass
+            await bot.send_video(chat_id, video_data["path"], caption=final_text, parse_mode="Markdown", reply_markup=kb)
+        else:
+            await bot.send_message(chat_id, final_text, parse_mode="Markdown", reply_markup=kb)
         
         if sticker_msg:
             await asyncio.sleep(2)
@@ -432,8 +513,7 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
             
     except Exception as e:
         try:
-            final_text = WELCOME_TEXT.replace("{mention}", f"[{first_name}](tg://user?id={user_id})")
-            await bot.send_message(chat_id, final_text, parse_mode="Markdown")
+            await bot.send_message(chat_id, WELCOME_TEXT.replace("{mention}", f"[{first_name}](tg://user?id={user_id})"), parse_mode="Markdown")
         except: pass
 
 # ═══════════════════════════
@@ -445,6 +525,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(BOT_DISABLED_MSG, parse_mode="Markdown")
         return
     await welcome_animation(context.bot, update.effective_chat.id, update.effective_user.id, update.effective_user.first_name or "User")
+
+async def settings_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != OWNER_ID: return
+    await update.message.reply_text(SETTINGS_TEXT, parse_mode="Markdown")
 
 async def bot_added_to_group(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_bot_enabled(): return
@@ -461,87 +545,112 @@ async def bot_added_to_group(update: Update, context: ContextTypes.DEFAULT_TYPE)
 async def disable_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
     set_bot_state(False)
-    await update.message.reply_text("🚫 **𝗕𝗢𝗧 𝗗𝗜𝗦𝗔𝗕𝗟𝗘𝗗 𝗕𝗬 𝗢𝗪𝗡𝗘𝗥**\n\n𝗡𝗼 𝘂𝘀𝗲𝗿 𝗰𝗮𝗻 𝘂𝘀𝗲 𝘁𝗵𝗶𝘀 𝗯𝗼𝘁 𝗻𝗼𝘄.", parse_mode="Markdown")
+    await update.message.reply_text("🚫 **𝗕𝗢𝗧 𝗗𝗜𝗦𝗔𝗕𝗟𝗘𝗗 𝗕𝗬 𝗢𝗪𝗡𝗘𝗥**", parse_mode="Markdown")
 
 async def enable_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
     set_bot_state(True)
-    await update.message.reply_text("✅ **𝗕𝗢𝗧 𝗘𝗡𝗔𝗕𝗟𝗘𝗗 𝗕𝗬 𝗢𝗪𝗡𝗘𝗥**\n\n𝗔𝗹𝗹 𝘂𝘀𝗲𝗿𝘀 𝗰𝗮𝗻 𝘂𝘀𝗲 𝘁𝗵𝗶𝘀 𝗯𝗼𝘁 𝗻𝗼𝘄.", parse_mode="Markdown")
+    await update.message.reply_text("✅ **𝗕𝗢𝗧 𝗘𝗡𝗔𝗕𝗟𝗘𝗗 𝗕𝗬 𝗢𝗪𝗡𝗘𝗥**", parse_mode="Markdown")
 
+# ═══════════════ ADMIN COMMANDS ═══════════════
 async def add_emoji_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_chat.type != 'private' or update.effective_user.id != OWNER_ID: return
+    if update.effective_user.id != OWNER_ID: return
     if not update.message.reply_to_message or not update.message.reply_to_message.sticker:
-        await update.message.reply_text("⎘ **𝗥𝗲𝗽𝗹𝘆 𝘁𝗼 𝗲𝗺𝗼𝗷𝗶**", parse_mode="Markdown"); return
+        await update.message.reply_text("⎘ **˹𝐑𝐞𝐩𝐥𝐲 𝐓𝐨 𝐄𝐦𝐨𝐣𝐢 𝐒𝐭𝐢𝐜𝐤𝐞𝐫˼**", parse_mode="Markdown"); return
     s, t = add_emoji_db(update.message.reply_to_message.sticker.file_id)
-    await update.message.reply_text(f"✅ **𝗔𝗱𝗱𝗲𝗱!** ({t})" if s else "❌ **𝗔𝗹𝗿𝗲𝗮𝗱𝘆 𝗘𝘅𝗶𝘀𝘁𝘀!**", parse_mode="Markdown")
+    if s:
+        await update.message.reply_text(f"✅ **˹𝐄𝐌𝐎𝐉𝐈 𝐀𝐃𝐃𝐄𝐃˼** 🎉\n\n🔹 **˹𝐓𝐨𝐭𝐚𝐥 𝐄𝐦𝐨𝐣𝐢𝐬:˼** {t}\n\n✨ **˹ᴛʜɪs ᴇᴍᴏᴊɪ ᴡɪʟʟ ᴀᴘᴘᴇᴀʀ ʀᴀɴᴅᴏᴍʟʏ ɪɴ ᴡᴇʟᴄᴏᴍᴇ ᴀɴɪᴍᴀᴛɪᴏɴ!˼**", parse_mode="Markdown")
+    else:
+        await update.message.reply_text("❌ **˹𝐀𝐥𝐫𝐞𝐚𝐝𝐲 𝐄𝐱𝐢𝐬𝐭𝐬!˼**", parse_mode="Markdown")
 
 async def remove_emoji_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_chat.type != 'private' or update.effective_user.id != OWNER_ID: return
+    if update.effective_user.id != OWNER_ID: return
     try:
         idx = int(update.message.text.split()[1]) - 1
         s, t = remove_emoji_db(idx)
-        await update.message.reply_text(f"✅ **𝗥𝗲𝗺𝗼𝘃𝗲𝗱!** ({t})" if s else f"❌ **𝗜𝗻𝘃𝗮𝗹𝗶𝗱!** Total: {t}", parse_mode="Markdown")
-    except: await update.message.reply_text("**𝗨𝘀𝗲:** `/removeemoji index`", parse_mode="Markdown")
+        await update.message.reply_text(f"✅ **˹𝐑𝐞𝐦𝐨𝐯𝐞𝐝!˼** ({t})" if s else f"❌ **˹𝐈𝐧𝐯𝐚𝐥𝐢𝐝!˼** Total: {t}", parse_mode="Markdown")
+    except: await update.message.reply_text("**˹𝐔𝐬𝐞:˼** `/removeemoji index`", parse_mode="Markdown")
 
 async def list_emojis_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_chat.type != 'private' or update.effective_user.id != OWNER_ID: return
+    if update.effective_user.id != OWNER_ID: return
     emojis = get_emojis()
-    if not emojis: await update.message.reply_text("📭 **𝗡𝗼 𝗘𝗺𝗼𝗷𝗶𝘀!**", parse_mode="Markdown"); return
-    text = "🎨 **𝗘𝗠𝗢𝗝𝗜𝗦:**\n" + "\n".join([f"`{i+1}.` `{e[:30]}`" for i, e in enumerate(emojis)])
-    await update.message.reply_text(text + f"\n\n🔹 **𝗧𝗼𝘁𝗮𝗹:** {len(emojis)}", parse_mode="Markdown")
+    if not emojis: await update.message.reply_text("📭 **˹𝐍𝐨 𝐄𝐦𝐨𝐣𝐢𝐬!˼**", parse_mode="Markdown"); return
+    text = "🎨 **˹𝐄𝐌𝐎𝐉𝐈 𝐋𝐈𝐒𝐓˼**\n\n" + "\n".join([f"**{i+1}.** `{e[:30]}...`" for i, e in enumerate(emojis)])
+    await update.message.reply_text(text + f"\n\n🔹 **˹𝐓𝐨𝐭𝐚𝐥:˼** {len(emojis)}", parse_mode="Markdown")
 
 async def add_sticker_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_chat.type != 'private' or update.effective_user.id != OWNER_ID: return
+    if update.effective_user.id != OWNER_ID: return
     if not update.message.reply_to_message or not update.message.reply_to_message.sticker:
-        await update.message.reply_text("⎘ **𝗥𝗲𝗽𝗹𝘆 𝘁𝗼 𝘀𝘁𝗶𝗰𝗸𝗲𝗿**", parse_mode="Markdown"); return
+        await update.message.reply_text("⎘ **˹𝐑𝐞𝐩𝐥𝐲 𝐓𝐨 𝐒𝐭𝐢𝐜𝐤𝐞𝐫˼**", parse_mode="Markdown"); return
     s, t = add_sticker_db(update.message.reply_to_message.sticker.file_id)
-    await update.message.reply_text(f"✅ **𝗔𝗱𝗱𝗲𝗱!** ({t})" if s else "❌ **𝗔𝗹𝗿𝗲𝗮𝗱𝘆 𝗘𝘅𝗶𝘀𝘁𝘀!**", parse_mode="Markdown")
+    if s:
+        await update.message.reply_text(f"✅ **˹𝐒𝐓𝐈𝐂𝐊𝐄𝐑 𝐀𝐃𝐃𝐄𝐃˼** 🎉\n\n🔹 **˹𝐓𝐨𝐭𝐚𝐥 𝐒𝐭𝐢𝐜𝐤𝐞𝐫𝐬:˼** {t}\n\n✨ **˹ᴛʜɪs sᴛɪᴄᴋᴇʀ ᴡɪʟʟ ᴀᴘᴘᴇᴀʀ ʀᴀɴᴅᴏᴍʟʏ ɪɴ ᴡᴇʟᴄᴏᴍᴇ ᴀɴɪᴍᴀᴛɪᴏɴ!˼**", parse_mode="Markdown")
+    else:
+        await update.message.reply_text("❌ **˹𝐀𝐥𝐫𝐞𝐚𝐝𝐲 𝐄𝐱𝐢𝐬𝐭𝐬!˼**", parse_mode="Markdown")
 
 async def remove_sticker_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_chat.type != 'private' or update.effective_user.id != OWNER_ID: return
+    if update.effective_user.id != OWNER_ID: return
     try:
         idx = int(update.message.text.split()[1]) - 1
         s, t = remove_sticker_db(idx)
-        await update.message.reply_text(f"✅ **𝗥𝗲𝗺𝗼𝘃𝗲𝗱!** ({t})" if s else f"❌ **𝗜𝗻𝘃𝗮𝗹𝗶𝗱!** Total: {t}", parse_mode="Markdown")
-    except: await update.message.reply_text("**𝗨𝘀𝗲:** `/removesticker index`", parse_mode="Markdown")
+        await update.message.reply_text(f"✅ **˹𝐑𝐞𝐦𝐨𝐯𝐞𝐝!˼** ({t})" if s else f"❌ **˹𝐈𝐧𝐯𝐚𝐥𝐢𝐝!˼** Total: {t}", parse_mode="Markdown")
+    except: await update.message.reply_text("**˹𝐔𝐬𝐞:˼** `/removesticker index`", parse_mode="Markdown")
 
 async def list_stickers_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_chat.type != 'private' or update.effective_user.id != OWNER_ID: return
+    if update.effective_user.id != OWNER_ID: return
     stickers = get_stickers()
-    if not stickers: await update.message.reply_text("📭 **𝗡𝗼 𝗦𝘁𝗶𝗰𝗸𝗲𝗿𝘀!**", parse_mode="Markdown"); return
-    text = "❄ **𝗦𝗧𝗜𝗖𝗞𝗘𝗥𝗦:**\n" + "\n".join([f"`{i+1}.` `{s[:25]}`" for i, s in enumerate(stickers)])
-    await update.message.reply_text(text + f"\n\n🔹 **𝗧𝗼𝘁𝗮𝗹:** {len(stickers)}", parse_mode="Markdown")
+    if not stickers: await update.message.reply_text("📭 **˹𝐍𝐨 𝐒𝐭𝐢𝐜𝐤𝐞𝐫𝐬!˼**", parse_mode="Markdown"); return
+    text = "❄ **˹𝐒𝐓𝐈𝐂𝐊𝐄𝐑 𝐋𝐈𝐒𝐓˼**\n\n" + "\n".join([f"**{i+1}.** `{s[:25]}...`" for i, s in enumerate(stickers)])
+    await update.message.reply_text(text + f"\n\n🔹 **˹𝐓𝐨𝐭𝐚𝐥:˼** {len(stickers)}", parse_mode="Markdown")
 
 async def add_video_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_chat.type != 'private' or update.effective_user.id != OWNER_ID: return
+    if update.effective_user.id != OWNER_ID: return
     if not update.message.reply_to_message or not update.message.reply_to_message.video:
-        await update.message.reply_text("⎘ **𝗥𝗲𝗽𝗹𝘆 𝘁𝗼 𝘃𝗶𝗱𝗲𝗼**", parse_mode="Markdown"); return
-    m = await update.message.reply_text("📂 **𝗔𝗱𝗱𝗶𝗻𝗴...**", parse_mode="Markdown")
+        await update.message.reply_text("⎘ **˹𝐑𝐞𝐩𝐥𝐲 𝐓𝐨 𝐕𝐢𝐝𝐞𝐨˼**", parse_mode="Markdown"); return
+    m = await update.message.reply_text("📂 **˹𝐀𝐝𝐝𝐢𝐧𝐠 𝐕𝐢𝐝𝐞𝐨...˼**", parse_mode="Markdown")
     try:
         file = await update.message.reply_to_message.video.get_file()
         fp = os.path.join(VIDEO_DIR, f"w_{int(time.time())}.mp4")
         await file.download_to_drive(fp)
         vid, total = add_video_db(fp)
-        await m.edit_text(f"✅ **𝗔𝗱𝗱𝗲𝗱!** ID:{vid} ({total})", parse_mode="Markdown")
-    except Exception as e: await m.edit_text(f"❌ **𝗘𝗿𝗿𝗼𝗿:** {e}", parse_mode="Markdown")
+        
+        duration = "Unknown"
+        if update.message.reply_to_message.video.duration:
+            mins = update.message.reply_to_message.video.duration // 60
+            secs = update.message.reply_to_message.video.duration % 60
+            duration = f"{mins}m {secs}s"
+        
+        text = (
+            f"✅ **˹𝐕𝐈𝐃𝐄𝐎 𝐀𝐃𝐃𝐄𝐃 𝐒𝐔𝐂𝐂𝐄𝐒𝐒𝐅𝐔𝐋𝐋𝐘˼** ✅\n\n"
+            f"━━━━━━━━━━━━━━━━━━━\n"
+            f"🆔 **˹𝑽𝒊𝒅𝒆𝒐 𝑰𝑫:˼** {vid}\n"
+            f"📁 **˹𝑵𝒂𝒎𝒆:˼** {os.path.basename(fp)[:30]}\n"
+            f"📹 **˹𝑻𝒐𝒕𝒂𝒍 𝑽𝒊𝒅𝒆𝒐𝒔:˼** {total}\n"
+            f"⏱️ **˹𝑫𝒖𝒓𝒂𝒕𝒊𝒐𝒏:˼** {duration}\n"
+            f"━━━━━━━━━━━━━━━━━━━\n\n"
+            f"🎲 **˹ᴠɪᴅᴇᴏ ᴡɪʟʟ ᴘʟᴀʏ ʀᴀɴᴅᴏᴍʟʏ ᴏɴ ᴡᴇʟᴄᴏᴍᴇ!˼**\n"
+            f"📋 /videos **˹тσ ѕєє αℓℓ νι∂єσѕ˼**"
+        )
+        await m.edit_text(text, parse_mode="Markdown")
+    except Exception as e: await m.edit_text(f"❌ **˹𝐄𝐫𝐫𝐨𝐫:˼** {e}", parse_mode="Markdown")
 
 async def del_video_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_chat.type != 'private' or update.effective_user.id != OWNER_ID: return
+    if update.effective_user.id != OWNER_ID: return
     try:
         s, t = delete_video_db(int(update.message.text.split()[1]))
-        await update.message.reply_text(f"✅ **𝗗𝗲𝗹𝗲𝘁𝗲𝗱!** ({t})" if s else "❌ **𝗡𝗼𝘁 𝗙𝗼𝘂𝗻𝗱!**", parse_mode="Markdown")
-    except: await update.message.reply_text("**𝗨𝘀𝗲:** `/delvideo ID`", parse_mode="Markdown")
+        await update.message.reply_text(f"✅ **˹𝐃𝐞𝐥𝐞𝐭𝐞𝐝!˼** ({t})" if s else "❌ **˹𝐍𝐨𝐭 𝐅𝐨𝐮𝐧𝐝!˼**", parse_mode="Markdown")
+    except: await update.message.reply_text("**˹𝐔𝐬𝐞:˼** `/delvideo ID`", parse_mode="Markdown")
 
 async def list_videos_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_chat.type != 'private' or update.effective_user.id != OWNER_ID: return
+    if update.effective_user.id != OWNER_ID: return
     vids = get_video_list()
-    if not vids: await update.message.reply_text("📹 **𝗡𝗼 𝗩𝗶𝗱𝗲𝗼𝘀!**", parse_mode="Markdown"); return
-    text = "📹 **𝗩𝗜𝗗𝗘𝗢𝗦:**\n" + "\n".join([f"`#{v['id']}` {v['name'][:30]}" for v in vids])
-    await update.message.reply_text(text + f"\n\n🔹 **𝗧𝗼𝘁𝗮𝗹:** {len(vids)}", parse_mode="Markdown")
+    if not vids: await update.message.reply_text("📹 **˹𝐍𝐨 𝐕𝐢𝐝𝐞𝐨𝐬!˼**", parse_mode="Markdown"); return
+    text = "📹 **˹𝐕𝐈𝐃𝐄𝐎 𝐋𝐈𝐒𝐓˼**\n\n" + "\n".join([f"**#{v['id']}** {v['name'][:30]}" for v in vids])
+    await update.message.reply_text(text + f"\n\n🔹 **˹𝐓𝐨𝐭𝐚𝐥:˼** {len(vids)}", parse_mode="Markdown")
 
 async def clear_videos_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_chat.type != 'private' or update.effective_user.id != OWNER_ID: return
-    await update.message.reply_text(f"🗑️ **{clear_videos_db()} 𝘃𝗶𝗱𝗲𝗼𝘀 𝗰𝗹𝗲𝗮𝗿𝗲𝗱!**", parse_mode="Markdown")
+    if update.effective_user.id != OWNER_ID: return
+    await update.message.reply_text(f"🗑️ **˹{clear_videos_db()} 𝐯𝐢𝐝𝐞𝐨𝐬 𝐜𝐥𝐞𝐚𝐫𝐞𝐝!˼**", parse_mode="Markdown")
 
 # ═══════════════ MESSAGE HANDLER ═══════════════
 
@@ -553,7 +662,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     if not text: return
     
-    # Audio name input
     if context.user_data.get('awaiting_audio'):
         context.user_data['awaiting_audio'] = False
         audio_name = text.strip()
@@ -561,7 +669,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if 'audio_prompt_msg' in context.user_data:
             try: await context.user_data['audio_prompt_msg'].delete()
             except: pass
-            context.user_data['audio_prompt_msg'] = None
         if url:
             await extract_and_send_audio(update, context, url, audio_name)
         context.user_data['audio_video_url'] = None
@@ -573,7 +680,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if 'audio_prompt_msg' in context.user_data:
             try: await context.user_data['audio_prompt_msg'].delete()
             except: pass
-            context.user_data['audio_prompt_msg'] = None
         if url:
             await extract_and_send_audio(update, context, url, AUDIO_DEFAULT_NAME)
         context.user_data['audio_video_url'] = None
@@ -588,34 +694,84 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     context.user_data['current_url'] = url
     
+    # Send random sticker first
+    sticker_id = get_random_sticker()
+    sticker_msg = None
+    if sticker_id:
+        try: sticker_msg = await context.bot.send_sticker(update.effective_chat.id, sticker_id)
+        except: pass
+    
     msg = await update.message.reply_text("⏳ **𝗣𝗿𝗼𝗰𝗲𝘀𝘀𝗶𝗻𝗴...**", parse_mode="Markdown")
     
     try:
-        await msg.edit_text("📥 **𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗶𝗻𝗴...**", parse_mode="Markdown")
+        is_reel = '/reel/' in url or '/tv/' in url
+        await msg.edit_text("📥 **𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗶𝗻𝗴...**" if is_reel else "📥 **𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗣𝗵𝗼𝘁𝗼...**", parse_mode="Markdown")
         result = InstaDownloader.download_media(url)
         
         if not result.get("success"):
             await msg.edit_text(f"❌ **𝗙𝗮𝗶𝗹𝗲𝗱!** {result.get('error', '')}", parse_mode="Markdown")
+            if sticker_msg:
+                try: await sticker_msg.delete()
+                except: pass
+            return
+        
+        # Multiple photos
+        if result.get("is_multiple"):
+            photo_paths = result.get("file_paths", [])
+            total = len(photo_paths)
+            await msg.edit_text(f"📤 **𝗨𝗽𝗹𝗼𝗮𝗱𝗶𝗻𝗴 {total} 𝗣𝗵𝗼𝘁𝗼𝘀...**", parse_mode="Markdown")
+            
+            for i, fp in enumerate(photo_paths):
+                if os.path.exists(fp) and os.path.getsize(fp) > 1000:
+                    try:
+                        keyboard = None
+                        if i < total - 1:
+                            keyboard = InlineKeyboardMarkup([
+                                [InlineKeyboardButton(f"➪ ˹𝐍𝐞𝐱𝐭 𝐏𝐡𝐨𝐭𝐨˼ ➤ ({i+2}/{total})", callback_data=f"nextphoto_{url}_{i+2}")]
+                            ])
+                        
+                        with open(fp, 'rb') as f:
+                            await update.message.reply_photo(
+                                photo=f,
+                                caption=f"📸 **Photo {i+1}/{total}**\n\n{CAPTION}",
+                                parse_mode="Markdown",
+                                reply_markup=keyboard
+                            )
+                    except Exception as e:
+                        await update.message.reply_text(f"❌ Error: {str(e)[:50]}")
+                    InstaDownloader.cleanup(fp)
+            
+            await msg.delete()
+            if sticker_msg:
+                await asyncio.sleep(2)
+                try: await sticker_msg.delete()
+                except: pass
             return
         
         fp = result["file_path"]
         if not os.path.exists(fp) or os.path.getsize(fp) < 1000:
             await msg.edit_text("❌ **𝗙𝗶𝗹𝗲 𝗡𝗼𝘁 𝗙𝗼𝘂𝗻𝗱**", parse_mode="Markdown")
+            if sticker_msg:
+                try: await sticker_msg.delete()
+                except: pass
             return
         
         size_mb = os.path.getsize(fp) / (1024 * 1024)
         if size_mb > 50:
             await msg.edit_text(f"❌ **>𝟱𝟬𝗠𝗕** ({size_mb:.1f}MB)", parse_mode="Markdown")
             InstaDownloader.cleanup(fp)
+            if sticker_msg:
+                try: await sticker_msg.delete()
+                except: pass
             return
         
         is_video = result.get("is_video", False) or fp.endswith(('.mp4', '.mov', '.webm'))
         
         if is_video:
             await msg.edit_text("📤 **𝗨𝗽𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗩𝗶𝗱𝗲𝗼...**", parse_mode="Markdown")
-            keyboard = [[InlineKeyboardButton(AUDIO_BUTTON_TEXT, callback_data=f"audio_{url}")]]
+            keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(AUDIO_BUTTON_TEXT, callback_data=f"audio_{url}")]])
             with open(fp, 'rb') as f:
-                await update.message.reply_video(video=f, caption=CAPTION, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard), supports_streaming=True)
+                await update.message.reply_video(video=f, caption=CAPTION, parse_mode="Markdown", reply_markup=keyboard, supports_streaming=True)
         else:
             await msg.edit_text("📤 **𝗨𝗽𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗣𝗵𝗼𝘁𝗼...**", parse_mode="Markdown")
             with open(fp, 'rb') as f:
@@ -624,37 +780,35 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.delete()
         InstaDownloader.cleanup(fp)
         
+        if sticker_msg:
+            await asyncio.sleep(2)
+            try: await sticker_msg.delete()
+            except: pass
+        
     except Exception as e:
         await msg.edit_text(f"❌ **𝗘𝗿𝗿𝗼𝗿:** {str(e)[:100]}", parse_mode="Markdown")
         for f in os.listdir(DOWNLOAD_DIR):
             try: os.remove(os.path.join(DOWNLOAD_DIR, f))
             except: pass
+        if sticker_msg:
+            try: await sticker_msg.delete()
+            except: pass
 
-# ═══════════════ AUDIO EXTRACTION (🔎 FIRST, 3s DELETE, THEN TEXT, THEN AUDIO) ═══════════════
+# ═══════════════ AUDIO ═══════════════
 
 async def extract_and_send_audio(update, context, url, audio_name):
-    # Step 1: 🔎 emoji pehle
     search_msg = await update.message.reply_text("🔎")
-    
-    # Step 2: 3 second wait
     await asyncio.sleep(3)
-    
-    # Step 3: Delete 🔎
     try: await search_msg.delete()
     except: pass
     
-    # Step 4: Extracting Audio text
     status_msg = await update.message.reply_text("🎵 **𝗘𝘅𝘁𝗿𝗮𝗰𝘁𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼...**", parse_mode="Markdown")
-    
     try:
         result = InstaDownloader.download_media(url)
         if not result.get("success"):
-            await status_msg.edit_text("❌ **𝗙𝗮𝗶𝗹𝗲𝗱**", parse_mode="Markdown")
-            return
-        
+            await status_msg.edit_text("❌ **𝗙𝗮𝗶𝗹𝗲𝗱**", parse_mode="Markdown"); return
         vp = result["file_path"]
         ar = InstaDownloader.extract_audio(vp, audio_name)
-        
         if ar.get("success"):
             await status_msg.edit_text("📤 **𝗦𝗲𝗻𝗱𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼...**", parse_mode="Markdown")
             with open(ar["file_path"], 'rb') as f:
@@ -664,37 +818,23 @@ async def extract_and_send_audio(update, context, url, audio_name):
             except: pass
             try: os.remove(ar["file_path"])
             except: pass
-        else:
-            await status_msg.edit_text(f"❌ **{ar.get('error')}**", parse_mode="Markdown")
-        
+        else: await status_msg.edit_text(f"❌ **{ar.get('error')}**", parse_mode="Markdown")
         InstaDownloader.cleanup(vp)
-    except Exception as e:
-        await status_msg.edit_text(f"❌ **𝗘𝗿𝗿𝗼𝗿:** {str(e)[:80]}", parse_mode="Markdown")
-
+    except Exception as e: await status_msg.edit_text(f"❌ **𝗘𝗿𝗿𝗼𝗿:** {str(e)[:80]}", parse_mode="Markdown")
 
 async def extract_and_send_audio_direct(query, context, url, audio_name):
-    # Step 1: 🔎 emoji pehle
     search_msg = await query.message.reply_text("🔎")
-    
-    # Step 2: 3 second wait
     await asyncio.sleep(3)
-    
-    # Step 3: Delete 🔎
     try: await search_msg.delete()
     except: pass
     
-    # Step 4: Extracting Audio text
     status_msg = await query.message.reply_text("🎵 **𝗘𝘅𝘁𝗿𝗮𝗰𝘁𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼...**", parse_mode="Markdown")
-    
     try:
         result = InstaDownloader.download_media(url)
         if not result.get("success"):
-            await status_msg.edit_text("❌ **𝗙𝗮𝗶𝗹𝗲𝗱**", parse_mode="Markdown")
-            return
-        
+            await status_msg.edit_text("❌ **𝗙𝗮𝗶𝗹𝗲𝗱**", parse_mode="Markdown"); return
         vp = result["file_path"]
         ar = InstaDownloader.extract_audio(vp, audio_name)
-        
         if ar.get("success"):
             await status_msg.edit_text("📤 **𝗦𝗲𝗻𝗱𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼...**", parse_mode="Markdown")
             with open(ar["file_path"], 'rb') as f:
@@ -704,18 +844,17 @@ async def extract_and_send_audio_direct(query, context, url, audio_name):
             except: pass
             try: os.remove(ar["file_path"])
             except: pass
-        else:
-            await status_msg.edit_text(f"❌ **{ar.get('error')}**", parse_mode="Markdown")
-        
+        else: await status_msg.edit_text(f"❌ **{ar.get('error')}**", parse_mode="Markdown")
         InstaDownloader.cleanup(vp)
-    except Exception as e:
-        await status_msg.edit_text(f"❌ **𝗘𝗿𝗿𝗼𝗿:** {str(e)[:80]}", parse_mode="Markdown")
+    except Exception as e: await status_msg.edit_text(f"❌ **𝗘𝗿𝗿𝗼𝗿:** {str(e)[:80]}", parse_mode="Markdown")
 
+# ═══════════════ BUTTON HANDLER ═══════════════
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
+    # Audio button
     if query.data.startswith("audio_"):
         video_url = query.data.replace("audio_", "")
         context.user_data['audio_video_url'] = video_url
@@ -727,6 +866,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['awaiting_audio'] = True
         context.user_data['audio_prompt_msg'] = prompt_msg
     
+    # Default audio name button
     elif query.data == "default_audio":
         await query.message.delete()
         context.user_data['awaiting_audio'] = False
@@ -734,6 +874,40 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         url = context.user_data.get('audio_video_url') or context.user_data.get('current_url')
         if url: await extract_and_send_audio_direct(query, context, url, AUDIO_DEFAULT_NAME)
         context.user_data['audio_video_url'] = None
+    
+    # Next Photo button
+    elif query.data.startswith("nextphoto_"):
+        parts = query.data.split("_")
+        url = parts[1]
+        next_idx = int(parts[2])
+        
+        # Re-download to get all photos
+        result = InstaDownloader._download_photo(InstaDownloader.get_shortcode(url))
+        if result.get("is_multiple"):
+            photo_paths = result.get("file_paths", [])
+            total = len(photo_paths)
+            idx = next_idx - 1  # Convert to 0-based
+            
+            if 0 <= idx < total:
+                fp = photo_paths[idx]
+                if os.path.exists(fp) and os.path.getsize(fp) > 1000:
+                    try:
+                        keyboard = None
+                        if idx < total - 1:
+                            keyboard = InlineKeyboardMarkup([
+                                [InlineKeyboardButton(f"➪ ˹𝐍𝐞𝐱𝐭 𝐏𝐡𝐨𝐭𝐨˼ ➤ ({idx+2}/{total})", callback_data=f"nextphoto_{url}_{idx+2}")]
+                            ])
+                        
+                        await query.edit_message_reply_markup(reply_markup=None)
+                        with open(fp, 'rb') as f:
+                            await query.message.reply_photo(
+                                photo=f,
+                                caption=f"📸 **Photo {idx+1}/{total}**\n\n{CAPTION}",
+                                parse_mode="Markdown",
+                                reply_markup=keyboard
+                            )
+                    except: pass
+                    InstaDownloader.cleanup(fp)
 
 # ═══════════════════════════
 # 🚀 MAIN
@@ -742,8 +916,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
     print("╔══════════════════════════╗")
-    print("║  🤖 INSTAGRAM BOT v9    ║")
-    print("║  🔎 EMOJI FIRST FIX     ║")
+    print("║  🤖 INSTAGRAM BOT v10   ║")
+    print("║  ✅ ALL FIXED + NEXT    ║")
     print("╚══════════════════════════╝")
     
     if not shutil.which('ffmpeg'):
@@ -760,6 +934,7 @@ def main():
     app = Application.builder().token(BOT_TOKEN).read_timeout(30).write_timeout(30).connect_timeout(30).build()
     
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("settings", settings_cmd))
     app.add_handler(CommandHandler("disable", disable_cmd))
     app.add_handler(CommandHandler("enable", enable_cmd))
     app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, bot_added_to_group))
