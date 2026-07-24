@@ -564,12 +564,17 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
         welcome_emojis = ["🩷", "🌸", "🏖️", "🍰", "🥂"]
         welcome_msg = await bot.send_message(chat_id, f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ ꨄ {user_mention}...🩷", parse_mode="Markdown")
         
-        # Step 4: Animate welcome message emojis
+        # Step 4: Animate welcome message emojis - FIXED
         for emoji in welcome_emojis:
-            await asyncio.sleep(0.5)
-            try: 
-                await welcome_msg.edit_text(f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ ꨄ {user_mention}...{emoji}", parse_mode="Markdown")
-            except: 
+            await asyncio.sleep(0.8)  # Increased delay for better visibility
+            try:
+                # Edit the message with new emoji
+                await welcome_msg.edit_text(
+                    f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ ꨄ {user_mention}...{emoji}",
+                    parse_mode="Markdown"
+                )
+            except Exception as e:
+                print(f"Welcome emoji edit error: {e}")
                 break
         
         # Step 5: Delete emoji sticker after welcome animation
@@ -627,8 +632,8 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
             except: 
                 pass
             
-    except:
-        pass
+    except Exception as e:
+        print(f"Welcome animation error: {e}")
         
 # ═══════════════════════════
 # 🤖 HANDLERS
