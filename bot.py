@@ -548,6 +548,7 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
     try:
         user_mention = f"[{first_name}](tg://user?id={user_id})"
         
+        # Step 1: Send emoji sticker first
         emoji_id = get_random_emoji()
         emoji_msg = None
         if emoji_id:
@@ -556,21 +557,14 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
             except: 
                 pass
         
-        # Wait for emoji sticker to be visible for 3 seconds
-        await asyncio.sleep(3)
+        # Step 2: Wait 0.5 seconds
+        await asyncio.sleep(0.5)
         
-        # ✨ Delete emoji sticker after user has seen it
-        if emoji_msg:
-            try: 
-                await emoji_msg.delete()
-            except: 
-                pass
-        
-        await asyncio.sleep(0.1)
-        
+        # Step 3: Send welcome message with emoji animation
         welcome_emojis = ["🩷", "🌸", "🏖️", "🍰", "🥂"]
         welcome_msg = await bot.send_message(chat_id, f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ ꨄ {user_mention}...🩷", parse_mode="Markdown")
         
+        # Step 4: Animate welcome message emojis
         for emoji in welcome_emojis:
             await asyncio.sleep(0.5)
             try: 
@@ -578,6 +572,14 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
             except: 
                 break
         
+        # Step 5: Delete emoji sticker after welcome animation completes
+        if emoji_msg:
+            try: 
+                await emoji_msg.delete()
+            except: 
+                pass
+        
+        # Step 6: Start "starting" animation
         await asyncio.sleep(0.2)
         
         starting_emojis = ["🚀", "🌠", "🪶", "🍓", "🤖", "🥡", "🍷", "🍭", "🍨", "🧭", "🫧", "🍫", "🛸"]
@@ -595,6 +597,7 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
         await asyncio.sleep(0.2)
         await welcome_msg.delete()
         
+        # Step 7: Send final welcome message with sticker and video
         sticker_id = get_random_sticker()
         sticker_msg = None
         if sticker_id:
