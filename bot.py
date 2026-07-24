@@ -193,134 +193,56 @@ class InstaDownloader:
         if is_reel: return InstaDownloader._download_video(shortcode, url)
         else: return InstaDownloader._download_photo(shortcode, url)
     
-@staticmethod
-def _download_video(shortcode, url):
-    if not validate_cookies():
-        return {"success": False, "error": "cookies.txt missing or invalid!"}
-    
-    # Check if ffmpeg is available
-    ffmpeg_path = shutil.which('ffmpeg')
-    if not ffmpeg_path:
-        logging.warning("FFmpeg not found, video might download without audio")
-    
-    ydl_opts = {
-        'quiet': True, 'no_warnings': True,
-        'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
-        'cookiefile': 'cookies.txt',
-        'retries': 10, 'fragment_retries': 10, 'socket_timeout': 120,
-        'http_headers': {'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15'},
-    }
-    
-    # Add ffmpeg location if available
-    if ffmpeg_path:
-        ydl_opts['ffmpeg_location'] = ffmpeg_path
-    
-    # Try multiple format combinations - prioritize ones with audio
-    format_attempts = [
-        # Best format with both video and audio
-        'bestvideo+bestaudio/best',
-        # MP4 with audio
-        'mp4/best',
-        # Fallback to best
-        'best',
-        # Last resort - video only
-        'best[ext=mp4]',
-    ]
-    
-    for fmt in format_attempts:
-        try:
-            ydl_opts['format'] = fmt
-            
-            # For formats that might need merging
-            if '+' in fmt:
-                ydl_opts['merge_output_format'] = 'mp4'
-            
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                # Get info first to check available formats
-                try:
-                    info = ydl.extract_info(url, download=False)
-                    formats = info.get('formats', [])
-                    
-                    # Check if audio formats exist
-                    has_audio = any(
-                        f.get('acodec') != 'none' and f.get('vcodec') == 'none' 
-                        for f in formats
-                    )
-                    
-                    if not has_audio:
-                        logging.info(f"No separate audio stream found for {shortcode}")
-                except:
-                    pass
+    @staticmethod
+    def _download_video(shortcode, url):
+        """DOWNLOAD REEL/VIDEO WITH AUDIO"""
+        if not validate_cookies():
+            return {"success": False, "error": "cookies.txt missing or invalid! Upload proper cookies.txt"}
+        
+        ydl_opts = {
+            'quiet': True,
+            'no_warnings': True,
+            'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
+            'cookiefile': 'cookies.txt',
+            'retries': 10,
+            'fragment_retries': 10,
+            'socket_timeout': 120,
+            'extractor_retries': 5,
+            'http_headers': {
+                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Referer': 'https://www.instagram.com/',
+            }
+        }
+        
+        if shutil.which('ffmpeg'):
+            ydl_opts['ffmpeg_location'] = shutil.which('ffmpeg')
+        
+        formats = ['mp4', 'best[ext=mp4]', 'best', 'bestvideo+bestaudio/best']
+        
+        for fmt in formats:
+            try:
+                ydl_opts['format'] = fmt
+                print(f"🔄 Video format: {fmt}")
                 
-                # Download
-                ydl.download([url])
-                time.sleep(0.5)
-                
-                # Find the downloaded file
-                for ext in ['.mp4', '.mkv', '.webm', '.mov']:
-                    for f in sorted(os.listdir(DOWNLOAD_DIR), 
-                                  key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), 
-                                  reverse=True):
-                        if f.endswith(ext) and shortcode in f:
-                            fp = os.path.join(DOWNLOAD_DIR, f)
-                            if os.path.exists(fp) and os.path.getsize(fp) > 50000:
-                                # Check if the file has audio
-                                if InstaDownloader._has_audio_stream(fp):
-                                    logging.info(f"✅ Downloaded with audio: {fp}")
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([url])
+                    time.sleep(0.5)
+                    
+                    for ext in ['.mp4', '.mkv', '.webm']:
+                        for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
+                            if f.endswith(ext):
+                                fp = os.path.join(DOWNLOAD_DIR, f)
+                                if os.path.exists(fp) and os.path.getsize(fp) > 50000:
+                                    print(f"✅ VIDEO: {f} ({os.path.getsize(fp)} bytes)")
                                     return {"success": True, "file_path": fp, "is_video": True}
-                                else:
-                                    logging.info(f"⚠️ No audio in: {fp}, trying next format")
-                                    os.remove(fp)  # Remove and try next
-                                    break
-        except Exception as e:
-            logging.warning(f"Format {fmt} failed: {str(e)[:100]}")
-            continue
+            except Exception as e:
+                print(f"⚠️ {fmt}: {str(e)[:50]}")
+                continue
+        
+        return {"success": False, "error": "Video failed. Update cookies.txt from browser"}
     
-    # If we get here, try one last attempt with explicit format selection
-    try:
-        ydl_opts['format'] = 'best'
-        ydl_opts['merge_output_format'] = 'mp4'
-        
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([url])
-            time.sleep(0.5)
-            
-            for ext in ['.mp4', '.mkv', '.webm']:
-                for f in sorted(os.listdir(DOWNLOAD_DIR), 
-                              key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), 
-                              reverse=True):
-                    if f.endswith(ext):
-                        fp = os.path.join(DOWNLOAD_DIR, f)
-                        if os.path.exists(fp) and os.path.getsize(fp) > 50000:
-                            return {"success": True, "file_path": fp, "is_video": True}
-    except Exception as e:
-        logging.error(f"Final attempt failed: {e}")
-    
-    return {"success": False, "error": "Video failed. Update cookies.txt"}
-
-@staticmethod
-def _has_audio_stream(video_path):
-    """Check if video file has audio stream"""
-    try:
-        if not shutil.which('ffprobe'):
-            # If ffprobe not available, assume it has audio
-            return True
-        
-        cmd = [
-            shutil.which('ffprobe'), 
-            '-v', 'error',
-            '-select_streams', 'a:0',
-            '-show_entries', 'stream=codec_type',
-            '-of', 'default=noprint_wrappers=1:nokey=1',
-            video_path
-        ]
-        
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-        return 'audio' in result.stdout.lower()
-    except Exception as e:
-        logging.warning(f"Audio check failed: {e}")
-        return True  # Assume it has audio if we can't check
-        
     # ═══════════════ PHOTO METHODS ═══════════════
     
     @staticmethod
