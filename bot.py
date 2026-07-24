@@ -247,68 +247,76 @@ class InstaDownloader:
         
         return {"success": False, "error": "Video failed. Update cookies.txt from browser"}
     
-    # ═══════════════ PHOTO METHODS (IMPORTED FROM v24) ═══════════════
-    
-    @staticmethod
-    def _download_photo(shortcode, url):
-        """PHOTOS - 5 methods, ek to pakka kaam karega"""
-        result = InstaDownloader._method_scrape_multi(shortcode, url)
+# ═══════════════ PHOTO METHODS (IMPORTED FROM v24) ═══════════════
+
+@staticmethod
+def _download_photo(shortcode, url):
+    """PHOTOS - 5 methods, ek to pakka kaam karega"""
+    result = InstaDownloader._method_scrape_multi(shortcode, url)
+    if result.get("success"): return result
+    for method in [InstaDownloader._method_oembed, InstaDownloader._method_ytdlp, InstaDownloader._method_scrape_single, InstaDownloader._method_cdn]:
+        result = method(shortcode)
         if result.get("success"): return result
-        for method in [InstaDownloader._method_oembed, InstaDownloader._method_ytdlp, InstaDownloader._method_scrape_single, InstaDownloader._method_cdn]:
-            result = method(shortcode)
-            if result.get("success"): return result
-        return {"success": False, "error": "Photo download failed"}
-    
-    @staticmethod
-    def _method_scrape_multi(shortcode, url):
-        """Multiple photos from carousel posts"""
-        try:
-            session = requests.Session()
-            session.headers.update({'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15'})
-            resp = session.get(url, timeout=15)
-            if resp.status_code != 200: return {"success": False}
-            html = resp.text; image_urls = []
-            nd = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', html, re.DOTALL)
-            if nd:
-                try:
-                    data = json.loads(nd.group(1))
-                    def find_urls(obj, depth=0):
-                        if depth > 8: return []
-                        urls = []
-                        if isinstance(obj, dict):
-                            du = obj.get('display_url', '')
-                            if du and '.mp4' not in du and du not in urls: urls.append(du)
-                            for v in obj.values(): urls.extend(find_urls(v, depth+1))
-                        elif isinstance(obj, list):
-                            for item in obj: urls.extend(find_urls(item, depth+1))
-                        return urls
-                    image_urls = find_urls(data)
-                except: pass
-            if not image_urls:
-                urls_found = re.findall(r'"display_url":"([^"]+)"', html)
-                image_urls = [u.replace('\\u0026', '&') for u in urls_found if '.mp4' not in u]
-            if not image_urls:
-                og = re.findall(r'<meta\s+property="og:image"\s+content="([^"]+)"', html)
-                image_urls = list(set(og))
-            seen = set(); unique_urls = []
-            for u in image_urls:
-                if u not in seen: seen.add(u); unique_urls.append(u)
-            image_urls = unique_urls
-            if not image_urls: return {"success": False}
-            downloaded = []
-            for i, img_url in enumerate(image_urls[:10]):
-                try:
-                    fp = os.path.join(DOWNLOAD_DIR, f"multi_{shortcode}_{i+1}.jpg")
-                    r = session.get(img_url, headers={'User-Agent': 'Mozilla/5.0'}, stream=True, timeout=30)
-                    if r.status_code == 200:
-                        with open(fp, 'wb') as f:
-                            for chunk in r.iter_content(8192): f.write(chunk)
-                        if os.path.getsize(fp) > 1000: downloaded.append(fp)
-                except: continue
-            if downloaded:
-                return {"success": True, "file_path": downloaded[0], "file_paths": downloaded, "is_video": False, "is_multiple": len(downloaded) > 1, "total": len(downloaded)}
-            return {"success": False}
-        except: return {"success": False}
+    return {"success": False, "error": "Photo download failed"}
+
+@staticmethod
+def _method_scrape_multi(shortcode, url):
+    """Multiple photos from carousel posts"""
+    try:
+        session = requests.Session()
+        session.headers.update({'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15'})
+        resp = session.get(url, timeout=15)
+        if resp.status_code != 200: return {"success": False}
+        html = resp.text; image_urls = []
+        nd = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', html, re.DOTALL)
+        if nd:
+            try:
+                data = json.loads(nd.group(1))
+                def find_urls(obj, depth=0):
+                    if depth > 8: return []
+                    urls = []
+                    if isinstance(obj, dict):
+                        du = obj.get('display_url', '')
+                        if du and '.mp4' not in du and du not in urls: urls.append(du)
+                        for v in obj.values(): urls.extend(find_urls(v, depth+1))
+                    elif isinstance(obj, list):
+                        for item in obj: urls.extend(find_urls(item, depth+1))
+                    return urls
+                image_urls = find_urls(data)
+            except: pass
+        if not image_urls:
+            urls_found = re.findall(r'"display_url":"([^"]+)"', html)
+            image_urls = [u.replace('\\u0026', '&') for u in urls_found if '.mp4' not in u]
+        if not image_urls:
+            og = re.findall(r'<meta\s+property="og:image"\s+content="([^"]+)"', html)
+            image_urls = list(set(og))
+        seen = set(); unique_urls = []
+        for u in image_urls:
+            if u not in seen: seen.add(u); unique_urls.append(u)
+        image_urls = unique_urls
+        if not image_urls: return {"success": False}
+        downloaded = []
+        for i, img_url in enumerate(image_urls[:10]):
+            try:
+                fp = os.path.join(DOWNLOAD_DIR, f"multi_{shortcode}_{i+1}.jpg")
+                r = session.get(img_url, headers={'User-Agent': 'Mozilla/5.0'}, stream=True, timeout=30)
+                if r.status_code == 200:
+                    with open(fp, 'wb') as f:
+                        for chunk in r.iter_content(8192): f.write(chunk)
+                    if os.path.getsize(fp) > 1000: downloaded.append(fp)
+            except: continue
+        if downloaded:
+            # MULTIPLE PHOTOS - sab bhejo
+            return {
+                "success": True,
+                "file_path": downloaded[0],
+                "file_paths": downloaded,
+                "is_video": False,
+                "is_multiple": len(downloaded) > 1,
+                "total": len(downloaded)
+            }
+        return {"success": False}
+    except: return {"success": False}
     
     @staticmethod
     def _method_oembed(shortcode):
