@@ -658,7 +658,7 @@ async def remove_emoji_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         idx = int(update.message.text.split()[1]) - 1
         s, t = remove_emoji_db(idx)
         await update.message.reply_text(f"✅ 𝗥𝗲𝗺𝗼𝘃𝗲𝗱 ({t})" if s else f"❌ 𝗜𝗻𝘃𝗮𝗹𝗶𝗱 Total: {t}")
-    except: await update.message.reply_text("/removeemoji index")
+    except: await update.message.reply_text("/removeemoji 🅸🅽🅳🅴🆇")
 
 async def list_emojis_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
@@ -680,7 +680,7 @@ async def remove_sticker_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE)
         idx = int(update.message.text.split()[1]) - 1
         s, t = remove_sticker_db(idx)
         await update.message.reply_text(f"✅ 𝗥𝗲𝗺𝗼𝘃𝗲𝗱 ({t})" if s else f"❌ 𝗜𝗻𝘃𝗮𝗹𝗶𝗱 Total: {t}")
-    except: await update.message.reply_text("/removesticker index")
+    except: await update.message.reply_text("/removesticker 🅘🅝🅓🅔🅧")
 
 async def list_stickers_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
@@ -737,13 +737,13 @@ async def list_videos_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not vids:
         await update.message.reply_text("📹 Ｎｏ ｖｉｄｅｏｓ！")
         return
-    text = "📹 🇻 🇮 🇩 🇪 🇴 🇸 ：\n" + "\n".join([f"#{v['id']} {v['name'][:30]}" for v in vids])
-    await update.message.reply_text(text + f"\n\n🔹 Total: {len(vids)}")
+    text = "📹 🇻 🇮 🇩 🇪 🇴 🇸 ：\n" + "\n".join([f"🛸{v['id']} {v['name'][:30]}" for v in vids])
+    await update.message.reply_text(text + f"\n\n⎘ 丅ᗝ丅ᗩᒪ ： {len(vids)}")
 
 async def clear_videos_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
     n = clear_videos_db()
-    await update.message.reply_text(f"🗑️ {n} 𝙫𝙞𝙙𝙚𝙤𝙨 𝙘𝙡𝙚𝙖𝙧𝙚𝙙!")
+    await update.message.reply_text(f"🗑️ {n} 𝙫𝙞𝙙𝙚𝙤𝙨 𝙘𝙡𝙚𝙖𝙧𝙚𝙙！")
 
 # ═══════════════ MESSAGE HANDLER ═══════════════
 
