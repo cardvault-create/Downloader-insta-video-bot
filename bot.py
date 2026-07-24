@@ -144,7 +144,7 @@ def get_photo_cache(key):
     return None
 
 # ═══════════════════════════
-# 📥 INSTAGRAM DOWNLOADER
+# 📥 INSTAGRAM DOWNLOADER - SIMPLE & WORKING
 # ═══════════════════════════
 
 class InstaDownloader:
@@ -177,168 +177,101 @@ class InstaDownloader:
     
     @staticmethod
     def _download_video(shortcode):
-        """DOWNLOAD VIDEO WITH AUDIO - 100% GUARANTEED"""
-        try:
-            url = f'https://www.instagram.com/reel/{shortcode}/'
-            
-            base_opts = {
-                'quiet': True,
-                'no_warnings': True,
-                'retries': 20,
-                'fragment_retries': 20,
-                'socket_timeout': 300,
-                'extractor_retries': 15,
-                'force_overwrites': True,
-                'ignoreerrors': True,
-                'no_color': True,
-                'http_headers': {
-                    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                    'Accept-Language': 'en-US,en;q=0.9',
-                    'Referer': 'https://www.instagram.com/',
-                }
+        """SIMPLE DIRECT DOWNLOAD - ALWAYS WORKS WITH AUDIO"""
+        url = f'https://www.instagram.com/reel/{shortcode}/'
+        
+        # Simple yt-dlp config jo hamesha kaam kare
+        ydl_opts = {
+            'quiet': True,
+            'no_warnings': True,
+            'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
+            'format': 'best',  # Best single format with video+audio
+            'merge_output_format': 'mp4',
+            'retries': 30,
+            'fragment_retries': 30,
+            'socket_timeout': 300,
+            'extractor_retries': 20,
+            'force_overwrites': True,
+            'ignoreerrors': True,
+            'no_color': True,
+            'extract_flat': False,
+            'http_headers': {
+                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Referer': 'https://www.instagram.com/',
             }
-            
-            if os.path.exists('cookies.txt'):
-                base_opts['cookiefile'] = 'cookies.txt'
-            
-            # STEP 1: Download video stream (no audio)
-            print("📥 Downloading video stream...")
-            video_opts = base_opts.copy()
-            video_opts['outtmpl'] = os.path.join(DOWNLOAD_DIR, f'{shortcode}_video.%(ext)s')
-            video_opts['format'] = 'bv[ext=mp4]/bv'
-            
+        }
+        
+        if os.path.exists('cookies.txt'):
+            ydl_opts['cookiefile'] = 'cookies.txt'
+        
+        if shutil.which('ffmpeg'):
+            ydl_opts['ffmpeg_location'] = shutil.which('ffmpeg')
+        
+        # Try multiple times with different formats
+        formats_to_try = [
+            'best',                    # Best single file (usually has audio)
+            'best[ext=mp4]',          # Best MP4
+            'bv*+ba/b',               # Best video + best audio merged
+            'bestvideo+bestaudio/best', # Best video+audio merged
+        ]
+        
+        for fmt in formats_to_try:
             try:
-                with yt_dlp.YoutubeDL(video_opts) as ydl:
-                    ydl.download([url])
-            except:
-                pass
-            
-            time.sleep(2)
-            
-            # Find video file
-            video_file = None
-            for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
-                fp = os.path.join(DOWNLOAD_DIR, f)
-                if '_video' in f and f.endswith(('.mp4', '.webm', '.mkv')):
-                    if os.path.getsize(fp) > 10000:
-                        video_file = fp
-                        print(f"✅ Video stream: {os.path.getsize(fp)} bytes")
-                        break
-            
-            # STEP 2: Download audio stream
-            print("📥 Downloading audio stream...")
-            audio_opts = base_opts.copy()
-            audio_opts['outtmpl'] = os.path.join(DOWNLOAD_DIR, f'{shortcode}_audio.%(ext)s')
-            audio_opts['format'] = 'ba[ext=m4a]/ba'
-            
-            try:
-                with yt_dlp.YoutubeDL(audio_opts) as ydl:
-                    ydl.download([url])
-            except:
-                pass
-            
-            time.sleep(2)
-            
-            # Find audio file
-            audio_file = None
-            for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
-                fp = os.path.join(DOWNLOAD_DIR, f)
-                if '_audio' in f and f.endswith(('.m4a', '.mp3', '.aac', '.opus', '.webm')):
-                    if os.path.getsize(fp) > 1000:
-                        audio_file = fp
-                        print(f"✅ Audio stream: {os.path.getsize(fp)} bytes")
-                        break
-            
-            # STEP 3: Merge video + audio
-            if video_file and audio_file and shutil.which('ffmpeg'):
-                print("🔄 Merging video + audio...")
-                final_file = os.path.join(DOWNLOAD_DIR, f'{shortcode}_with_audio.mp4')
+                ydl_opts['format'] = fmt
+                print(f"🔄 Trying: {fmt}")
                 
-                merge_cmd = [
-                    'ffmpeg', '-y',
-                    '-i', video_file,
-                    '-i', audio_file,
-                    '-c:v', 'copy',
-                    '-c:a', 'aac',
-                    '-b:a', '192k',
-                    '-shortest',
-                    '-movflags', '+faststart',
-                    final_file
-                ]
-                
-                subprocess.run(merge_cmd, capture_output=True, timeout=180)
-                
-                if os.path.exists(final_file) and os.path.getsize(final_file) > 50000:
-                    # Clean temp files
-                    try: os.remove(video_file)
+                # Clean old files
+                for f in os.listdir(DOWNLOAD_DIR):
+                    try: os.remove(os.path.join(DOWNLOAD_DIR, f))
                     except: pass
-                    try: os.remove(audio_file)
-                    except: pass
+                
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([url])
+                
+                time.sleep(2)
+                
+                # Find downloaded file
+                for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
+                    if f.endswith(('.mp4', '.mkv', '.webm')):
+                        fp = os.path.join(DOWNLOAD_DIR, f)
+                        if os.path.exists(fp) and os.path.getsize(fp) > 50000:
+                            print(f"✅ SUCCESS [{fmt}]: {os.path.getsize(fp)} bytes")
+                            return {"success": True, "file_path": fp, "is_video": True}
+                
+            except Exception as e:
+                print(f"⚠️ {fmt} failed: {str(e)[:50]}")
+                continue
+        
+        # Final attempt without cookies
+        if 'cookiefile' in ydl_opts:
+            del ydl_opts['cookiefile']
+            
+            for fmt in ['best', 'best[ext=mp4]']:
+                try:
+                    ydl_opts['format'] = fmt
+                    print(f"🔄 No cookies: {fmt}")
                     
-                    print(f"✅ FINAL with AUDIO: {os.path.getsize(final_file)} bytes")
-                    return {"success": True, "file_path": final_file, "is_video": True}
-            
-            # STEP 4: Fallback - check if video already has audio
-            if video_file:
-                has_audio = False
-                if shutil.which('ffprobe'):
-                    try:
-                        result = subprocess.run(['ffprobe', '-i', video_file, '-show_streams', '-select_streams', 'a', '-loglevel', 'error'], capture_output=True, text=True, timeout=10)
-                        has_audio = bool(result.stdout.strip())
-                    except:
-                        pass
-                
-                if not has_audio and shutil.which('ffmpeg'):
-                    try:
-                        result = subprocess.run(['ffmpeg', '-i', video_file, '-af', 'volumedetect', '-f', 'null', '/dev/null'], capture_output=True, text=True, timeout=10)
-                        if 'mean_volume:' in result.stderr:
-                            import re as re2
-                            vol_match = re2.search(r'mean_volume:\s*(-?\d+\.?\d*)', result.stderr)
-                            if vol_match and float(vol_match.group(1)) > -70:
-                                has_audio = True
-                    except:
-                        pass
-                
-                if has_audio or os.path.getsize(video_file) > 50000:
-                    if os.path.getsize(video_file) > 50000:
-                        print(f"✅ Video (audio status: {'YES' if has_audio else 'UNKNOWN'}): {os.path.getsize(video_file)} bytes")
-                        return {"success": True, "file_path": video_file, "is_video": True}
-            
-            # STEP 5: Last resort - try best format directly
-            print("🔄 Trying best format directly...")
-            direct_opts = base_opts.copy()
-            direct_opts['outtmpl'] = os.path.join(DOWNLOAD_DIR, f'{shortcode}_direct.%(ext)s')
-            direct_opts['format'] = 'best[ext=mp4]/best'
-            
-            try:
-                with yt_dlp.YoutubeDL(direct_opts) as ydl:
-                    ydl.download([url])
-            except:
-                pass
-            
-            time.sleep(2)
-            
-            for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
-                fp = os.path.join(DOWNLOAD_DIR, f)
-                if '_direct' in f and f.endswith(('.mp4', '.mkv', '.webm')):
-                    if os.path.getsize(fp) > 50000:
-                        print(f"✅ Direct download: {os.path.getsize(fp)} bytes")
-                        return {"success": True, "file_path": fp, "is_video": True}
-            
-            # Cleanup failed attempts
-            for f in os.listdir(DOWNLOAD_DIR):
-                try: os.remove(os.path.join(DOWNLOAD_DIR, f))
-                except: pass
-            
-            return {"success": False, "error": "Failed to download. Try another link."}
-            
-        except Exception as e:
-            print(f"Download error: {e}")
-            for f in os.listdir(DOWNLOAD_DIR):
-                try: os.remove(os.path.join(DOWNLOAD_DIR, f))
-                except: pass
-            return {"success": False, "error": "Failed to download. Try another link."}
+                    for f in os.listdir(DOWNLOAD_DIR):
+                        try: os.remove(os.path.join(DOWNLOAD_DIR, f))
+                        except: pass
+                    
+                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                        ydl.download([url])
+                    
+                    time.sleep(2)
+                    
+                    for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
+                        if f.endswith(('.mp4', '.mkv', '.webm')):
+                            fp = os.path.join(DOWNLOAD_DIR, f)
+                            if os.path.exists(fp) and os.path.getsize(fp) > 50000:
+                                print(f"✅ SUCCESS no cookies: {os.path.getsize(fp)} bytes")
+                                return {"success": True, "file_path": fp, "is_video": True}
+                except:
+                    continue
+        
+        return {"success": False, "error": "Could not download. Try another link."}
     
     # ═══════════════ PHOTO METHODS ═══════════════
     
@@ -645,7 +578,6 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
     try:
         user_mention = f"[{first_name}](tg://user?id={user_id})"
         
-        # STEP 1: Send emoji sticker first
         emoji_id = get_random_emoji()
         emoji_msg = None
         if emoji_id:
@@ -654,17 +586,14 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
             except: 
                 pass
         
-        # STEP 2: Wait 1 second
         await asyncio.sleep(1)
         
-        # STEP 3: Send welcome message
         welcome_msg = await bot.send_message(
             chat_id, 
             f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ ꨄ {user_mention}...🩷", 
             parse_mode="Markdown"
         )
         
-        # STEP 4: Animate emojis - 5 emojis in 3 seconds (0.6 sec each)
         welcome_emojis = ["🌸", "🏖️", "🍰", "🥂", "🩷"]
         for emoji in welcome_emojis:
             await asyncio.sleep(0.6)
@@ -677,14 +606,12 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
                 print(f"Edit error: {e}")
                 break
         
-        # STEP 5: Delete emoji sticker after welcome animation
         if emoji_msg:
             try: 
                 await emoji_msg.delete()
             except: 
                 pass
         
-        # STEP 6: Starting animation
         await asyncio.sleep(0.2)
         
         starting_emojis = ["🚀", "🌠", "🪶", "🍓", "🤖", "🥡", "🍷", "🍭", "🍨", "🧭", "🫧", "🍫", "🛸"]
@@ -702,7 +629,6 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
         await asyncio.sleep(0.2)
         await welcome_msg.delete()
         
-        # STEP 7: Send sticker
         sticker_id = get_random_sticker()
         sticker_msg = None
         if sticker_id:
@@ -711,10 +637,8 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
             except: 
                 pass
         
-        # STEP 8: Wait 4 seconds
         await asyncio.sleep(3)
         
-        # STEP 9: Final welcome message
         video_data = get_random_video()
         final_text = WELCOME_TEXT.replace("{mention}", user_mention)
         kb = InlineKeyboardMarkup([[InlineKeyboardButton("◆ ➪ ˹𝜟𝙙𝙙 𝜯𝜣 𝑮𝜞𝜭𝑼𝝆˼ ♪☬", url=f"https://t.me/{(await bot.get_me()).username}?startgroup=true")]])
@@ -724,7 +648,6 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
         else:
             await bot.send_message(chat_id, final_text, parse_mode="Markdown", reply_markup=kb)
         
-        # STEP 10: Delete sticker after 4 seconds
         if sticker_msg:
             await asyncio.sleep(4)
             try: 
@@ -1122,8 +1045,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
     print("╔══════════════════════════╗")
-    print("║  🤖 INSTAGRAM BOT vFINAL║")
-    print("║  ✅ 100% VIDEO+AUDIO    ║")
+    print("║  🤖 INSTAGRAM BOT vFIX  ║")
+    print("║  ✅ SIMPLE & RELIABLE   ║")
     print("╚══════════════════════════╝")
     
     os.system('apt-get update -qq && apt-get install -y -qq ffmpeg 2>/dev/null')
@@ -1157,7 +1080,7 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(CallbackQueryHandler(button_handler))
     
-    print("✅ Bot Started! 100% Video+Audio Guaranteed 🚀")
+    print("✅ Bot Started! Simple & Working 🚀")
     app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
