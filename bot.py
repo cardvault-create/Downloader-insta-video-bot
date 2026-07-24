@@ -548,40 +548,49 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
     try:
         user_mention = f"[{first_name}](tg://user?id={user_id})"
         
-        # STEP 1: Send emoji sticker
-        emoji_msg = None
-        emoji_id = get_random_emoji()
-        if emoji_id:
-            try:
-                emoji_msg = await client.send_sticker(chat_id, emoji_id)
-            except:
-                pass
-
-        await asyncio.sleep(0.3)
-
-        # STEP 2: Welcome animation
-        welcome_emojis = ["🩷", "🌸", "🏖️", "🍰", "🥂"]
-        welcome_msg = await client.send_message(
-            chat_id,
-            f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ ꨄ [{first_name}](tg://user?id={user_id})...🩷"
-        )
-
-        for emoji in welcome_emojis:
-            await asyncio.sleep(0.3)
-            try:
-                await welcome_msg.edit_text(f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ ꨄ [{first_name}](tg://user?id={user_id})...{emoji}")
-            except:
-                pass
-
-        if emoji_msg:
-            try:
-                await emoji_msg.delete()
-            except:
-                pass
-
-        await asyncio.sleep(0.2)
+async def welcome_animation(bot, chat_id, user_id, first_name):
+    try:
+        user_mention = f"[{first_name}](tg://user?id={user_id})"
         
-        # Step 6: Starting animation
+        # STEP 1: Send emoji sticker first
+        emoji_id = get_random_emoji()
+        emoji_msg = None
+        if emoji_id:
+            try: 
+                emoji_msg = await bot.send_sticker(chat_id, emoji_id)
+            except: 
+                pass
+        
+        # STEP 2: Wait 0.5 seconds
+        await asyncio.sleep(0.5)
+        
+        # STEP 3: Send welcome message with emoji animation
+        welcome_emojis = ["🩷", "🌸", "🏖️", "🍰", "🥂"]
+        welcome_msg = await bot.send_message(
+            chat_id, 
+            f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ ꨄ {user_mention}...🩷", 
+            parse_mode="Markdown"
+        )
+        
+        # STEP 4: Animate welcome message emojis
+        for emoji in welcome_emojis:
+            await asyncio.sleep(0.5)
+            try:
+                await welcome_msg.edit_text(
+                    f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ ꨄ {user_mention}...{emoji}",
+                    parse_mode="Markdown"
+                )
+            except:
+                break
+        
+        # STEP 5: Delete emoji sticker after welcome animation completes
+        if emoji_msg:
+            try: 
+                await emoji_msg.delete()
+            except: 
+                pass
+        
+        # STEP 6: Starting animation
         await asyncio.sleep(0.2)
         
         starting_emojis = ["🚀", "🌠", "🪶", "🍓", "🤖", "🥡", "🍷", "🍭", "🍨", "🧭", "🫧", "🍫", "🛸"]
@@ -599,7 +608,7 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
         await asyncio.sleep(0.2)
         await welcome_msg.delete()
         
-        # Step 7: Send sticker
+        # STEP 7: Send sticker
         sticker_id = get_random_sticker()
         sticker_msg = None
         if sticker_id:
@@ -608,10 +617,10 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
             except: 
                 pass
         
-        # Step 8: Wait 4 seconds
+        # STEP 8: Wait 4 seconds
         await asyncio.sleep(4)
         
-        # Step 9: Final welcome message
+        # STEP 9: Final welcome message
         video_data = get_random_video()
         final_text = WELCOME_TEXT.replace("{mention}", user_mention)
         kb = InlineKeyboardMarkup([[InlineKeyboardButton("◆ ➪ ˹𝜟𝙙𝙙 𝜯𝜣 𝑮𝜞𝜭𝑼𝝆˼ ♪☬", url=f"https://t.me/{(await bot.get_me()).username}?startgroup=true")]])
@@ -621,7 +630,7 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
         else:
             await bot.send_message(chat_id, final_text, parse_mode="Markdown", reply_markup=kb)
         
-        # Step 10: Delete sticker after 4 seconds
+        # STEP 10: Delete sticker after 4 seconds
         if sticker_msg:
             await asyncio.sleep(4)
             try: 
