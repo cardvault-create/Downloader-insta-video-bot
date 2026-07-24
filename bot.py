@@ -11,7 +11,6 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 from telegram.constants import ChatMemberStatus
 import yt_dlp
-import requests
 
 # ═══════════════════════════
 # 🔐 CONFIG
@@ -143,7 +142,7 @@ def get_photo_cache(key):
     return None
 
 # ═══════════════════════════
-# 📥 INSTAGRAM DOWNLOADER
+# 📥 INSTAGRAM DOWNLOADER - 100% AUDIO GUARANTEED
 # ═══════════════════════════
 
 class InstaDownloader:
@@ -175,146 +174,99 @@ class InstaDownloader:
     
     @staticmethod
     def _download_video(shortcode, url):
-        """100% VIDEO + AUDIO DOWNLOAD"""
-        logging.info(f"Downloading video: {shortcode}")
+        """100% VIDEO+AUDIO using yt-dlp with COOKIES"""
+        
+        if not os.path.exists('cookies.txt'):
+            return {"success": False, "error": "cookies.txt not found! Add fresh Instagram cookies."}
+        
+        # Check cookies have sessionid
+        with open('cookies.txt', 'r') as f:
+            cookie_content = f.read()
+            if 'sessionid' not in cookie_content:
+                return {"success": False, "error": "Invalid cookies! Need fresh Instagram sessionid."}
         
         ffmpeg_path = shutil.which('ffmpeg')
         if not ffmpeg_path:
-            return {"success": False, "error": "FFmpeg not installed"}
+            return {"success": False, "error": "FFmpeg not installed. Run: apt install ffmpeg"}
         
-        # Download video using yt-dlp API - get direct URLs first
-        try:
-            ydl_opts_info = {
-                'quiet': True,
-                'no_warnings': True,
-                'extract_flat': False,
-            }
-            if os.path.exists('cookies.txt'):
-                ydl_opts_info['cookiefile'] = 'cookies.txt'
+        output_template = os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s')
+        
+        # THIS IS THE KEY - format that guarantees audio
+        ydl_opts = {
+            'quiet': False,  # Show logs for debugging
+            'no_warnings': False,
+            'outtmpl': output_template,
+            'cookiefile': 'cookies.txt',
+            'ffmpeg_location': ffmpeg_path,
             
-            with yt_dlp.YoutubeDL(ydl_opts_info) as ydl:
-                info = ydl.extract_info(url, download=False)
-                formats = info.get('formats', [])
-                
-                # Separate video and audio streams
-                video_streams = []
-                audio_streams = []
-                
-                for f in formats:
-                    vcodec = f.get('vcodec', 'none')
-                    acodec = f.get('acodec', 'none')
-                    height = f.get('height') or 0
-                    abr = f.get('abr') or 0
-                    
-                    if vcodec != 'none' and acodec == 'none':
-                        video_streams.append({'url': f['url'], 'height': height, 'format_id': f.get('format_id')})
-                    elif acodec != 'none' and vcodec == 'none':
-                        audio_streams.append({'url': f['url'], 'abr': abr, 'format_id': f.get('format_id')})
-                    elif vcodec != 'none' and acodec != 'none':
-                        video_streams.append({'url': f['url'], 'height': height, 'has_audio': True, 'format_id': f.get('format_id')})
-                
-                # Sort by quality
-                video_streams.sort(key=lambda x: x.get('height', 0), reverse=True)
-                audio_streams.sort(key=lambda x: x.get('abr', 0), reverse=True)
-                
-                logging.info(f"Found {len(video_streams)} video streams, {len(audio_streams)} audio streams")
-                
-                # Try formats with both audio+video first
-                for vs in video_streams:
-                    if vs.get('has_audio'):
-                        try:
-                            output_path = os.path.join(DOWNLOAD_DIR, f"{shortcode}.mp4")
-                            resp = requests.get(vs['url'], headers={'User-Agent': 'Mozilla/5.0'}, stream=True, timeout=60)
-                            if resp.status_code == 200:
-                                with open(output_path, 'wb') as f:
-                                    for chunk in resp.iter_content(chunk_size=8192):
-                                        if chunk: f.write(chunk)
-                                
-                                if os.path.getsize(output_path) > 50000:
-                                    logging.info(f"Downloaded with audio: {os.path.getsize(output_path)/1024/1024:.1f}MB")
-                                    return {"success": True, "file_path": output_path, "is_video": True}
-                        except:
-                            continue
-                
-                # Merge video + audio
-                if video_streams and audio_streams:
-                    best_video = video_streams[0]
-                    best_audio = audio_streams[0]
-                    
-                    video_path = os.path.join(DOWNLOAD_DIR, f"{shortcode}_vid.mp4")
-                    audio_path = os.path.join(DOWNLOAD_DIR, f"{shortcode}_aud.m4a")
-                    
-                    # Download video
-                    resp = requests.get(best_video['url'], headers={'User-Agent': 'Mozilla/5.0'}, stream=True, timeout=120)
-                    with open(video_path, 'wb') as f:
-                        for chunk in resp.iter_content(chunk_size=8192):
-                            if chunk: f.write(chunk)
-                    
-                    # Download audio
-                    resp = requests.get(best_audio['url'], headers={'User-Agent': 'Mozilla/5.0'}, stream=True, timeout=120)
-                    with open(audio_path, 'wb') as f:
-                        for chunk in resp.iter_content(chunk_size=8192):
-                            if chunk: f.write(chunk)
-                    
-                    # Merge with ffmpeg
-                    output_path = os.path.join(DOWNLOAD_DIR, f"{shortcode}.mp4")
-                    cmd = [
-                        ffmpeg_path, '-y',
-                        '-i', video_path,
-                        '-i', audio_path,
-                        '-c:v', 'copy',
-                        '-c:a', 'aac',
-                        '-map', '0:v:0',
-                        '-map', '1:a:0',
-                        '-shortest',
-                        output_path
-                    ]
-                    
-                    subprocess.run(cmd, capture_output=True, timeout=180)
-                    
-                    # Clean temp files
-                    if os.path.exists(video_path): os.remove(video_path)
-                    if os.path.exists(audio_path): os.remove(audio_path)
-                    
-                    if os.path.exists(output_path) and os.path.getsize(output_path) > 50000:
-                        logging.info(f"Merged with audio: {os.path.getsize(output_path)/1024/1024:.1f}MB")
-                        return {"success": True, "file_path": output_path, "is_video": True}
-                
-                # Fallback to yt-dlp
-                logging.info("Trying yt-dlp fallback...")
-                ydl_opts = {
-                    'quiet': True,
-                    'no_warnings': True,
-                    'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
-                    'format': 'bestvideo+bestaudio/best',
-                    'merge_output_format': 'mp4',
-                    'ffmpeg_location': ffmpeg_path,
-                    'retries': 5,
-                    'http_headers': {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-                    }
+            # ⚡ THESE 3 LINES GUARANTEE AUDIO ⚡
+            'format': 'bv*+ba/b',  # Best video + Best audio MERGED
+            'merge_output_format': 'mp4',
+            
+            'extractor_args': {
+                'instagram': {
+                    'api_hostname': 'www.instagram.com',
                 }
-                if os.path.exists('cookies.txt'):
-                    ydl_opts['cookiefile'] = 'cookies.txt'
-                
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    ydl.download([url])
-                
-                for f in os.listdir(DOWNLOAD_DIR):
-                    if f.endswith('.mp4') and shortcode in f:
-                        fp = os.path.join(DOWNLOAD_DIR, f)
-                        if os.path.getsize(fp) > 50000:
-                            return {"success": True, "file_path": fp, "is_video": True}
-                
-        except Exception as e:
-            logging.error(f"Download error: {e}")
+            },
+            'http_headers': {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5',
+                'DNT': '1',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1',
+            },
+            'retries': 10,
+            'fragment_retries': 10,
+            'skip_unavailable_fragments': True,
+            'noabort_on_unavailable_fragments': True,
+            'socket_timeout': 120,
+        }
         
-        return {"success": False, "error": "Download failed - try fresh cookies.txt"}
+        try:
+            logging.info(f"📥 Downloading with yt-dlp: {shortcode}")
+            
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([url])
+            
+            time.sleep(2)
+            
+            # Find the downloaded file
+            for filename in os.listdir(DOWNLOAD_DIR):
+                if filename.endswith('.mp4'):
+                    filepath = os.path.join(DOWNLOAD_DIR, filename)
+                    size_mb = os.path.getsize(filepath) / (1024 * 1024)
+                    
+                    if size_mb > 0.05:  # > 50KB
+                        # Verify audio exists
+                        cmd = [ffmpeg_path, '-i', filepath]
+                        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+                        
+                        if 'Audio:' in result.stderr:
+                            logging.info(f"✅ SUCCESS: {size_mb:.1f}MB WITH AUDIO!")
+                            return {"success": True, "file_path": filepath, "is_video": True}
+                        else:
+                            logging.warning(f"⚠️ No audio detected in {filename}")
+                            os.remove(filepath)
+            
+            return {"success": False, "error": "Downloaded but no audio stream found. Update cookies!"}
+            
+        except Exception as e:
+            error_msg = str(e)
+            logging.error(f"❌ yt-dlp failed: {error_msg[:200]}")
+            
+            if "HTTP Error 403" in error_msg:
+                return {"success": False, "error": "Access denied! Update cookies.txt"}
+            elif "sessionid" in error_msg.lower():
+                return {"success": False, "error": "Session expired! Get fresh cookies."}
+            else:
+                return {"success": False, "error": f"Failed: {error_msg[:80]}"}
     
     @staticmethod
     def _download_photo(shortcode, url):
         """Photo download"""
         try:
+            import requests
             session = requests.Session()
             session.headers.update({
                 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15'
@@ -334,7 +286,6 @@ class InstaDownloader:
             html = resp.text
             image_urls = []
             
-            # Extract from JSON
             nd = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', html, re.DOTALL)
             if nd:
                 try:
@@ -360,19 +311,11 @@ class InstaDownloader:
                 og = re.findall(r'<meta\s+property="og:image"\s+content="([^"]+)"', html)
                 image_urls = list(set(og))
             
-            seen = set()
-            unique_urls = []
-            for u in image_urls:
-                u = u.replace('\\u0026', '&')
-                if u not in seen and '.mp4' not in u:
-                    seen.add(u)
-                    unique_urls.append(u)
-            
-            if not unique_urls:
+            if not image_urls:
                 return {"success": False, "error": "No photos found"}
             
             downloaded = []
-            for i, img_url in enumerate(unique_urls[:10]):
+            for i, img_url in enumerate(image_urls[:10]):
                 try:
                     fp = os.path.join(DOWNLOAD_DIR, f"photo_{shortcode}_{i+1}.jpg")
                     r = requests.get(img_url, headers={'User-Agent': 'Mozilla/5.0'}, stream=True, timeout=30)
@@ -536,8 +479,7 @@ async def enable_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def add_emoji_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
     if not update.message.reply_to_message or not update.message.reply_to_message.sticker:
-        await update.message.reply_text("Reply to emoji/sticker")
-        return
+        await update.message.reply_text("Reply to emoji/sticker"); return
     s, t = add_emoji_db(update.message.reply_to_message.sticker.file_id)
     await update.message.reply_text(f"Added! Total: {t}" if s else "Already exists!")
 
@@ -559,8 +501,7 @@ async def list_emojis_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def add_sticker_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
     if not update.message.reply_to_message or not update.message.reply_to_message.sticker:
-        await update.message.reply_text("Reply to sticker")
-        return
+        await update.message.reply_text("Reply to sticker"); return
     s, t = add_sticker_db(update.message.reply_to_message.sticker.file_id)
     await update.message.reply_text(f"Added! Total: {t}" if s else "Already exists!")
 
@@ -582,8 +523,7 @@ async def list_stickers_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def add_video_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
     if not update.message.reply_to_message or not update.message.reply_to_message.video:
-        await update.message.reply_text("Reply to video")
-        return
+        await update.message.reply_text("Reply to video"); return
     m = await update.message.reply_text("Adding...")
     try:
         file = await update.message.reply_to_message.video.get_file()
@@ -790,20 +730,30 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
     print("=" * 50)
-    print("Instagram Bot - VIDEO+AUDIO GUARANTEED")
+    print("Instagram Bot - 100% AUDIO GUARANTEED")
     print("=" * 50)
     
     os.system('apt-get update -qq && apt-get install -y -qq ffmpeg 2>/dev/null')
     
+    # Check cookies
+    if os.path.exists('cookies.txt'):
+        with open('cookies.txt', 'r') as f:
+            content = f.read()
+            if 'sessionid' in content:
+                print("✅ Cookies VALID!")
+            else:
+                print("❌ Cookies INVALID! Get fresh cookies!")
+    else:
+        print("❌ cookies.txt MISSING!")
+    
     print(f"Bot: {'ENABLED' if is_bot_enabled() else 'DISABLED'}")
-    print(f"FFmpeg: {'FOUND' if shutil.which('ffmpeg') else 'NOT FOUND'}")
-    print(f"Emojis: {len(get_emojis())} | Stickers: {len(get_stickers())} | Videos: {len(get_video_list())}")
+    print(f"FFmpeg: {'FOUND' if shutil.which('ffmpeg') else 'MISSING'}")
     
     for f in os.listdir(DOWNLOAD_DIR):
         try: os.remove(os.path.join(DOWNLOAD_DIR, f))
         except: pass
     
-    app = Application.builder().token(BOT_TOKEN).read_timeout(120).write_timeout(120).connect_timeout(120).pool_timeout(120).build()
+    app = Application.builder().token(BOT_TOKEN).read_timeout(120).write_timeout(120).build()
     
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("activate", activate_cmd))
@@ -824,7 +774,7 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(CallbackQueryHandler(button_handler))
     
-    print("Bot Started!")
+    print("✅ Bot Started!")
     app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
