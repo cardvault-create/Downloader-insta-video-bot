@@ -191,50 +191,71 @@ def _download_video(shortcode, url):
     if not validate_cookies():
         return {"success": False, "error": "cookies.txt missing or invalid!"}
     
-    ffmpeg_path = shutil.which('ffmpeg')
-    
     ydl_opts = {
-        'quiet': True, 'no_warnings': True,
+        'quiet': True, 
+        'no_warnings': True,
         'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
         'cookiefile': 'cookies.txt',
-        'retries': 10, 'fragment_retries': 10, 'socket_timeout': 120,
-        'merge_output_format': 'mp4',  # ← IMPORTANT: video+audio merge karega
-        'http_headers': {'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15'},
+        'format': 'bestvideo+bestaudio/best',  # ⚡ Video + Audio dono download hoga
+        'merge_output_format': 'mp4',           # ⚡ ffmpeg se merge karega
+        'retries': 10, 
+        'fragment_retries': 10, 
+        'socket_timeout': 120,
+        'http_headers': {
+            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15'
+        },
     }
     
-    if ffmpeg_path:
-        ydl_opts['ffmpeg_location'] = ffmpeg_path
+    if shutil.which('ffmpeg'):
+        ydl_opts['ffmpeg_location'] = shutil.which('ffmpeg')
     
-    # ⚡ SABSE IMPORTANT CHANGE ⚡
-    # Format me "+" lagane se video aur audio dono download honge
-    format_attempts = [
-        'bestvideo+bestaudio/best',  # ← Video + Audio merge
-        'bv*+ba/b',                  # ← Best video + Best audio
-        'best',                      # ← Fallback
-    ]
-    
-    for fmt in format_attempts:
-        try:
-            ydl_opts['format'] = fmt
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([url])
-                time.sleep(1)
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
+        
+        time.sleep(1)
+        
+        # Downloaded file find karo
+        download_dir = DOWNLOAD_DIR
+        files = os.listdir(download_dir)
+        
+        for f in files:
+            file_path = os.path.join(download_dir, f)
+            
+            # Shortcode wali file dhundho
+            if shortcode in f and f.endswith(('.mp4', '.mkv', '.webm')):
+                file_size = os.path.getsize(file_path)
                 
-                # Downloaded file dhundho
-                for ext in ['.mp4', '.mkv', '.webm']:
-                    for f in sorted(os.listdir(DOWNLOAD_DIR), 
-                                  key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), 
-                                  reverse=True):
-                        if f.endswith(ext) and shortcode in f:
-                            fp = os.path.join(DOWNLOAD_DIR, f)
-                            if os.path.exists(fp) and os.path.getsize(fp) > 50000:
-                                print(f"✅ Downloaded: {fp} ({os.path.getsize(fp)/1024/1024:.1f}MB)")
-                                return {"success": True, "file_path": fp, "is_video": True}
-        except Exception as e:
-            print(f"⚠️ Format '{fmt}' failed: {str(e)[:80]}")
-            continue
-    
-    return {"success": False, "error": "Video failed. Update cookies.txt"}
+                if file_size > 50000:  # 50KB se bada hona chahiye
+                    print(f"✅ Video ready with audio: {f} ({file_size/1024/1024:.1f}MB)")
+                    return {
+                        "success": True, 
+                        "file_path": file_path, 
+                        "is_video": True
+                    }
+                else:
+                    os.remove(file_path)  # Corrupt file delete
+        
+        # Agar shortcode se nahi mila toh latest file check karo
+        if files:
+            latest_file = max(
+                [os.path.join(download_dir, f) for f in files],
+                key=os.path.getmtime
+            )
+            
+            if os.path.getsize(latest_file) > 50000:
+                print(f"✅ Video ready: {os.path.basename(latest_file)}")
+                return {
+                    "success": True, 
+                    "file_path": latest_file, 
+                    "is_video": True
+                }
+        
+        return {"success": False, "error": "Download failed - no file found"}
+        
+    except Exception as e:
+        print(f"❌ Download error: {str(e)}")
+        return {"success": False, "error": f"Download error: {str(e)[:80]}"}
     
     @staticmethod
     def _download_photo(shortcode, url):
