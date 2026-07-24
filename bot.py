@@ -144,7 +144,25 @@ def get_photo_cache(key):
     return None
 
 # ═══════════════════════════
-# 📥 INSTAGRAM DOWNLOADER - SIMPLE & WORKING
+# 🍪 COOKIES VALIDATOR
+# ═══════════════════════════
+
+def validate_cookies():
+    if not os.path.exists('cookies.txt'):
+        return False
+    try:
+        with open('cookies.txt', 'r') as f:
+            if 'sessionid' in f.read():
+                print("✅ Valid cookies.txt found with sessionid")
+                return True
+            else:
+                print("⚠️ cookies.txt found but NO sessionid!")
+                return False
+    except:
+        return False
+
+# ═══════════════════════════
+# 📥 INSTAGRAM DOWNLOADER
 # ═══════════════════════════
 
 class InstaDownloader:
@@ -172,66 +190,58 @@ class InstaDownloader:
         shortcode = InstaDownloader.get_shortcode(url)
         if not shortcode: return {"success": False, "error": "Invalid"}
         is_reel = '/reel/' in url or '/tv/' in url
-        if is_reel: return InstaDownloader._download_video(shortcode)
+        if is_reel: return InstaDownloader._download_video(shortcode, url)
         else: return InstaDownloader._download_photo(shortcode, url)
     
     @staticmethod
-    def _download_video(shortcode):
-        """SIMPLE DOWNLOAD - ALWAYS WORKS WITH AUDIO"""
-        url = f'https://www.instagram.com/reel/{shortcode}/'
+    def _download_video(shortcode, url):
+        """DOWNLOAD REEL/VIDEO WITH AUDIO"""
+        if not validate_cookies():
+            return {"success": False, "error": "cookies.txt missing or invalid! Upload proper cookies.txt"}
         
         ydl_opts = {
             'quiet': True,
             'no_warnings': True,
             'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
-            'format': 'best',
-            'merge_output_format': 'mp4',
-            'retries': 20,
-            'fragment_retries': 20,
-            'socket_timeout': 300,
-            'extractor_retries': 15,
-            'force_overwrites': True,
-            'ignoreerrors': False,
-            'no_color': True,
+            'cookiefile': 'cookies.txt',
+            'retries': 10,
+            'fragment_retries': 10,
+            'socket_timeout': 120,
+            'extractor_retries': 5,
             'http_headers': {
-                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
+                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
                 'Accept-Language': 'en-US,en;q=0.9',
                 'Referer': 'https://www.instagram.com/',
             }
         }
         
-        if os.path.exists('cookies.txt'):
-            ydl_opts['cookiefile'] = 'cookies.txt'
-        
         if shutil.which('ffmpeg'):
             ydl_opts['ffmpeg_location'] = shutil.which('ffmpeg')
         
-        try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([url])
-        except Exception as e:
-            print(f"First attempt error: {e}")
-            # Try without cookies
-            if 'cookiefile' in ydl_opts:
-                del ydl_opts['cookiefile']
-                try:
-                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                        ydl.download([url])
-                except:
-                    pass
+        formats = ['mp4', 'best[ext=mp4]', 'best', 'bestvideo+bestaudio/best']
         
-        time.sleep(3)
+        for fmt in formats:
+            try:
+                ydl_opts['format'] = fmt
+                print(f"🔄 Video format: {fmt}")
+                
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([url])
+                    time.sleep(0.5)
+                    
+                    for ext in ['.mp4', '.mkv', '.webm']:
+                        for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
+                            if f.endswith(ext):
+                                fp = os.path.join(DOWNLOAD_DIR, f)
+                                if os.path.exists(fp) and os.path.getsize(fp) > 50000:
+                                    print(f"✅ VIDEO: {f} ({os.path.getsize(fp)} bytes)")
+                                    return {"success": True, "file_path": fp, "is_video": True}
+            except Exception as e:
+                print(f"⚠️ {fmt}: {str(e)[:50]}")
+                continue
         
-        # Find downloaded file
-        for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
-            if f.endswith(('.mp4', '.mkv', '.webm')):
-                fp = os.path.join(DOWNLOAD_DIR, f)
-                if os.path.exists(fp) and os.path.getsize(fp) > 50000:
-                    print(f"✅ SUCCESS: {os.path.getsize(fp)} bytes")
-                    return {"success": True, "file_path": fp, "is_video": True}
-        
-        return {"success": False, "error": "Could not download. Try another link."}
+        return {"success": False, "error": "Video failed. Update cookies.txt from browser"}
     
     # ═══════════════ PHOTO METHODS ═══════════════
     
@@ -538,6 +548,7 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
     try:
         user_mention = f"[{first_name}](tg://user?id={user_id})"
         
+        # STEP 1: Send emoji sticker first
         emoji_id = get_random_emoji()
         emoji_msg = None
         if emoji_id:
@@ -546,14 +557,17 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
             except: 
                 pass
         
+        # STEP 2: Wait 1 second
         await asyncio.sleep(1)
         
+        # STEP 3: Send welcome message
         welcome_msg = await bot.send_message(
             chat_id, 
             f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ ꨄ {user_mention}...🩷", 
             parse_mode="Markdown"
         )
         
+        # STEP 4: Animate emojis - 5 emojis in 3 seconds (0.6 sec each)
         welcome_emojis = ["🌸", "🏖️", "🍰", "🥂", "🩷"]
         for emoji in welcome_emojis:
             await asyncio.sleep(0.6)
@@ -566,12 +580,14 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
                 print(f"Edit error: {e}")
                 break
         
+        # STEP 5: Delete emoji sticker after welcome animation
         if emoji_msg:
             try: 
                 await emoji_msg.delete()
             except: 
                 pass
         
+        # STEP 6: Starting animation
         await asyncio.sleep(0.2)
         
         starting_emojis = ["🚀", "🌠", "🪶", "🍓", "🤖", "🥡", "🍷", "🍭", "🍨", "🧭", "🫧", "🍫", "🛸"]
@@ -589,6 +605,7 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
         await asyncio.sleep(0.2)
         await welcome_msg.delete()
         
+        # STEP 7: Send sticker
         sticker_id = get_random_sticker()
         sticker_msg = None
         if sticker_id:
@@ -597,8 +614,10 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
             except: 
                 pass
         
+        # STEP 8: Wait 4 seconds
         await asyncio.sleep(3)
         
+        # STEP 9: Final welcome message
         video_data = get_random_video()
         final_text = WELCOME_TEXT.replace("{mention}", user_mention)
         kb = InlineKeyboardMarkup([[InlineKeyboardButton("◆ ➪ ˹𝜟𝙙𝙙 𝜯𝜣 𝑮𝜞𝜭𝑼𝝆˼ ♪☬", url=f"https://t.me/{(await bot.get_me()).username}?startgroup=true")]])
@@ -608,6 +627,7 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
         else:
             await bot.send_message(chat_id, final_text, parse_mode="Markdown", reply_markup=kb)
         
+        # STEP 10: Delete sticker after 4 seconds
         if sticker_msg:
             await asyncio.sleep(4)
             try: 
@@ -1005,21 +1025,22 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
     print("╔══════════════════════════╗")
-    print("║  🤖 INSTAGRAM BOT vFINAL║")
-    print("║  ✅ BEST FORMAT METHOD  ║")
+    print("║  🤖 INSTAGRAM BOT v32   ║")
+    print("║  ✅ ALL FIXED           ║")
     print("╚══════════════════════════╝")
     
     os.system('apt-get update -qq && apt-get install -y -qq ffmpeg 2>/dev/null')
-    os.system('pip install -U yt-dlp 2>/dev/null')
     
+    cookies_valid = validate_cookies()
     print(f"🔹 Bot: {'ENABLED' if is_bot_enabled() else 'DISABLED'}")
+    print(f"🍪 Cookies: {'✅ VALID' if cookies_valid else '❌ INVALID'}")
     print(f"🎨 E:{len(get_emojis())} S:{len(get_stickers())} V:{len(get_video_list())}")
     
     for f in os.listdir(DOWNLOAD_DIR):
         try: os.remove(os.path.join(DOWNLOAD_DIR, f))
         except: pass
     
-    app = Application.builder().token(BOT_TOKEN).read_timeout(300).write_timeout(300).connect_timeout(300).pool_timeout(300).build()
+    app = Application.builder().token(BOT_TOKEN).read_timeout(120).write_timeout(120).connect_timeout(120).pool_timeout(120).build()
     
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("activate", activate_cmd))
@@ -1040,7 +1061,7 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(CallbackQueryHandler(button_handler))
     
-    print("✅ Bot Started! Simple & Working! 🚀")
+    print("✅ Bot Started! 🚀")
     app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
