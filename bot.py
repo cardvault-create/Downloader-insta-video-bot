@@ -572,14 +572,17 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
             except: 
                 break
         
-        # Step 5: Delete emoji sticker after welcome animation completes
+        # Step 5: Wait for emoji sticker to be fully visible (3 seconds total)
+        await asyncio.sleep(2.5)
+        
+        # Step 6: Delete emoji sticker after user has seen it completely
         if emoji_msg:
             try: 
                 await emoji_msg.delete()
             except: 
                 pass
         
-        # Step 6: Start "starting" animation
+        # Step 7: Start "starting" animation
         await asyncio.sleep(0.2)
         
         starting_emojis = ["🚀", "🌠", "🪶", "🍓", "🤖", "🥡", "🍷", "🍭", "🍨", "🧭", "🫧", "🍫", "🛸"]
@@ -597,7 +600,7 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
         await asyncio.sleep(0.2)
         await welcome_msg.delete()
         
-        # Step 7: Send final welcome message with sticker and video
+        # Step 8: Send final welcome message with sticker and video
         sticker_id = get_random_sticker()
         sticker_msg = None
         if sticker_id:
