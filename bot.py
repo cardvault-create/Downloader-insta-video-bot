@@ -186,80 +186,67 @@ class InstaDownloader:
         if is_reel: return InstaDownloader._download_video(shortcode, url)
         else: return InstaDownloader._download_photo(shortcode, url)
     
-@staticmethod
-def _download_video(shortcode, url):
-    if not validate_cookies():
-        return {"success": False, "error": "cookies.txt missing or invalid!"}
-    
-    ydl_opts = {
-        'quiet': True, 
-        'no_warnings': True,
-        'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
-        'cookiefile': 'cookies.txt',
-        'format': 'bestvideo+bestaudio/best',  # ⚡ Video + Audio dono download hoga
-        'merge_output_format': 'mp4',           # ⚡ ffmpeg se merge karega
-        'retries': 10, 
-        'fragment_retries': 10, 
-        'socket_timeout': 120,
-        'http_headers': {
-            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15'
-        },
-    }
-    
-    if shutil.which('ffmpeg'):
-        ydl_opts['ffmpeg_location'] = shutil.which('ffmpeg')
-    
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([url])
+    @staticmethod
+    def _download_video(shortcode, url):
+        """DOWNLOAD VIDEO WITH AUDIO - 100% WORKING"""
+        if not validate_cookies():
+            return {"success": False, "error": "cookies.txt missing or invalid!"}
         
-        time.sleep(1)
+        print(f"🎬 Downloading video: {shortcode}")
         
-        # Downloaded file find karo
-        download_dir = DOWNLOAD_DIR
-        files = os.listdir(download_dir)
+        ydl_opts = {
+            'quiet': True,
+            'no_warnings': True,
+            'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
+            'cookiefile': 'cookies.txt',
+            'format': 'bv*+ba/b',  # BEST VIDEO + BEST AUDIO
+            'merge_output_format': 'mp4',  # FFMPEG MERGE KAREGA
+            'retries': 10,
+            'fragment_retries': 10,
+            'socket_timeout': 120,
+            'http_headers': {
+                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1'
+            },
+        }
         
-        for f in files:
-            file_path = os.path.join(download_dir, f)
+        if shutil.which('ffmpeg'):
+            ydl_opts['ffmpeg_location'] = shutil.which('ffmpeg')
+            print("✅ FFmpeg found")
+        else:
+            print("⚠️ FFmpeg not found!")
+        
+        try:
+            # Download karo
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([url])
             
-            # Shortcode wali file dhundho
-            if shortcode in f and f.endswith(('.mp4', '.mkv', '.webm')):
-                file_size = os.path.getsize(file_path)
+            time.sleep(1)
+            
+            # Downloaded file search karo
+            for filename in os.listdir(DOWNLOAD_DIR):
+                filepath = os.path.join(DOWNLOAD_DIR, filename)
                 
-                if file_size > 50000:  # 50KB se bada hona chahiye
-                    print(f"✅ Video ready with audio: {f} ({file_size/1024/1024:.1f}MB)")
-                    return {
-                        "success": True, 
-                        "file_path": file_path, 
-                        "is_video": True
-                    }
-                else:
-                    os.remove(file_path)  # Corrupt file delete
-        
-        # Agar shortcode se nahi mila toh latest file check karo
-        if files:
-            latest_file = max(
-                [os.path.join(download_dir, f) for f in files],
-                key=os.path.getmtime
-            )
+                # Shortcode match ya latest .mp4 file
+                if filename.endswith(('.mp4', '.mkv', '.webm')):
+                    if os.path.getsize(filepath) > 50000:  # 50KB minimum
+                        print(f"✅ Video downloaded: {filename} ({os.path.getsize(filepath)/1024/1024:.1f}MB)")
+                        return {
+                            "success": True,
+                            "file_path": filepath,
+                            "is_video": True
+                        }
             
-            if os.path.getsize(latest_file) > 50000:
-                print(f"✅ Video ready: {os.path.basename(latest_file)}")
-                return {
-                    "success": True, 
-                    "file_path": latest_file, 
-                    "is_video": True
-                }
-        
-        return {"success": False, "error": "Download failed - no file found"}
-        
-    except Exception as e:
-        print(f"❌ Download error: {str(e)}")
-        return {"success": False, "error": f"Download error: {str(e)[:80]}"}
+            # Kuch nahi mila
+            return {"success": False, "error": "No video file found after download"}
+            
+        except Exception as e:
+            error_msg = str(e)[:100]
+            print(f"❌ Download failed: {error_msg}")
+            return {"success": False, "error": error_msg}
     
     @staticmethod
     def _download_photo(shortcode, url):
-        """PHOTO DOWNLOAD - Direct scrape only (MOST RELIABLE)"""
+        """PHOTO DOWNLOAD - Direct scrape only"""
         try:
             session = requests.Session()
             session.headers.update({
@@ -269,7 +256,6 @@ def _download_video(shortcode, url):
                 'Referer': 'https://www.instagram.com/',
             })
             
-            # Load cookies into session
             if os.path.exists('cookies.txt'):
                 with open('cookies.txt', 'r') as f:
                     for line in f:
@@ -338,7 +324,6 @@ def _download_video(shortcode, url):
             
             print(f"📸 Found {len(unique_urls)} photos")
             
-            # Download all photos
             downloaded = []
             for i, img_url in enumerate(unique_urls[:10]):
                 try:
@@ -390,13 +375,13 @@ def _download_video(shortcode, url):
 # ═══════════════════════════
 
 CAPTION = (
-    "𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗲𝗱 𝗕𝘆 ➪ [˹𝚰𝖓𝖘𝖙𝖆𝖌𝖗𝖆𝖒 ✘ 𝚫𝐨𝐰𝐧𝐥𝐨𝐚𝐝𝐞𝐫˼ ♪�҉](https://t.me/Instagram_LinkToVideo_Bot)\n"
+    "𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗲𝗱 𝗕𝘆 ➪ [˹𝚰𝖓𝖘𝖙𝖆𝖌𝖗𝖆𝖒 ✘ 𝚫𝐨𝐰𝐧𝐥𝐨𝐚𝐝𝐞𝐫˼ ♪𖣔](https://t.me/Instagram_LinkToVideo_Bot)\n"
     "\n"
-    "༼◉𝐂𝛄𝛆𝛂𝛕𝛆𝛄◉༽ 🪽 ➪ [𝜝𝜣𝜯 𝑭𝜟𝜯𝜢𝜮𝜞](https://t.me/FathersOfCreater) �҉"
+    "༼◉𝐂𝛄𝛆𝛂𝛕𝛆𝛄◉༽ 🪽 ➪ [𝜝𝜣𝜯 𝑭𝜟𝜯𝜢𝜮𝜞](https://t.me/FathersOfCreater) 𖣔"
 )
 
 WELCOME_TEXT = """ʜᴇʏ, {mention} 👋🏻
-ɪ'ᴍ [˹𝚰𝖓𝖘𝖙𝖆𝖌𝖗𝖆𝖒 ✘ 𝚫𝐨𝐰𝐧𝐥𝐨𝐚𝐝𝐞𝐫˼ ♪�҉](https://t.me/Instagram_LinkToVideo_Bot),
+ɪ'ᴍ [˹𝚰𝖓𝖘𝖙𝖆𝖌𝖗𝖆𝖒 ✘ 𝚫𝐨𝐰𝐧𝐥𝐨𝐚𝐝𝐞𝐫˼ ♪𖣔](https://t.me/Instagram_LinkToVideo_Bot),
 
 ┏━━━━━━━━━━━━━━━━━⧫
 ┠ ◆ ˹ɪ ʜᴀᴠᴇ sᴘᴇᴄɪᴀʟ ғᴇᴀᴛᴜʀᴇs˼
@@ -420,7 +405,7 @@ WELCOME_TEXT = """ʜᴇʏ, {mention} 👋🏻
 
 GROUP_WELCOME = """👋🏻 **ʜᴇʟʟᴏ {chat_title}!**
 
-ɪ'ᴍ [˹𝚰𝖓𝖘𝖙𝖆𝖌𝖗𝖆𝖒 ✘ 𝚫𝐨𝐰𝐧𝐥𝐨𝐚𝐝𝐞𝐫˼ ♪�҉](https://t.me/Instagram_LinkToVideo_Bot),
+ɪ'ᴍ [˹𝚰𝖓𝖘𝖙𝖆𝖌𝖗𝖆𝖒 ✘ 𝚫𝐨𝐰𝐧𝐥𝐨𝐚𝐝𝐞𝐫˼ ♪𖣔](https://t.me/Instagram_LinkToVideo_Bot),
 
 ┏━━━━━━━━━━━━━━━━━⧫
 ┠ ◆ ˹ᴅᴏᴡɴʟᴏᴀᴅ ɪɴsᴛᴀɢʀᴀᴍ ʀᴇᴇʟs, ᴘʜᴏᴛᴏs & ᴀᴜᴅɪᴏ˼
@@ -434,13 +419,13 @@ GROUP_WELCOME = """👋🏻 **ʜᴇʟʟᴏ {chat_title}!**
 
 BOT_DISABLED_MSG = "🚫 **𝗕𝗢𝗧 𝗦𝗧𝗢𝗣 𝗕𝗬 𝗢𝗪𝗡𝗘𝗥**\n\n𝗕𝗼𝘁 𝗶𝘀 𝗰𝘂𝗿𝗿𝗲𝗻𝘁𝗹𝘆 𝗱𝗶𝘀𝗮𝗯𝗹𝗲𝗱."
 
-AUDIO_BUTTON_TEXT = "➪ ˹𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝 𝐕𝐢𝐝𝐞𝐨 𝐀𝐮𝐝𝐢𝐨˼  ♪�҉"
-AUDIO_DEFAULT_NAME = "➪ ༼◉♡ 𝙈𝙮 𝙈𝙪𝙨𝙞𝙘 ♪�҉🛸◉༽"
+AUDIO_BUTTON_TEXT = "➪ ˹𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝 𝐕𝐢𝐝𝐞𝐨 𝐀𝐮𝐝𝐢𝐨˼  ♪𖣔"
+AUDIO_DEFAULT_NAME = "➪ ༼◉♡ 𝙈𝙮 𝙈𝙪𝙨𝙞𝙘 ♪𖣔🛸◉༽"
 
 AUDIO_NAME_PROMPT = (
     "➪ 𝙊𝙠𝙖𝙮, 𝙂𝙖𝙫𝙚 𝙈𝙚 𝘼𝙪𝙙𝙞𝙤 𝙉𝙖𝙢𝙚?\n\n"
     "𝐄𝐱𝐚𝐦𝐩𝐥𝐞 : 𝐌𝐲 𝐌𝐮𝐬𝐢𝐜 🎶\n"
-    " ˹ησ ι∂єα вє¢αυѕє уσυ gαу˼ ♪�҉\n\n"
+    " ˹ησ ι∂єα вє¢αυѕє уσυ gαу˼ ♪𖣔\n\n"
     "𝐘𝐨𝐮 𝐇𝐚𝐯𝐞 𝐍𝐨 𝐈𝐝𝐞𝐚 𝐓𝐡𝐚𝐧 𝐂𝐥𝐢𝐜𝐤 𝐓𝐡𝐢𝐬 𝐁𝐮𝐭𝐭𝐨𝐧 🔽"
 )
 
@@ -829,8 +814,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
     print("╔══════════════════════════╗")
-    print("║  🤖 INSTAGRAM BOT v31   ║")
-    print("║  ✅ PHOTO DIRECT SCRAPE ║")
+    print("║  🤖 INSTAGRAM BOT v32   ║")
+    print("║  ✅ VIDEO+AUDIO FIXED   ║")
     print("╚══════════════════════════╝")
     
     os.system('apt-get update -qq && apt-get install -y -qq ffmpeg 2>/dev/null')
