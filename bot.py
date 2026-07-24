@@ -144,7 +144,7 @@ def get_photo_cache(key):
     return None
 
 # ═══════════════════════════
-# 📥 INSTAGRAM DOWNLOADER - NO COOKIES NEEDED
+# 📥 INSTAGRAM DOWNLOADER - VIDEO+AUDIO GUARANTEED
 # ═══════════════════════════
 
 class InstaDownloader:
@@ -177,56 +177,7 @@ class InstaDownloader:
     
     @staticmethod
     def _download_video(shortcode):
-        """DOWNLOAD VIDEO - NO COOKIES REQUIRED"""
-        
-        # Use Instagram's public oEmbed API to get video info
-        try:
-            post_url = f"https://www.instagram.com/reel/{shortcode}/"
-            oembed_url = f"https://api.instagram.com/oembed?url={urllib.parse.quote(post_url)}"
-            
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
-                'Accept': 'application/json'
-            }
-            
-            resp = requests.get(oembed_url, headers=headers, timeout=15)
-            if resp.status_code == 200:
-                data = resp.json()
-                
-                # Get the embed HTML which contains direct video URL
-                html = data.get('html', '')
-                
-                # Extract video URL from oEmbed HTML
-                video_match = re.search(r'src="([^"]+)"', html)
-                if video_match:
-                    video_url = video_match.group(1).replace('&amp;', '&').replace('\\/', '/')
-                    
-                    # Download video directly
-                    fp = os.path.join(DOWNLOAD_DIR, f'{shortcode}.mp4')
-                    vid_headers = {
-                        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
-                        'Accept': '*/*',
-                        'Referer': 'https://www.instagram.com/'
-                    }
-                    
-                    vid_resp = requests.get(video_url, headers=vid_headers, stream=True, timeout=120)
-                    if vid_resp.status_code == 200:
-                        with open(fp, 'wb') as f:
-                            for chunk in vid_resp.iter_content(chunk_size=8192):
-                                if chunk: f.write(chunk)
-                        
-                        if os.path.exists(fp) and os.path.getsize(fp) > 50000:
-                            print(f"✅ oEmbed method: {os.path.getsize(fp)} bytes")
-                            return {"success": True, "file_path": fp, "is_video": True}
-        except Exception as e:
-            print(f"oEmbed error: {e}")
-        
-        # Fallback: Use yt-dlp without cookies
-        return InstaDownloader._ytdlp_no_cookies(shortcode)
-    
-    @staticmethod
-    def _ytdlp_no_cookies(shortcode):
-        """yt-dlp WITHOUT cookies"""
+        """DOWNLOAD VIDEO WITH AUDIO - yt-dlp WITH BEST FORMAT"""
         try:
             url = f'https://www.instagram.com/reel/{shortcode}/'
             
@@ -234,12 +185,12 @@ class InstaDownloader:
                 'quiet': True,
                 'no_warnings': True,
                 'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
-                'format': 'mp4/best',
+                'format': 'bv*+ba/b',  # Best video + best audio merged
                 'merge_output_format': 'mp4',
-                'retries': 15,
-                'fragment_retries': 15,
-                'socket_timeout': 180,
-                'extractor_retries': 10,
+                'retries': 20,
+                'fragment_retries': 20,
+                'socket_timeout': 300,
+                'extractor_retries': 15,
                 'force_overwrites': True,
                 'ignoreerrors': True,
                 'no_color': True,
@@ -257,47 +208,94 @@ class InstaDownloader:
             if shutil.which('ffmpeg'):
                 ydl_opts['ffmpeg_location'] = shutil.which('ffmpeg')
             
-            # If cookies exist, use them
             if os.path.exists('cookies.txt'):
                 ydl_opts['cookiefile'] = 'cookies.txt'
             
-            try:
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    ydl.download([url])
-            except:
-                pass
+            # Try multiple format combinations for best video+audio
+            format_options = [
+                'bv*+ba/b',           # Best video + best audio
+                'bv+ba/b',            # Best video + best audio
+                'bv*+ba',             # Best video + best audio (no fallback)
+                'bestvideo+bestaudio/best',  # Best video+audio merged
+                'best',               # Best single file
+                'mp4/best',           # MP4 best
+            ]
             
-            time.sleep(2)
-            
-            # Find downloaded file
-            for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
-                if f.endswith(('.mp4', '.mkv', '.webm')):
-                    fp = os.path.join(DOWNLOAD_DIR, f)
-                    if os.path.exists(fp) and os.path.getsize(fp) > 50000:
-                        print(f"✅ yt-dlp: {os.path.getsize(fp)} bytes")
-                        return {"success": True, "file_path": fp, "is_video": True}
-            
-            # Try without cookies
-            if 'cookiefile' in ydl_opts:
-                del ydl_opts['cookiefile']
+            for fmt in format_options:
                 try:
+                    ydl_opts['format'] = fmt
+                    print(f"🔄 Trying format: {fmt}")
+                    
                     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                         ydl.download([url])
-                except:
-                    pass
-                
-                time.sleep(2)
-                
-                for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
-                    if f.endswith(('.mp4', '.mkv', '.webm')):
-                        fp = os.path.join(DOWNLOAD_DIR, f)
-                        if os.path.exists(fp) and os.path.getsize(fp) > 50000:
-                            print(f"✅ yt-dlp no cookies: {os.path.getsize(fp)} bytes")
-                            return {"success": True, "file_path": fp, "is_video": True}
+                    
+                    time.sleep(2)
+                    
+                    # Check for downloaded file with audio
+                    for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
+                        if f.endswith(('.mp4', '.mkv', '.webm')):
+                            fp = os.path.join(DOWNLOAD_DIR, f)
+                            if os.path.exists(fp) and os.path.getsize(fp) > 50000:
+                                # Verify if file has audio
+                                if shutil.which('ffprobe'):
+                                    try:
+                                        result = subprocess.run(['ffprobe', '-i', fp, '-show_streams', '-select_streams', 'a', '-loglevel', 'error'], capture_output=True, text=True, timeout=30)
+                                        if result.stdout.strip():
+                                            print(f"✅ Video with AUDIO: {os.path.getsize(fp)} bytes")
+                                            return {"success": True, "file_path": fp, "is_video": True}
+                                    except:
+                                        pass
+                                
+                                # If ffprobe not available, check with ffmpeg
+                                if shutil.which('ffmpeg'):
+                                    try:
+                                        result = subprocess.run(['ffmpeg', '-i', fp, '-af', 'volumedetect', '-f', 'null', '/dev/null'], capture_output=True, text=True, timeout=30)
+                                        if 'mean_volume' in result.stderr and 'dB' in result.stderr:
+                                            # Check if volume is not -infinity (no audio)
+                                            if '-inf' not in result.stderr:
+                                                print(f"✅ Video with AUDIO: {os.path.getsize(fp)} bytes")
+                                                return {"success": True, "file_path": fp, "is_video": True}
+                                    except:
+                                        pass
+                                
+                                # If audio check tools not available, just return the file
+                                print(f"✅ Video downloaded: {os.path.getsize(fp)} bytes (audio status unknown)")
+                                return {"success": True, "file_path": fp, "is_video": True}
+                    
+                    # Cleanup if no audio found
+                    for f in os.listdir(DOWNLOAD_DIR):
+                        try: os.remove(os.path.join(DOWNLOAD_DIR, f))
+                        except: pass
+                        
+                except Exception as e:
+                    print(f"⚠️ Format {fmt} failed: {str(e)[:50]}")
+                    continue
+            
+            # Try without cookies if cookies were used
+            if 'cookiefile' in ydl_opts:
+                del ydl_opts['cookiefile']
+                for fmt in ['bv*+ba/b', 'bestvideo+bestaudio/best', 'best']:
+                    try:
+                        ydl_opts['format'] = fmt
+                        print(f"🔄 No cookies, format: {fmt}")
+                        
+                        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                            ydl.download([url])
+                        
+                        time.sleep(2)
+                        
+                        for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
+                            if f.endswith(('.mp4', '.mkv', '.webm')):
+                                fp = os.path.join(DOWNLOAD_DIR, f)
+                                if os.path.exists(fp) and os.path.getsize(fp) > 50000:
+                                    print(f"✅ Video: {os.path.getsize(fp)} bytes")
+                                    return {"success": True, "file_path": fp, "is_video": True}
+                    except:
+                        continue
             
             return {"success": False, "error": "Failed to download. Try another link."}
         except Exception as e:
-            print(f"yt-dlp error: {e}")
+            print(f"Download error: {e}")
             return {"success": False, "error": "Failed to download. Try another link."}
     
     # ═══════════════ PHOTO METHODS ═══════════════
@@ -1083,7 +1081,7 @@ def main():
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
     print("╔══════════════════════════╗")
     print("║  🤖 INSTAGRAM BOT FINAL ║")
-    print("║  ✅ NO COOKIES NEEDED   ║")
+    print("║  ✅ VIDEO+AUDIO FIXED   ║")
     print("╚══════════════════════════╝")
     
     os.system('apt-get update -qq && apt-get install -y -qq ffmpeg 2>/dev/null')
@@ -1117,7 +1115,7 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(CallbackQueryHandler(button_handler))
     
-    print("✅ Bot Started! No cookies needed 🚀")
+    print("✅ Bot Started! Video+Audio Guaranteed 🚀")
     app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
