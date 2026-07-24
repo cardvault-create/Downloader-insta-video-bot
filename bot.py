@@ -193,41 +193,101 @@ class InstaDownloader:
         else: return InstaDownloader._download_photo(shortcode, url)
     
     @staticmethod
-    def _download_video(shortcode, url):
-        """DOWNLOAD REEL/VIDEO WITH AUDIO"""
-        if not validate_cookies():
-            return {"success": False, "error": "cookies.txt missing or invalid! Upload proper cookies.txt"}
-        
-        ydl_opts = {
-            'quiet': True, 'no_warnings': True,
-            'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
-            'cookiefile': 'cookies.txt',
-            'retries': 10, 'fragment_retries': 10, 'socket_timeout': 120,
-            'extractor_retries': 5,
-            'http_headers': {
-                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.9',
-                'Referer': 'https://www.instagram.com/',
-            }
+def _download_video(shortcode, url):
+    """DOWNLOAD REEL/VIDEO WITH AUDIO"""
+    if not validate_cookies():
+        return {"success": False, "error": "cookies.txt missing or invalid! Upload proper cookies.txt"}
+    
+    ydl_opts = {
+        'quiet': True, 'no_warnings': True,
+        'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
+        'cookiefile': 'cookies.txt',
+        'retries': 10, 'fragment_retries': 10, 'socket_timeout': 120,
+        'extractor_retries': 5,
+        'merge_output_format': 'mp4',
+        'http_headers': {
+            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Referer': 'https://www.instagram.com/',
         }
-        if shutil.which('ffmpeg'): ydl_opts['ffmpeg_location'] = shutil.which('ffmpeg')
+    }
+    if shutil.which('ffmpeg'): 
+        ydl_opts['ffmpeg_location'] = shutil.which('ffmpeg')
+    
+    formats = [
+        'bestvideo+bestaudio/best',
+        'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]',
+        'bestvideo+bestaudio',
+        'bv*+ba/b',
+        'bv+ba/b',
+        'best',
+    ]
+    
+    for fmt in formats:
+        try:
+            ydl_opts['format'] = fmt
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([url])
+                time.sleep(0.5)
+                
+                downloaded_file = None
+                for ext in ['.mp4', '.mkv', '.webm']:
+                    for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
+                        if f.endswith(ext) and shortcode in f:
+                            fp = os.path.join(DOWNLOAD_DIR, f)
+                            if os.path.exists(fp) and os.path.getsize(fp) > 50000:
+                                downloaded_file = fp
+                                break
+                    if downloaded_file:
+                        break
+                
+                if downloaded_file:
+                    if InstaDownloader._has_audio(downloaded_file):
+                        return {"success": True, "file_path": downloaded_file, "is_video": True}
+                    else:
+                        os.remove(downloaded_file)
+                        continue
+                        
+        except Exception as e:
+            print(f"Format {fmt} failed: {str(e)[:100]}")
+            continue
+    
+    try:
+        ydl_opts['format'] = 'bestvideo+bestaudio/best'
+        ydl_opts['external_downloader'] = 'ffmpeg'
+        ydl_opts['external_downloader_args'] = {'ffmpeg_i': ['-c:v', 'copy', '-c:a', 'aac']}
         
-        formats = ['mp4', 'best[ext=mp4]', 'best', 'bestvideo+bestaudio/best']
-        for fmt in formats:
-            try:
-                ydl_opts['format'] = fmt
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    ydl.download([url])
-                    time.sleep(0.5)
-                    for ext in ['.mp4', '.mkv', '.webm']:
-                        for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
-                            if f.endswith(ext):
-                                fp = os.path.join(DOWNLOAD_DIR, f)
-                                if os.path.exists(fp) and os.path.getsize(fp) > 50000:
-                                    return {"success": True, "file_path": fp, "is_video": True}
-            except: continue
-        return {"success": False, "error": "Video failed. Update cookies.txt from browser"}
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
+            time.sleep(0.5)
+            
+            for ext in ['.mp4', '.mkv', '.webm']:
+                for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
+                    if f.endswith(ext) and shortcode in f:
+                        fp = os.path.join(DOWNLOAD_DIR, f)
+                        if os.path.exists(fp) and os.path.getsize(fp) > 50000:
+                            if InstaDownloader._has_audio(fp):
+                                return {"success": True, "file_path": fp, "is_video": True}
+    except:
+        pass
+    
+    return {"success": False, "error": "Video failed. Update cookies.txt from browser"}
+
+@staticmethod
+def _has_audio(file_path):
+    """Check if video file has audio stream"""
+    if not shutil.which('ffprobe'):
+        return True
+    
+    try:
+        result = subprocess.run(
+            ['ffprobe', '-v', 'error', '-select_streams', 'a:0', '-show_entries', 'stream=codec_type', '-of', 'csv=p=0', file_path],
+            capture_output=True, text=True, timeout=10
+        )
+        return 'audio' in result.stdout.lower()
+    except:
+        return True
     
     # ═══════════════ PHOTO METHODS (IMPORTED FROM v24) ═══════════════
     
