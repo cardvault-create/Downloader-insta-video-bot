@@ -551,41 +551,54 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
         emoji_id = get_random_emoji()
         emoji_msg = None
         if emoji_id:
-            try: emoji_msg = await bot.send_sticker(chat_id, emoji_id)
-            except: pass
+            try: 
+                emoji_msg = await bot.send_sticker(chat_id, emoji_id)
+            except: 
+                pass
         
         await asyncio.sleep(0.1)
         
         welcome_emojis = ["🩷", "🌸", "🏖️", "🍰", "🥂"]
         welcome_msg = await bot.send_message(chat_id, f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ ꨄ {user_mention}...🩷", parse_mode="Markdown")
+        
+        # ✨ Delete emoji sticker immediately when welcome animation starts
+        if emoji_msg:
+            try: 
+                await emoji_msg.delete()
+            except: 
+                pass
+        
         for emoji in welcome_emojis:
             await asyncio.sleep(0.5)
-            try: await welcome_msg.edit_text(f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ ꨄ {user_mention}...{emoji}", parse_mode="Markdown")
-            except: break
-        
-        if emoji_msg:
-            await asyncio.sleep(0.5)
-            try: await emoji_msg.delete()
-            except: pass
+            try: 
+                await welcome_msg.edit_text(f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ ꨄ {user_mention}...{emoji}", parse_mode="Markdown")
+            except: 
+                break
         
         await asyncio.sleep(0.2)
         
         starting_emojis = ["🚀", "🌠", "🪶", "🍓", "🤖", "🥡", "🍷", "🍭", "🍨", "🧭", "🫧", "🍫", "🛸"]
         words = ["𝙨", "𝙩", "α", "я", "†", "ι", "и", "g", ".", ".", ".", ".", "."]
-        try: await welcome_msg.edit_text(f"**{starting_emojis[0]}**", parse_mode="Markdown")
-        except: pass
+        try: 
+            await welcome_msg.edit_text(f"**{starting_emojis[0]}**", parse_mode="Markdown")
+        except: 
+            pass
         for i in range(len(words)):
             await asyncio.sleep(0.08)
-            try: await welcome_msg.edit_text(f"**{starting_emojis[i%len(starting_emojis)]} " + "".join(words[:i+1]) + "**", parse_mode="Markdown")
-            except: break
+            try: 
+                await welcome_msg.edit_text(f"**{starting_emojis[i%len(starting_emojis)]} " + "".join(words[:i+1]) + "**", parse_mode="Markdown")
+            except: 
+                break
         await asyncio.sleep(0.2)
         await welcome_msg.delete()
         
         sticker_id = get_random_sticker()
         sticker_msg = None
         if sticker_id:
-            try: sticker_msg = await bot.send_sticker(chat_id, sticker_id)
-            except: pass
+            try: 
+                sticker_msg = await bot.send_sticker(chat_id, sticker_id)
+            except: 
+                pass
         await asyncio.sleep(4)
         
         video_data = get_random_video()
@@ -599,12 +612,14 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
         
         if sticker_msg:
             await asyncio.sleep(6)
-            try: await sticker_msg.delete()
-            except: pass
+            try: 
+                await sticker_msg.delete()
+            except: 
+                pass
             
     except:
         pass
-
+        
 # ═══════════════════════════
 # 🤖 HANDLERS
 # ═══════════════════════════
