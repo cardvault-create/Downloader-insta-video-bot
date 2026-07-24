@@ -548,43 +548,38 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
     try:
         user_mention = f"[{first_name}](tg://user?id={user_id})"
         
-        # Step 1: Send emoji sticker first
-        emoji_id = get_random_emoji()
+        # STEP 1: Send emoji sticker
         emoji_msg = None
+        emoji_id = get_random_emoji()
         if emoji_id:
-            try: 
-                emoji_msg = await bot.send_sticker(chat_id, emoji_id)
-            except: 
-                pass
-        
-        # Step 2: Wait 0.5 seconds
-        await asyncio.sleep(0.5)
-        
-        # Step 3: Send welcome message
-        welcome_emojis = ["🩷", "🌸", "🏖️", "🍰", "🥂"]
-        welcome_msg = await bot.send_message(
-            chat_id, 
-            f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ ꨄ {user_mention}...🩷", 
-            parse_mode="Markdown"
-        )
-        
-        # Step 4: Animate emojis - 5 emojis in 2.5 seconds (0.5 sec each)
-        for emoji in welcome_emojis:
-            await asyncio.sleep(0.5)
             try:
-                await welcome_msg.edit_text(
-                    f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ ꨄ {user_mention}...{emoji}",
-                    parse_mode="Markdown"
-                )
+                emoji_msg = await client.send_sticker(chat_id, emoji_id)
             except:
-                break
-        
-        # Step 5: Last emoji ke baad emoji sticker delete
-        if emoji_msg:
-            try: 
-                await emoji_msg.delete()
-            except: 
                 pass
+
+        await asyncio.sleep(0.3)
+
+        # STEP 2: Welcome animation
+        welcome_emojis = ["🩷", "🌸", "🏖️", "🍰", "🥂"]
+        welcome_msg = await client.send_message(
+            chat_id,
+            f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ ꨄ [{first_name}](tg://user?id={user_id})...🩷"
+        )
+
+        for emoji in welcome_emojis:
+            await asyncio.sleep(0.3)
+            try:
+                await welcome_msg.edit_text(f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ ꨄ [{first_name}](tg://user?id={user_id})...{emoji}")
+            except:
+                pass
+
+        if emoji_msg:
+            try:
+                await emoji_msg.delete()
+            except:
+                pass
+
+        await asyncio.sleep(0.2)
         
         # Step 6: Starting animation
         await asyncio.sleep(0.2)
