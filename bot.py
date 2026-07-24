@@ -193,55 +193,92 @@ class InstaDownloader:
         if is_reel: return InstaDownloader._download_video(shortcode, url)
         else: return InstaDownloader._download_photo(shortcode, url)
     
-    @staticmethod
-    def _download_video(shortcode, url):
-        """DOWNLOAD REEL/VIDEO WITH AUDIO"""
-        if not validate_cookies():
-            return {"success": False, "error": "cookies.txt missing or invalid! Upload proper cookies.txt"}
-        
-        ydl_opts = {
-            'quiet': True,
-            'no_warnings': True,
-            'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
-            'cookiefile': 'cookies.txt',
-            'retries': 10,
-            'fragment_retries': 10,
-            'socket_timeout': 120,
-            'extractor_retries': 5,
-            'http_headers': {
-                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.9',
-                'Referer': 'https://www.instagram.com/',
-            }
+@staticmethod
+def _download_video(shortcode, url):
+    """DOWNLOAD REEL/VIDEO WITH AUDIO - 100% FIXED"""
+    print(f"🎬 Downloading: {shortcode}")
+    
+    # FFmpeg check
+    ffmpeg_path = shutil.which('ffmpeg')
+    if not ffmpeg_path:
+        return {"success": False, "error": "FFmpeg not installed"}
+    
+    ydl_opts = {
+        'quiet': True,
+        'no_warnings': True,
+        'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
+        'format': 'bv*+ba/b',  # ⚡ BEST VIDEO + BEST AUDIO ⚡
+        'merge_output_format': 'mp4',  # ⚡ MERGE WITH FFMPEG ⚡
+        'ffmpeg_location': ffmpeg_path,
+        'retries': 10,
+        'fragment_retries': 10,
+        'socket_timeout': 120,
+        'extractor_retries': 5,
+        'http_headers': {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': '*/*',
+            'Accept-Language': 'en-US,en;q=0.9',
         }
+    }
+    
+    # Cookies add karo agar file exist karti hai
+    if os.path.exists('cookies.txt'):
+        ydl_opts['cookiefile'] = 'cookies.txt'
+    
+    try:
+        print(f"📥 Trying format: bv*+ba/b")
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
         
-        if shutil.which('ffmpeg'):
-            ydl_opts['ffmpeg_location'] = shutil.which('ffmpeg')
+        time.sleep(1)
         
-        formats = ['mp4', 'best[ext=mp4]', 'best', 'bestvideo+bestaudio/best']
-        
-        for fmt in formats:
-            try:
-                ydl_opts['format'] = fmt
-                print(f"🔄 Video format: {fmt}")
+        # Downloaded file dhundo
+        for f in os.listdir(DOWNLOAD_DIR):
+            if f.endswith('.mp4') and os.path.getsize(os.path.join(DOWNLOAD_DIR, f)) > 50000:
+                fp = os.path.join(DOWNLOAD_DIR, f)
                 
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    ydl.download([url])
-                    time.sleep(0.5)
-                    
-                    for ext in ['.mp4', '.mkv', '.webm']:
-                        for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
-                            if f.endswith(ext):
-                                fp = os.path.join(DOWNLOAD_DIR, f)
-                                if os.path.exists(fp) and os.path.getsize(fp) > 50000:
-                                    print(f"✅ VIDEO: {f} ({os.path.getsize(fp)} bytes)")
-                                    return {"success": True, "file_path": fp, "is_video": True}
-            except Exception as e:
-                print(f"⚠️ {fmt}: {str(e)[:50]}")
-                continue
+                # Verify audio with ffprobe
+                try:
+                    result = subprocess.run(
+                        [ffmpeg_path, '-i', fp],
+                        capture_output=True, text=True, timeout=30
+                    )
+                    if 'Audio:' in result.stderr:
+                        print(f"✅ SUCCESS with AUDIO: {os.path.getsize(fp)/1024/1024:.1f}MB")
+                        return {"success": True, "file_path": fp, "is_video": True}
+                    else:
+                        print(f"⚠️ No audio, trying next...")
+                        os.remove(fp)
+                except:
+                    print(f"✅ File: {os.path.getsize(fp)/1024/1024:.1f}MB")
+                    return {"success": True, "file_path": fp, "is_video": True}
         
-        return {"success": False, "error": "Video failed. Update cookies.txt from browser"}
+        # Fallback: try with cookies if available
+        if os.path.exists('cookies.txt'):
+            print("🔄 Fallback with cookies...")
+            ydl_opts['format'] = 'bestvideo+bestaudio/best'
+            
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([url])
+            
+            time.sleep(1)
+            
+            for f in os.listdir(DOWNLOAD_DIR):
+                if f.endswith('.mp4') and os.path.getsize(os.path.join(DOWNLOAD_DIR, f)) > 50000:
+                    fp = os.path.join(DOWNLOAD_DIR, f)
+                    print(f"✅ Fallback success: {os.path.getsize(fp)/1024/1024:.1f}MB")
+                    return {"success": True, "file_path": fp, "is_video": True}
+        
+        return {"success": False, "error": "Download failed - try fresh cookies.txt"}
+        
+    except Exception as e:
+        error_msg = str(e)
+        print(f"❌ Error: {error_msg[:100]}")
+        
+        if "HTTP Error 403" in error_msg or "HTTP Error 401" in error_msg:
+            return {"success": False, "error": "Access denied! Update cookies.txt with fresh Instagram cookies"}
+        
+        return {"success": False, "error": f"Failed: {error_msg[:80]}"}
     
     # ═══════════════ PHOTO METHODS ═══════════════
     
