@@ -560,16 +560,22 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
         # Step 2: Wait 0.5 seconds
         await asyncio.sleep(0.5)
         
-        # Step 3: Send welcome message with emoji animation
+        # Step 3: Send welcome message with first emoji
         welcome_emojis = ["🩷", "🌸", "🏖️", "🍰", "🥂"]
-        welcome_msg = await bot.send_message(chat_id, f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ ꨄ {user_mention}...🩷", parse_mode="Markdown")
+        welcome_msg = await bot.send_message(
+            chat_id, 
+            f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ ꨄ {user_mention}...🩷", 
+            parse_mode="Markdown"
+        )
         
-        # Step 4: Animate welcome message emojis - FIXED
+        # Step 4: Animate welcome message emojis with 0.5 second delay
         for emoji in welcome_emojis:
-            await asyncio.sleep(0.8)  # Increased delay for better visibility
+            await asyncio.sleep(0.5)
             try:
-                # Edit the message with new emoji
-                await welcome_msg.edit_text(
+                # Delete old message and send new one with updated emoji
+                await welcome_msg.delete()
+                welcome_msg = await bot.send_message(
+                    chat_id,
                     f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ ꨄ {user_mention}...{emoji}",
                     parse_mode="Markdown"
                 )
@@ -577,32 +583,43 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
                 print(f"Welcome emoji edit error: {e}")
                 break
         
-        # Step 5: Delete emoji sticker after welcome animation
+        # Step 5: Wait 0.5 seconds after last emoji
+        await asyncio.sleep(0.5)
+        
+        # Step 6: Delete emoji sticker after welcome animation completes
         if emoji_msg:
             try: 
                 await emoji_msg.delete()
             except: 
                 pass
         
-        # Step 6: Start "starting" animation
+        # Step 7: Start "starting" animation
         await asyncio.sleep(0.2)
         
         starting_emojis = ["🚀", "🌠", "🪶", "🍓", "🤖", "🥡", "🍷", "🍭", "🍨", "🧭", "🫧", "🍫", "🛸"]
         words = ["𝙨", "𝙩", "α", "я", "†", "ι", "и", "g", ".", ".", ".", ".", "."]
-        try: 
-            await welcome_msg.edit_text(f"**{starting_emojis[0]}**", parse_mode="Markdown")
-        except: 
+        
+        # Delete welcome message
+        try:
+            await welcome_msg.delete()
+        except:
             pass
+        
+        # Send starting animation as new message
+        start_msg = await bot.send_message(chat_id, f"**{starting_emojis[0]}**", parse_mode="Markdown")
         for i in range(len(words)):
             await asyncio.sleep(0.08)
             try: 
-                await welcome_msg.edit_text(f"**{starting_emojis[i%len(starting_emojis)]} " + "".join(words[:i+1]) + "**", parse_mode="Markdown")
+                await start_msg.edit_text(
+                    f"**{starting_emojis[i%len(starting_emojis)]} " + "".join(words[:i+1]) + "**", 
+                    parse_mode="Markdown"
+                )
             except: 
                 break
         await asyncio.sleep(0.2)
-        await welcome_msg.delete()
+        await start_msg.delete()
         
-        # Step 7: Send sticker
+        # Step 8: Send sticker
         sticker_id = get_random_sticker()
         sticker_msg = None
         if sticker_id:
@@ -611,10 +628,10 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
             except: 
                 pass
         
-        # Step 8: Wait 4 seconds for sticker to show
+        # Step 9: Wait 4 seconds for sticker to show
         await asyncio.sleep(4)
         
-        # Step 9: Send final welcome message
+        # Step 10: Send final welcome message
         video_data = get_random_video()
         final_text = WELCOME_TEXT.replace("{mention}", user_mention)
         kb = InlineKeyboardMarkup([[InlineKeyboardButton("◆ ➪ ˹𝜟𝙙𝙙 𝜯𝜣 𝑮𝜞𝜭𝑼𝝆˼ ♪☬", url=f"https://t.me/{(await bot.get_me()).username}?startgroup=true")]])
@@ -624,7 +641,7 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
         else:
             await bot.send_message(chat_id, final_text, parse_mode="Markdown", reply_markup=kb)
         
-        # Step 10: Delete sticker after 4 seconds
+        # Step 11: Delete sticker after 4 seconds
         if sticker_msg:
             await asyncio.sleep(4)
             try: 
