@@ -242,12 +242,7 @@ class InstaDownloader:
                 continue
         
         return {"success": False, "error": "Video failed. Update cookies.txt from browser"}
-        
-   # ═══════════════ PHOTO METHODS ═══════════════
     
-    @staticmethod
-    def _download_photo(shortcode, url):
-        # ... baaki photo methods same rahenge ...
     # ═══════════════ PHOTO METHODS ═══════════════
     
     @staticmethod
