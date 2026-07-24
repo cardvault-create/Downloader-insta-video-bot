@@ -188,7 +188,7 @@ class InstaDownloader:
             'merge_output_format': 'mp4',
             'retries': 10,
             'fragment_retries': 10,
-            'socket_timeout': 120,
+            'socket_timeout': 600,
             'extractor_retries': 5,
             'force_overwrites': True,
             'ignoreerrors': False,
@@ -1019,7 +1019,7 @@ def main():
         try: os.remove(os.path.join(DOWNLOAD_DIR, f))
         except: pass
     
-    app = Application.builder().token(BOT_TOKEN).read_timeout(300).write_timeout(300).connect_timeout(300).pool_timeout(300).build()
+    app = Application.builder().token(BOT_TOKEN).read_timeout(600).write_timeout(600).connect_timeout(600).pool_timeout(600).build()
     
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("activate", activate_cmd))
