@@ -825,75 +825,56 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             photo_paths = result.get("file_paths", [])
             total = len(photo_paths)
             save_photo_cache(cache_key, photo_paths)
-            await msg.edit_text(f"📤 𝗨𝗽𝗹𝗼𝗮𝗱𝗶𝗻𝗴 {total} 𝗣𝗵𝗼𝘁𝗼𝘀...", parse_mode="Markdown")
-            
-            if total > 0:
-                media_group = []
-                batch_paths = photo_paths[:10]
-                
-                for i, path in enumerate(batch_paths):
-                    if os.path.exists(path):
-                        if i == 0:
-                            media_group.append(InputMediaPhoto(
-                                open(path, 'rb'),
-                                caption=f"📸 1/{total}\n\n{CAPTION}",
-                                parse_mode="Markdown"
-                            ))
-                        else:
-                            media_group.append(InputMediaPhoto(
-                                open(path, 'rb')
-                            ))
-                
-                try:
-                    await update.message.reply_media_group(media=media_group)
-                except Exception as e:
-                    for i, path in enumerate(batch_paths):
-                        if os.path.exists(path):
-                            with open(path, 'rb') as f:
-                                if i == 0:
-                                    await update.message.reply_photo(
-                                        photo=f,
-                                        caption=f"📸 {i+1}/{total}\n\n{CAPTION}",
-                                        parse_mode="Markdown"
-                                    )
-                                else:
-                                    await update.message.reply_photo(
-                                        photo=f,
-                                        caption=f"📸 {i+1}/{total}"
-                                    )
-            
-            if total > 10:
-                for i in range(10, min(total, 20)):
-                    path = photo_paths[i]
-                    if os.path.exists(path):
-                        with open(path, 'rb') as f:
-                            await update.message.reply_photo(
-                                photo=f,
-                                caption=f"📸 {i+1}/{total}"
-                            )
-            
+
+            await msg.edit_text(
+                f"📤 𝗨𝗽𝗹𝗼𝗮𝗱𝗶𝗻𝗴 {total} 𝗣𝗵𝗼𝘁𝗼𝘀...",
+                parse_mode="Markdown"
+            )
+
+            for i, path in enumerate(photo_paths):
+                if os.path.exists(path):
+                    with open(path, "rb") as f:
+                        await update.message.reply_photo(
+                            photo=f,
+                            caption=f"📸 {i+1}/{total}\n\n{CAPTION}",
+                            parse_mode="Markdown"
+                        )
+
+                    await asyncio.sleep(0.5)
+
             await msg.delete()
+
+            for path in photo_paths:
+                InstaDownloader.cleanup(path)
+
             if sticker_msg:
                 await asyncio.sleep(6)
-                try: await sticker_msg.delete()
-                except: pass
+                try:
+                    await sticker_msg.delete()
+                except:
+                    pass
+
             return
-        
+
         fp = result["file_path"]
         if not os.path.exists(fp) or os.path.getsize(fp) < 1000:
             await msg.edit_text("❌ 𝗙𝗶𝗹𝗲 𝗡𝗼𝘁 𝗙𝗼𝘂𝗻𝗱", parse_mode="Markdown")
             if sticker_msg:
-                try: await sticker_msg.delete()
-                except: pass
+                try:
+                    await sticker_msg.delete()
+                except:
+                    pass
             return
-        
+
         size_mb = os.path.getsize(fp) / (1024 * 1024)
         if size_mb > 50:
             await msg.edit_text(f"❌ >𝟱𝟬𝗠𝗕 ({size_mb:.1f}MB)", parse_mode="Markdown")
             InstaDownloader.cleanup(fp)
             if sticker_msg:
-                try: await sticker_msg.delete()
-                except: pass
+                try:
+                    await sticker_msg.delete()
+                except:
+                    pass
             return
         
         is_video = result.get("is_video", False) or fp.endswith(('.mp4', '.mov', '.webm'))
