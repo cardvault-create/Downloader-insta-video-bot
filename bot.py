@@ -321,13 +321,9 @@ def _method_scrape_multi(shortcode, url):
                             f.write(chunk)
                     if os.path.getsize(fp) > 1000:
                         downloaded.append(fp)
-                        print(f"✅ Downloaded photo {i+1}: {os.path.getsize(fp)} bytes")
-            except Exception as e:
-                print(f"❌ Photo {i+1} failed: {str(e)[:50]}")
-                continue
+            except: continue
         
         if downloaded:
-            print(f"🎯 Total downloaded: {len(downloaded)} photos")
             return {
                 "success": True,
                 "file_path": downloaded[0],
@@ -337,9 +333,7 @@ def _method_scrape_multi(shortcode, url):
                 "total": len(downloaded)
             }
         return {"success": False}
-    except Exception as e:
-        print(f"❌ Multi scrape error: {str(e)[:100]}")
-        return {"success": False}
+    except: return {"success": False}
     
     @staticmethod
     def _method_oembed(shortcode):
