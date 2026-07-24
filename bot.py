@@ -144,25 +144,7 @@ def get_photo_cache(key):
     return None
 
 # ═══════════════════════════
-# 🍪 COOKIES VALIDATOR
-# ═══════════════════════════
-
-def validate_cookies():
-    if not os.path.exists('cookies.txt'):
-        return False
-    try:
-        with open('cookies.txt', 'r') as f:
-            if 'sessionid' in f.read():
-                print("✅ Valid cookies.txt found with sessionid")
-                return True
-            else:
-                print("⚠️ cookies.txt found but NO sessionid!")
-                return False
-    except:
-        return False
-
-# ═══════════════════════════
-# 📥 INSTAGRAM DOWNLOADER
+# 📥 INSTAGRAM DOWNLOADER - NO COOKIES NEEDED
 # ═══════════════════════════
 
 class InstaDownloader:
@@ -190,143 +172,133 @@ class InstaDownloader:
         shortcode = InstaDownloader.get_shortcode(url)
         if not shortcode: return {"success": False, "error": "Invalid"}
         is_reel = '/reel/' in url or '/tv/' in url
-        if is_reel: return InstaDownloader._download_video(shortcode, url)
+        if is_reel: return InstaDownloader._download_video(shortcode)
         else: return InstaDownloader._download_photo(shortcode, url)
     
     @staticmethod
-    def _download_video(shortcode, url):
-        """DOWNLOAD REEL/VIDEO WITH AUDIO"""
+    def _download_video(shortcode):
+        """DOWNLOAD VIDEO - NO COOKIES REQUIRED"""
         
-        # Method 1: Direct Instagram API with proper mobile headers
+        # Use Instagram's public oEmbed API to get video info
         try:
-            session = requests.Session()
-            session.headers.update({
-                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_3_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.3 Mobile/15E148 Safari/604.1',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.9',
-                'Accept-Encoding': 'gzip, deflate, br',
-                'Connection': 'keep-alive',
-                'Referer': 'https://www.instagram.com/',
-            })
+            post_url = f"https://www.instagram.com/reel/{shortcode}/"
+            oembed_url = f"https://api.instagram.com/oembed?url={urllib.parse.quote(post_url)}"
             
-            # Load cookies if available
-            if os.path.exists('cookies.txt'):
-                try:
-                    from http.cookiejar import MozillaCookieJar
-                    cj = MozillaCookieJar('cookies.txt')
-                    cj.load(ignore_discard=True, ignore_expires=True)
-                    session.cookies = cj
-                except:
-                    pass
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
+                'Accept': 'application/json'
+            }
             
-            # First get the page
-            resp = session.get(f'https://www.instagram.com/reel/{shortcode}/', timeout=30)
-            if resp.status_code != 200:
-                return InstaDownloader._download_video_ytdlp(shortcode, url)
-            
-            html = resp.text
-            video_url = None
-            
-            # Try to find video URL in shared data
-            patterns = [
-                r'"video_url":"(https:[^"]*\.mp4[^"]*)"',
-                r'"video_versions":\s*\[[^\]]*"url":"(https:[^"]*)"',
-                r'"video_url":"(https:\\/\\/[^"]*\.mp4[^"]*)"',
-                r'<meta property="og:video" content="([^"]+)"',
-            ]
-            
-            for pattern in patterns:
-                match = re.search(pattern, html, re.DOTALL)
-                if match:
-                    video_url = match.group(1).replace('\\/', '/').replace('\\u0026', '&')
-                    if video_url.startswith('https://'):
-                        break
-            
-            # Try from JSON-LD
-            if not video_url:
-                ld_match = re.search(r'<script type="application/ld\+json">(.*?)</script>', html, re.DOTALL)
-                if ld_match:
-                    try:
-                        ld_data = json.loads(ld_match.group(1))
-                        if isinstance(ld_data, list):
-                            for item in ld_data:
-                                if item.get('@type') == 'VideoObject' and item.get('contentUrl'):
-                                    video_url = item['contentUrl']
-                                    break
-                        elif ld_data.get('@type') == 'VideoObject' and ld_data.get('contentUrl'):
-                            video_url = ld_data['contentUrl']
-                    except:
-                        pass
-            
-            if video_url:
-                fp = os.path.join(DOWNLOAD_DIR, f'{shortcode}.mp4')
-                vid_resp = session.get(video_url, stream=True, timeout=120)
-                if vid_resp.status_code == 200:
-                    with open(fp, 'wb') as f:
-                        for chunk in vid_resp.iter_content(chunk_size=8192):
-                            if chunk: f.write(chunk)
-                    if os.path.exists(fp) and os.path.getsize(fp) > 50000:
-                        print(f"✅ VIDEO: {os.path.getsize(fp)} bytes")
-                        return {"success": True, "file_path": fp, "is_video": True}
-            
+            resp = requests.get(oembed_url, headers=headers, timeout=15)
+            if resp.status_code == 200:
+                data = resp.json()
+                
+                # Get the embed HTML which contains direct video URL
+                html = data.get('html', '')
+                
+                # Extract video URL from oEmbed HTML
+                video_match = re.search(r'src="([^"]+)"', html)
+                if video_match:
+                    video_url = video_match.group(1).replace('&amp;', '&').replace('\\/', '/')
+                    
+                    # Download video directly
+                    fp = os.path.join(DOWNLOAD_DIR, f'{shortcode}.mp4')
+                    vid_headers = {
+                        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
+                        'Accept': '*/*',
+                        'Referer': 'https://www.instagram.com/'
+                    }
+                    
+                    vid_resp = requests.get(video_url, headers=vid_headers, stream=True, timeout=120)
+                    if vid_resp.status_code == 200:
+                        with open(fp, 'wb') as f:
+                            for chunk in vid_resp.iter_content(chunk_size=8192):
+                                if chunk: f.write(chunk)
+                        
+                        if os.path.exists(fp) and os.path.getsize(fp) > 50000:
+                            print(f"✅ oEmbed method: {os.path.getsize(fp)} bytes")
+                            return {"success": True, "file_path": fp, "is_video": True}
         except Exception as e:
-            print(f"Method 1 error: {e}")
+            print(f"oEmbed error: {e}")
         
-        # Method 2: yt-dlp
-        return InstaDownloader._download_video_ytdlp(shortcode, url)
+        # Fallback: Use yt-dlp without cookies
+        return InstaDownloader._ytdlp_no_cookies(shortcode)
     
     @staticmethod
-    def _download_video_ytdlp(shortcode, url):
-        """yt-dlp backup method"""
-        if not validate_cookies():
-            return {"success": False, "error": "cookies.txt missing or invalid! Upload proper cookies.txt"}
-        
-        ydl_opts = {
-            'quiet': True,
-            'no_warnings': True,
-            'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
-            'cookiefile': 'cookies.txt',
-            'format': 'bestvideo+bestaudio/best',
-            'merge_output_format': 'mp4',
-            'retries': 10,
-            'fragment_retries': 10,
-            'socket_timeout': 120,
-            'extractor_retries': 5,
-            'ignoreerrors': True,
-            'http_headers': {
-                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.9',
-                'Referer': 'https://www.instagram.com/',
+    def _ytdlp_no_cookies(shortcode):
+        """yt-dlp WITHOUT cookies"""
+        try:
+            url = f'https://www.instagram.com/reel/{shortcode}/'
+            
+            ydl_opts = {
+                'quiet': True,
+                'no_warnings': True,
+                'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
+                'format': 'mp4/best',
+                'merge_output_format': 'mp4',
+                'retries': 15,
+                'fragment_retries': 15,
+                'socket_timeout': 180,
+                'extractor_retries': 10,
+                'force_overwrites': True,
+                'ignoreerrors': True,
+                'no_color': True,
+                'extract_flat': False,
+                'geo_bypass': True,
+                'geo_bypass_country': 'US',
+                'http_headers': {
+                    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                    'Referer': 'https://www.instagram.com/',
+                }
             }
-        }
-        
-        if shutil.which('ffmpeg'):
-            ydl_opts['ffmpeg_location'] = shutil.which('ffmpeg')
-        
-        formats = ['mp4', 'best[ext=mp4]', 'best', 'bestvideo+bestaudio/best']
-        
-        for fmt in formats:
+            
+            if shutil.which('ffmpeg'):
+                ydl_opts['ffmpeg_location'] = shutil.which('ffmpeg')
+            
+            # If cookies exist, use them
+            if os.path.exists('cookies.txt'):
+                ydl_opts['cookiefile'] = 'cookies.txt'
+            
             try:
-                ydl_opts['format'] = fmt
-                print(f"🔄 Video format: {fmt}")
-                
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     ydl.download([url])
-                    time.sleep(0.5)
-                    
-                    for ext in ['.mp4', '.mkv', '.webm']:
-                        for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
-                            if f.endswith(ext):
-                                fp = os.path.join(DOWNLOAD_DIR, f)
-                                if os.path.exists(fp) and os.path.getsize(fp) > 50000:
-                                    print(f"✅ VIDEO: {f} ({os.path.getsize(fp)} bytes)")
-                                    return {"success": True, "file_path": fp, "is_video": True}
-            except Exception as e:
-                print(f"⚠️ {fmt}: {str(e)[:50]}")
-                continue
-        
-        return {"success": False, "error": "Video failed. Update cookies.txt from browser"}
+            except:
+                pass
+            
+            time.sleep(2)
+            
+            # Find downloaded file
+            for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
+                if f.endswith(('.mp4', '.mkv', '.webm')):
+                    fp = os.path.join(DOWNLOAD_DIR, f)
+                    if os.path.exists(fp) and os.path.getsize(fp) > 50000:
+                        print(f"✅ yt-dlp: {os.path.getsize(fp)} bytes")
+                        return {"success": True, "file_path": fp, "is_video": True}
+            
+            # Try without cookies
+            if 'cookiefile' in ydl_opts:
+                del ydl_opts['cookiefile']
+                try:
+                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                        ydl.download([url])
+                except:
+                    pass
+                
+                time.sleep(2)
+                
+                for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
+                    if f.endswith(('.mp4', '.mkv', '.webm')):
+                        fp = os.path.join(DOWNLOAD_DIR, f)
+                        if os.path.exists(fp) and os.path.getsize(fp) > 50000:
+                            print(f"✅ yt-dlp no cookies: {os.path.getsize(fp)} bytes")
+                            return {"success": True, "file_path": fp, "is_video": True}
+            
+            return {"success": False, "error": "Failed to download. Try another link."}
+        except Exception as e:
+            print(f"yt-dlp error: {e}")
+            return {"success": False, "error": "Failed to download. Try another link."}
     
     # ═══════════════ PHOTO METHODS ═══════════════
     
@@ -1110,15 +1082,14 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
     print("╔══════════════════════════╗")
-    print("║  🤖 INSTAGRAM BOT v37   ║")
-    print("║  ✅ ORIGINAL CODE + FIX ║")
+    print("║  🤖 INSTAGRAM BOT FINAL ║")
+    print("║  ✅ NO COOKIES NEEDED   ║")
     print("╚══════════════════════════╝")
     
     os.system('apt-get update -qq && apt-get install -y -qq ffmpeg 2>/dev/null')
+    os.system('pip install -U yt-dlp 2>/dev/null')
     
-    cookies_valid = validate_cookies()
     print(f"🔹 Bot: {'ENABLED' if is_bot_enabled() else 'DISABLED'}")
-    print(f"🍪 Cookies: {'✅ VALID' if cookies_valid else '❌ INVALID'}")
     print(f"🎨 E:{len(get_emojis())} S:{len(get_stickers())} V:{len(get_video_list())}")
     
     for f in os.listdir(DOWNLOAD_DIR):
@@ -1146,7 +1117,7 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(CallbackQueryHandler(button_handler))
     
-    print("✅ Bot Started! 🚀")
+    print("✅ Bot Started! No cookies needed 🚀")
     app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
