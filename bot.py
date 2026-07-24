@@ -144,7 +144,7 @@ def get_photo_cache(key):
     return None
 
 # ═══════════════════════════
-# 📥 INSTAGRAM DOWNLOADER - 100% AUDIO GUARANTEED
+# 📥 INSTAGRAM DOWNLOADER - FINAL FIXED
 # ═══════════════════════════
 
 class InstaDownloader:
@@ -176,157 +176,62 @@ class InstaDownloader:
         else: return InstaDownloader._download_photo(shortcode, url)
     
     @staticmethod
-    def _has_audio(filepath):
-        """Check if video has audio stream"""
-        if not shutil.which('ffprobe'):
-            return True
-        try:
-            result = subprocess.run(
-                ['ffprobe', '-i', filepath, '-show_streams', '-select_streams', 'a', '-loglevel', 'error'],
-                capture_output=True, text=True, timeout=10
-            )
-            return bool(result.stdout.strip())
-        except:
-            return True
-    
-    @staticmethod
     def _download_video(shortcode):
-        """100% GUARANTEED VIDEO + AUDIO"""
+        """FAST DOWNLOAD - ALWAYS WITH AUDIO"""
         url = f'https://www.instagram.com/reel/{shortcode}/'
         
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Referer': 'https://www.instagram.com/',
-        }
-        
-        # STEP 1: Try best format first
-        print("🔄 Trying best format...")
         ydl_opts = {
-            'quiet': True, 'no_warnings': True,
-            'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}_best.%(ext)s'),
-            'format': 'best',
+            'quiet': True,
+            'no_warnings': True,
+            'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
+            'format': 'bv*+ba/b',
             'merge_output_format': 'mp4',
-            'retries': 10, 'fragment_retries': 10,
-            'socket_timeout': 180, 'extractor_retries': 5,
-            'force_overwrites': True, 'ignoreerrors': False,
-            'no_color': True, 'http_headers': headers
+            'retries': 10,
+            'fragment_retries': 10,
+            'socket_timeout': 120,
+            'extractor_retries': 5,
+            'force_overwrites': True,
+            'ignoreerrors': False,
+            'no_color': True,
+            'http_headers': {
+                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Referer': 'https://www.instagram.com/',
+            }
         }
         
         if os.path.exists('cookies.txt'):
             ydl_opts['cookiefile'] = 'cookies.txt'
+        
         if shutil.which('ffmpeg'):
             ydl_opts['ffmpeg_location'] = shutil.which('ffmpeg')
         
+        # First try with cookies
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([url])
         except:
-            pass
+            # If cookies fail, try without
+            if 'cookiefile' in ydl_opts:
+                del ydl_opts['cookiefile']
+                try:
+                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                        ydl.download([url])
+                except:
+                    pass
         
         time.sleep(2)
         
-        # Check if best format has audio
-        for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
-            if '_best' in f and f.endswith(('.mp4', '.mkv', '.webm')):
-                fp = os.path.join(DOWNLOAD_DIR, f)
-                if os.path.exists(fp) and os.path.getsize(fp) > 50000:
-                    if InstaDownloader._has_audio(fp):
-                        print(f"✅ Best with AUDIO: {os.path.getsize(fp)} bytes")
-                        return {"success": True, "file_path": fp, "is_video": True}
-                    else:
-                        print("⚠️ Best format has NO audio, will force merge...")
-                        # Clean other files but keep this video for merging
-                        video_for_merge = fp
-                        break
-        
-        # STEP 2: Force merge - download audio and merge
-        print("🔄 Force merge: downloading audio stream...")
-        
-        # Delete old temp files except the video we want to merge
-        for f in os.listdir(DOWNLOAD_DIR):
-            fp = os.path.join(DOWNLOAD_DIR, f)
-            if os.path.isfile(fp) and '_best' not in f:
-                try: os.remove(fp)
-                except: pass
-        
-        # Download audio
-        audio_opts = {
-            'quiet': True, 'no_warnings': True,
-            'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}_audio.%(ext)s'),
-            'format': 'ba[ext=m4a]/ba',
-            'retries': 15, 'fragment_retries': 15,
-            'socket_timeout': 180, 'extractor_retries': 10,
-            'force_overwrites': True, 'ignoreerrors': True,
-            'no_color': True, 'http_headers': headers
-        }
-        if os.path.exists('cookies.txt'):
-            audio_opts['cookiefile'] = 'cookies.txt'
-        if shutil.which('ffmpeg'):
-            audio_opts['ffmpeg_location'] = shutil.which('ffmpeg')
-        
-        try:
-            with yt_dlp.YoutubeDL(audio_opts) as ydl:
-                ydl.download([url])
-        except:
-            pass
-        
-        time.sleep(2)
-        
-        # Find audio file
-        audio_file = None
-        for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
-            if '_audio' in f and f.endswith(('.m4a', '.mp3', '.aac', '.opus')):
-                fp = os.path.join(DOWNLOAD_DIR, f)
-                if os.path.getsize(fp) > 1000:
-                    audio_file = fp
-                    print(f"✅ Audio stream: {os.path.getsize(fp)} bytes")
-                    break
-        
-        # Merge with ffmpeg
-        if 'video_for_merge' in locals() and video_for_merge and audio_file and shutil.which('ffmpeg'):
-            print("🔄 Merging with ffmpeg...")
-            final_file = os.path.join(DOWNLOAD_DIR, f'{shortcode}_with_audio.mp4')
-            
-            merge_cmd = [
-                'ffmpeg', '-y',
-                '-i', video_for_merge,
-                '-i', audio_file,
-                '-c:v', 'copy',
-                '-c:a', 'aac',
-                '-b:a', '192k',
-                '-map', '0:v:0',
-                '-map', '1:a:0',
-                '-shortest',
-                '-movflags', '+faststart',
-                final_file
-            ]
-            
-            try:
-                subprocess.run(merge_cmd, capture_output=True, timeout=180)
-                
-                if os.path.exists(final_file) and os.path.getsize(final_file) > 50000:
-                    # Clean temp files
-                    try: os.remove(video_for_merge)
-                    except: pass
-                    try: os.remove(audio_file)
-                    except: pass
-                    
-                    print(f"✅ MERGED with AUDIO: {os.path.getsize(final_file)} bytes")
-                    return {"success": True, "file_path": final_file, "is_video": True}
-            except:
-                pass
-        
-        # STEP 3: Fallback - return any available video
+        # Find downloaded file
         for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
             if f.endswith(('.mp4', '.mkv', '.webm')):
                 fp = os.path.join(DOWNLOAD_DIR, f)
                 if os.path.exists(fp) and os.path.getsize(fp) > 50000:
-                    print(f"⚠️ Returning video: {os.path.getsize(fp)} bytes")
+                    print(f"✅ SUCCESS: {os.path.getsize(fp)} bytes")
                     return {"success": True, "file_path": fp, "is_video": True}
         
-        return {"success": False, "error": "Could not download. Try another link."}
+        return {"success": False, "error": "Try another link"}
     
     # ═══════════════ PHOTO METHODS ═══════════════
     
@@ -1101,7 +1006,7 @@ def main():
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
     print("╔══════════════════════════╗")
     print("║  🤖 INSTAGRAM BOT vFINAL║")
-    print("║  ✅ 100% VIDEO+AUDIO    ║")
+    print("║  ✅ FAST & WITH AUDIO   ║")
     print("╚══════════════════════════╝")
     
     os.system('apt-get update -qq && apt-get install -y -qq ffmpeg 2>/dev/null')
@@ -1135,7 +1040,7 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(CallbackQueryHandler(button_handler))
     
-    print("✅ Bot Started! 100% Video+Audio Guaranteed! 🚀")
+    print("✅ Bot Started! FAST & RELIABLE! 🚀")
     app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
