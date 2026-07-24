@@ -9,6 +9,7 @@ import urllib.parse
 import random
 import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 from telegram.constants import ChatMemberStatus
 import yt_dlp
@@ -775,23 +776,108 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         
         if result.get("is_multiple"):
-            photo_paths = result.get("file_paths", []); total = len(photo_paths)
+            photo_paths = result.get("file_paths", [])
+            total = len(photo_paths)
             save_photo_cache(cache_key, photo_paths)
             await msg.edit_text(f"📤 **𝗨𝗽𝗹𝗼𝗮𝗱𝗶𝗻𝗴 {total} 𝗣𝗵𝗼𝘁𝗼𝘀...**", parse_mode="Markdown")
-            if total > 0 and os.path.exists(photo_paths[0]):
-                keyboard = None
-                if total > 1:
-                    keyboard = InlineKeyboardMarkup([
-                        [InlineKeyboardButton(f"➪ 𝗡𝗲𝘅𝘁 𝗣𝗵𝗼𝘁𝗼 ➤ (2/{total})", callback_data=f"nxp_{cache_key}_0")]
-                    ])
-                with open(photo_paths[0], 'rb') as f:
-                    await update.message.reply_photo(photo=f, caption=f"📸 **𝗣𝗵𝗼𝘁𝗼 1/{total}**\n\n{CAPTION}", parse_mode="Markdown", reply_markup=keyboard)
+            
+            # Send ALL photos as media group (max 10 per group)
+            if total > 0:
+                media_group = []
+                batch_paths = photo_paths[:10]  # Telegram allows max 10
+                
+                for i, path in enumerate(batch_paths):
+                    if os.path.exists(path):
+                        if i == 0:
+                            media_group.append(InputMediaPhoto(
+                                open(path, 'rb'),
+                                caption=f"📸 **1/{total}**\n\n{CAPTION}",
+                                parse_mode="Markdown"
+                            ))
+                        else:
+                            media_group.append(InputMediaPhoto(
+                                open(path, 'rb')
+                            ))
+                
+                try:
+                    await update.message.reply_media_group(media=media_group)
+                except Exception as e:
+                    # If media group fails, send individually
+                    for i, path in enumerate(batch_paths):
+                        if os.path.exists(path):
+                            with open(path, 'rb') as f:
+                                if i == 0:
+                                    await update.message.reply_photo(
+                                        photo=f,
+                                        caption=f"📸 **{i+1}/{total}**\n\n{CAPTION}",
+                                        parse_mode="Markdown"
+                                    )
+                                else:
+                                    await update.message.reply_photo(
+                                        photo=f,
+                                        caption=f"📸 **{i+1}/{total}**"
+                                    )
+            
+            # Send remaining photos if more than 10
+            if total > 10:
+                for i in range(10, min(total, 20)):
+                    path = photo_paths[i]
+                    if os.path.exists(path):
+                        with open(path, 'rb') as f:
+                            await update.message.reply_photo(
+                                photo=f,
+                                caption=f"📸 **{i+1}/{total}**"
+                            )
+            
             await msg.delete()
             if sticker_msg:
                 await asyncio.sleep(6)
                 try: await sticker_msg.delete()
                 except: pass
             return
+        
+        fp = result["file_path"]
+        if not os.path.exists(fp) or os.path.getsize(fp) < 1000:
+            await msg.edit_text("❌ **𝗙𝗶𝗹𝗲 𝗡𝗼𝘁 𝗙𝗼𝘂𝗻𝗱**", parse_mode="Markdown")
+            if sticker_msg:
+                try: await sticker_msg.delete()
+                except: pass
+            return
+        
+        size_mb = os.path.getsize(fp) / (1024 * 1024)
+        if size_mb > 50:
+            await msg.edit_text(f"❌ **>𝟱𝟬𝗠𝗕** ({size_mb:.1f}MB)", parse_mode="Markdown")
+            InstaDownloader.cleanup(fp)
+            if sticker_msg:
+                try: await sticker_msg.delete()
+                except: pass
+            return
+        
+        is_video = result.get("is_video", False) or fp.endswith(('.mp4', '.mov', '.webm'))
+        
+        if is_video:
+            await msg.edit_text("📤 **𝗨𝗽𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗩𝗶𝗱𝗲𝗼...**", parse_mode="Markdown")
+            keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(AUDIO_BUTTON_TEXT, callback_data=f"aud_{url}")]])
+            with open(fp, 'rb') as f:
+                await update.message.reply_video(video=f, caption=CAPTION, parse_mode="Markdown", reply_markup=keyboard, supports_streaming=True)
+        else:
+            await msg.edit_text("📤 **𝗨𝗽𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗣𝗵𝗼𝘁𝗼...**", parse_mode="Markdown")
+            with open(fp, 'rb') as f:
+                await update.message.reply_photo(photo=f, caption=CAPTION, parse_mode="Markdown")
+        
+        await msg.delete(); InstaDownloader.cleanup(fp)
+        if sticker_msg:
+            await asyncio.sleep(6)
+            try: await sticker_msg.delete()
+            except: pass
+    except Exception as e:
+        await msg.edit_text(f"❌ **𝗘𝗿𝗿𝗼𝗿:** {str(e)[:100]}", parse_mode="Markdown")
+        for f in os.listdir(DOWNLOAD_DIR):
+            try: os.remove(os.path.join(DOWNLOAD_DIR, f))
+            except: pass
+        if sticker_msg:
+            try: await sticker_msg.delete()
+            except: pass
         
         fp = result["file_path"]
         if not os.path.exists(fp) or os.path.getsize(fp) < 1000:
