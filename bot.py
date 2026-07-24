@@ -237,13 +237,14 @@ class InstaDownloader:
     
     @staticmethod
     def _download_photo(shortcode, url):
-        """PHOTOS - 5 methods"""
-        result = InstaDownloader._method_scrape_multi(shortcode, url)
-        if result.get("success"): return result
-        for method in [InstaDownloader._method_oembed, InstaDownloader._method_ytdlp, InstaDownloader._method_scrape_single, InstaDownloader._method_cdn]:
-            result = method(shortcode)
-            if result.get("success"): return result
-        return {"success": False, "error": "Photo download failed"}
+        result = InstaDownloader._method_ytdlp(shortcode, url)
+        if result.get("success"):
+            return result
+
+        return {
+            "success": False,
+            "error": "Photo download failed"
+        }
     
     @staticmethod
     def _method_scrape_multi(shortcode, url):
@@ -367,20 +368,55 @@ class InstaDownloader:
         except: return {"success": False}
     
     @staticmethod
-    def _method_ytdlp(shortcode):
-        """yt-dlp for photos"""
+    def _method_ytdlp(shortcode, url):
         try:
-            url = f"https://www.instagram.com/p/{shortcode}/"
-            ydl_opts = {'quiet': True, 'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'), 'format': 'best', 'retries': 3}
-            if os.path.exists('cookies.txt'): ydl_opts['cookiefile'] = 'cookies.txt'
+            ydl_opts = {
+                'quiet': True,
+                'no_warnings': True,
+                'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}_%(playlist_index)s.%(ext)s'),
+                'ignoreerrors': True,
+                'extract_flat': False,
+                'retries': 10,
+            }
+
+            if os.path.exists('cookies.txt'):
+                ydl_opts['cookiefile'] = 'cookies.txt'
+
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.extract_info(url, download=True)
-                time.sleep(0.3)
-                for f in os.listdir(DOWNLOAD_DIR):
-                    if shortcode in f and not f.endswith(('.mp4','.mov','.webm')):
+                ydl.download([url])
+
+            files = []
+
+            for f in sorted(os.listdir(DOWNLOAD_DIR)):
+                if f.startswith(shortcode + "_") and f.lower().endswith(
+                    (".jpg", ".jpeg", ".png", ".webp")
+                ):
+                    fp = os.path.join(DOWNLOAD_DIR, f)
+                    if os.path.getsize(fp) > 1000:
+                        files.append(fp)
+
+            if not files:
+                for f in sorted(os.listdir(DOWNLOAD_DIR)):
+                    if shortcode in f and f.lower().endswith(
+                        (".jpg", ".jpeg", ".png", ".webp")
+                    ):
                         fp = os.path.join(DOWNLOAD_DIR, f)
-                        if os.path.getsize(fp) > 1000: return {"success": True, "file_path": fp, "is_video": False}
-        except: pass
+                        if os.path.getsize(fp) > 1000:
+                            files.append(fp)
+
+            if files:
+                return {
+                    "success": True,
+                    "is_video": False,
+                    "is_multiple": len(files) > 1,
+                    "file_path": files[0],
+                    "file_paths": files,
+                    "total": len(files)
+                }
+
+        except Exception as e:
+            print(e)
+
         return {"success": False}
     
     @staticmethod
