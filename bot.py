@@ -548,10 +548,6 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
     try:
         user_mention = f"[{first_name}](tg://user?id={user_id})"
         
-async def welcome_animation(bot, chat_id, user_id, first_name):
-    try:
-        user_mention = f"[{first_name}](tg://user?id={user_id})"
-        
         # STEP 1: Send emoji sticker first
         emoji_id = get_random_emoji()
         emoji_msg = None
