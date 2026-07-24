@@ -186,34 +186,55 @@ class InstaDownloader:
         if is_reel: return InstaDownloader._download_video(shortcode, url)
         else: return InstaDownloader._download_photo(shortcode, url)
     
-    @staticmethod
-    def _download_video(shortcode, url):
-        if not validate_cookies():
-            return {"success": False, "error": "cookies.txt missing or invalid!"}
-        
-        ydl_opts = {
-            'quiet': True, 'no_warnings': True,
-            'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
-            'cookiefile': 'cookies.txt',
-            'retries': 10, 'fragment_retries': 10, 'socket_timeout': 120,
-            'http_headers': {'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15'},
-        }
-        if shutil.which('ffmpeg'): ydl_opts['ffmpeg_location'] = shutil.which('ffmpeg')
-        
-        for fmt in ['mp4', 'best[ext=mp4]', 'best', 'bestvideo+bestaudio/best']:
-            try:
-                ydl_opts['format'] = fmt
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    ydl.download([url])
-                    time.sleep(0.5)
-                    for ext in ['.mp4', '.mkv', '.webm']:
-                        for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
-                            if f.endswith(ext):
-                                fp = os.path.join(DOWNLOAD_DIR, f)
-                                if os.path.exists(fp) and os.path.getsize(fp) > 50000:
-                                    return {"success": True, "file_path": fp, "is_video": True}
-            except: continue
-        return {"success": False, "error": "Video failed. Update cookies.txt"}
+@staticmethod
+def _download_video(shortcode, url):
+    if not validate_cookies():
+        return {"success": False, "error": "cookies.txt missing or invalid!"}
+    
+    ffmpeg_path = shutil.which('ffmpeg')
+    
+    ydl_opts = {
+        'quiet': True, 'no_warnings': True,
+        'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
+        'cookiefile': 'cookies.txt',
+        'retries': 10, 'fragment_retries': 10, 'socket_timeout': 120,
+        'merge_output_format': 'mp4',  # ← IMPORTANT: video+audio merge karega
+        'http_headers': {'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15'},
+    }
+    
+    if ffmpeg_path:
+        ydl_opts['ffmpeg_location'] = ffmpeg_path
+    
+    # ⚡ SABSE IMPORTANT CHANGE ⚡
+    # Format me "+" lagane se video aur audio dono download honge
+    format_attempts = [
+        'bestvideo+bestaudio/best',  # ← Video + Audio merge
+        'bv*+ba/b',                  # ← Best video + Best audio
+        'best',                      # ← Fallback
+    ]
+    
+    for fmt in format_attempts:
+        try:
+            ydl_opts['format'] = fmt
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([url])
+                time.sleep(1)
+                
+                # Downloaded file dhundho
+                for ext in ['.mp4', '.mkv', '.webm']:
+                    for f in sorted(os.listdir(DOWNLOAD_DIR), 
+                                  key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), 
+                                  reverse=True):
+                        if f.endswith(ext) and shortcode in f:
+                            fp = os.path.join(DOWNLOAD_DIR, f)
+                            if os.path.exists(fp) and os.path.getsize(fp) > 50000:
+                                print(f"✅ Downloaded: {fp} ({os.path.getsize(fp)/1024/1024:.1f}MB)")
+                                return {"success": True, "file_path": fp, "is_video": True}
+        except Exception as e:
+            print(f"⚠️ Format '{fmt}' failed: {str(e)[:80]}")
+            continue
+    
+    return {"success": False, "error": "Video failed. Update cookies.txt"}
     
     @staticmethod
     def _download_photo(shortcode, url):
