@@ -637,10 +637,10 @@ async def list_stickers_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def add_video_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
     if not update.message.reply_to_message or not update.message.reply_to_message.video:
-        await update.message.reply_text("⎘ **𝗥𝗲𝗽𝗹𝘆 𝘁𝗼 𝘃𝗶𝗱𝗲𝗼**"); return
-    m = await update.message.reply_text("📂 **𝗔𝗱𝗱𝗶𝗻𝗴 𝗩𝗶𝗱𝗲𝗼...**", parse_mode="Markdown")
+        await update.message.reply_text("⎘ **𝗥𝗲𝗽𝗹𝘆 𝘁𝗼 𝘃𝗶𝗱𝗲𝗼**")
+        return
+    m = await update.message.reply_text("📂 **𝗔𝗱𝗱𝗶𝗻𝗴 𝗩𝗶𝗱𝗲𝗼...**")
     try:
-        # python-telegram-bot v20+ way to download video
         video_file = update.message.reply_to_message.video
         file = await context.bot.get_file(video_file.file_id)
         fp = os.path.join(VIDEO_DIR, f"w_{int(time.time())}.mp4")
@@ -652,20 +652,21 @@ async def add_video_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             mins, secs = divmod(video_file.duration, 60)
             duration = f"{mins}m {secs}s"
         
+        # Plain text - no Markdown parsing errors
         text = (
-            f"✅ **𝗩𝗜𝗗𝗘𝗢 𝗔𝗗𝗗𝗘𝗗** ✅\n\n"
+            f"✅ VIDEO ADDED SUCCESSFULLY ✅\n\n"
             f"━━━━━━━━━━━━━━━━━━━\n"
-            f"🆔 **𝗩𝗶𝗱𝗲𝗼 𝗜𝗗:** {vid}\n"
-            f"📁 **𝗡𝗮𝗺𝗲:** {os.path.basename(fp)[:30]}\n"
-            f"📹 **𝗧𝗼𝘁𝗮𝗹 𝗩𝗶𝗱𝗲𝗼𝘀:** {total}\n"
-            f"⏱️ **𝗗𝘂𝗿𝗮𝘁𝗶𝗼𝗻:** {duration}\n"
+            f"🆔 Video ID: {vid}\n"
+            f"📁 Name: {os.path.basename(fp)[:30]}\n"
+            f"📹 Total Videos: {total}\n"
+            f"⏱️ Duration: {duration}\n"
             f"━━━━━━━━━━━━━━━━━━━\n\n"
-            f"🎲 **𝗩𝗶𝗱𝗲𝗼 𝘄𝗶𝗹𝗹 𝗽𝗹𝗮𝘆 𝗿𝗮𝗻𝗱𝗼𝗺𝗹𝘆 𝗼𝗻 𝘄𝗲𝗹𝗰𝗼𝗺𝗲!**\n"
-            f"📋 /videos **𝘁𝗼 𝘀𝗲𝗲 𝗮𝗹𝗹 𝘃𝗶𝗱𝗲𝗼𝘀**"
+            f"🎲 Video will play randomly on welcome!\n"
+            f"📋 /videos to see all videos"
         )
-        await m.edit_text(text, parse_mode="Markdown")
+        await m.edit_text(text)
     except Exception as e:
-        await m.edit_text(f"❌ **𝗘𝗿𝗿𝗼𝗿:** {e}", parse_mode="Markdown")
+        await m.edit_text(f"❌ Error: {e}")
 
 
 async def del_video_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -673,25 +674,25 @@ async def del_video_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         vid = int(update.message.text.split()[1])
         s, t = delete_video_db(vid)
-        await update.message.reply_text(f"✅ **𝗗𝗲𝗹𝗲𝘁𝗲𝗱!** ({t})" if s else "❌ **𝗡𝗼𝘁 𝗳𝗼𝘂𝗻𝗱!**")
+        await update.message.reply_text(f"✅ Deleted! ({t})" if s else "❌ Not found!")
     except:
-        await update.message.reply_text("**𝗨𝘀𝗲:** `/delvideo ID`")
+        await update.message.reply_text("Use: /delvideo ID")
 
 
 async def list_videos_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
     vids = get_video_list()
     if not vids:
-        await update.message.reply_text("📹 **𝗡𝗼 𝘃𝗶𝗱𝗲𝗼𝘀!**")
+        await update.message.reply_text("📹 No videos!")
         return
-    text = "📹 **𝗩𝗜𝗗𝗘𝗢𝗦:**\n" + "\n".join([f"**#{v['id']}** {v['name'][:30]}" for v in vids])
-    await update.message.reply_text(text + f"\n\n🔹 **𝗧𝗼𝘁𝗮𝗹:** {len(vids)}", parse_mode="Markdown")
+    text = "📹 VIDEOS:\n" + "\n".join([f"#{v['id']} {v['name'][:30]}" for v in vids])
+    await update.message.reply_text(text + f"\n\n🔹 Total: {len(vids)}")
 
 
 async def clear_videos_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
     n = clear_videos_db()
-    await update.message.reply_text(f"🗑️ **{n} 𝘃𝗶𝗱𝗲𝗼𝘀 𝗰𝗹𝗲𝗮𝗿𝗲𝗱!**", parse_mode="Markdown")
+    await update.message.reply_text(f"🗑️ {n} videos cleared!")
     
 # ═══════════════ MESSAGE HANDLER ═══════════════
 
