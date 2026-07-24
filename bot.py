@@ -564,16 +564,16 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
         welcome_emojis = ["🩷", "🌸", "🏖️", "🍰", "🥂"]
         welcome_msg = await bot.send_message(chat_id, f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ ꨄ {user_mention}...🩷", parse_mode="Markdown")
         
-        # Step 4: Animate welcome message emojis
+        # Step 4: Animate welcome message emojis with proper timing
         for emoji in welcome_emojis:
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(0.8)  # Increased timing for smooth animation
             try: 
                 await welcome_msg.edit_text(f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ ꨄ {user_mention}...{emoji}", parse_mode="Markdown")
             except: 
                 break
         
-        # Step 5: Wait for emoji sticker to be fully visible (3 seconds total)
-        await asyncio.sleep(2.5)
+        # Step 5: Wait for emoji sticker to be fully visible
+        await asyncio.sleep(1.5)
         
         # Step 6: Delete emoji sticker after user has seen it completely
         if emoji_msg:
