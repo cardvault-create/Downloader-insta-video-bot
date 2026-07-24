@@ -568,13 +568,11 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
             parse_mode="Markdown"
         )
         
-        # STEP 4: Animate welcome message emojis by deleting and resending
+        # STEP 4: Animate welcome message emojis - edit only the emoji at the end
         for emoji in welcome_emojis:
             await asyncio.sleep(0.5)
             try:
-                await welcome_msg.delete()
-                welcome_msg = await bot.send_message(
-                    chat_id,
+                await welcome_msg.edit_text(
                     f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ ꨄ {user_mention}...{emoji}",
                     parse_mode="Markdown"
                 )
@@ -593,9 +591,6 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
         
         starting_emojis = ["🚀", "🌠", "🪶", "🍓", "🤖", "🥡", "🍷", "🍭", "🍨", "🧭", "🫧", "🍫", "🛸"]
         words = ["𝙨", "𝙩", "α", "я", "†", "ι", "и", "g", ".", ".", ".", ".", "."]
-        
-        await welcome_msg.delete()
-        welcome_msg = await bot.send_message(chat_id, f"**{starting_emojis[0]}**", parse_mode="Markdown")
         
         for i in range(len(words)):
             await asyncio.sleep(0.08)
