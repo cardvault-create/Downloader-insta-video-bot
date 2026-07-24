@@ -479,55 +479,77 @@ AUDIO_NAME_PROMPT = (
 
 SETTINGS_TEXT = "⚙️ **𝗖𝗢𝗠𝗠𝗔𝗡𝗗𝗦**\n\n👑 **𝗢𝗪𝗡𝗘𝗥:** /start /disable /enable /settings\n👥 **𝗚𝗥𝗢𝗨𝗣:** /activate\n🎨 **𝗘𝗠𝗢𝗝𝗜:** /addemoji /removeemoji /listemojis\n❄ **𝗦𝗧𝗜𝗖𝗞𝗘𝗥:** /addsticker /removesticker /liststickers\n📹 **𝗩𝗜𝗗𝗘𝗢:** /addvideo /delvideo /videos /clearvideos"
 
-# ═══════════════════════════
-# 🎬 WELCOME ANIMATION
-# ═══════════════════════════
+# Welcome animation mein emoji sticker 3 second baad delete hoga
+# Sticker 4 second display ke baad, final message ke 6 second baad delete hoga
 
 async def welcome_animation(bot, chat_id, user_id, first_name):
     try:
         user_mention = f"[{first_name}](tg://user?id={user_id})"
-        emoji_id = get_random_emoji(); emoji_msg = None
+        
+        # STEP 1: Emoji sticker - 3 SECOND DISPLAY
+        emoji_id = get_random_emoji()
+        emoji_msg = None
         if emoji_id:
             try: emoji_msg = await bot.send_sticker(chat_id, emoji_id)
             except: pass
-        await asyncio.sleep(0.1)
+        
+        await asyncio.sleep(0.1)  # 0.1 sec mein welcome baby start
+        
+        # STEP 2: Welcome Baby animation (2.5 seconds)
         welcome_emojis = ["🩷", "🌸", "🏖️", "🍰", "🥂"]
         welcome_msg = await bot.send_message(chat_id, f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ ꨄ {user_mention}...🩷", parse_mode="Markdown")
         for emoji in welcome_emojis:
             await asyncio.sleep(0.5)
             try: await welcome_msg.edit_text(f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ ꨄ {user_mention}...{emoji}", parse_mode="Markdown")
             except: break
-        if emoji_msg: await emoji_msg.delete()
+        
+        # DELETE EMOJI STICKER AFTER 3 SECONDS
+        if emoji_msg:
+            await asyncio.sleep(0.5)  # extra 0.5s to complete 3s
+            try: await emoji_msg.delete()
+            except: pass
+        
         await asyncio.sleep(0.2)
+        
+        # STEP 3: Starting animation (1 second)
         starting_emojis = ["🚀", "🌠", "🪶", "🍓", "🤖", "🥡", "🍷", "🍭", "🍨", "🧭", "🫧", "🍫", "🛸"]
-        words = ["s", "t", "α", "я", "т", "ι", "и", "g", ".", ".", ".", ".", "."]
+        words = ["𝙨", "𝙩", "α", "я", "†", "ι", "и", "g", ".", ".", ".", ".", "."]
         try: await welcome_msg.edit_text(f"**{starting_emojis[0]}**", parse_mode="Markdown")
         except: pass
         for i in range(len(words)):
             await asyncio.sleep(0.08)
             try: await welcome_msg.edit_text(f"**{starting_emojis[i%len(starting_emojis)]} " + "".join(words[:i+1]) + "**", parse_mode="Markdown")
             except: break
-        await asyncio.sleep(0.2); await welcome_msg.delete()
-        sticker_id = get_random_sticker(); sticker_msg = None
+        await asyncio.sleep(0.2)
+        await welcome_msg.delete()  # Delete starting message
+        
+        # STEP 4: Sticker - 4 SECOND DISPLAY
+        sticker_id = get_random_sticker()
+        sticker_msg = None
         if sticker_id:
             try: sticker_msg = await bot.send_sticker(chat_id, sticker_id)
             except: pass
-        await asyncio.sleep(4)
+        await asyncio.sleep(4)  # Full 4 seconds display
+        
+        # STEP 5: Final message/video
         video_data = get_random_video()
         final_text = WELCOME_TEXT.replace("{mention}", user_mention)
         kb = InlineKeyboardMarkup([[InlineKeyboardButton("◆ ➪ ˹𝜟𝙙𝙙 𝜯𝜣 𝑮𝜞𝜭𝑼𝝆˼ ♪☬", url=f"https://t.me/{(await bot.get_me()).username}?startgroup=true")]])
+        
         if video_data and os.path.exists(video_data["path"]):
             await bot.send_video(chat_id, video_data["path"], caption=final_text, parse_mode="Markdown", reply_markup=kb)
         else:
             await bot.send_message(chat_id, final_text, parse_mode="Markdown", reply_markup=kb)
+        
+        # STEP 6: Delete sticker AFTER 6 seconds of final message
         if sticker_msg:
             await asyncio.sleep(6)
             try: await sticker_msg.delete()
             except: pass
+            
     except:
-        try: await bot.send_message(chat_id, WELCOME_TEXT.replace("{mention}", f"[{first_name}](tg://user?id={user_id})"), parse_mode="Markdown")
-        except: pass
-
+        pass
+        
 # ═══════════════════════════
 # 🤖 HANDLERS
 # ═══════════════════════════
