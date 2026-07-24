@@ -828,49 +828,48 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await msg.edit_text(f"📤 𝗨𝗽𝗹𝗼𝗮𝗱𝗶𝗻𝗴 {total} 𝗣𝗵𝗼𝘁𝗼𝘀...", parse_mode="Markdown")
             
             if total > 0:
+                media_group = []
                 batch_paths = photo_paths[:10]
                 
                 for i, path in enumerate(batch_paths):
                     if os.path.exists(path):
-                        with open(path, 'rb') as f:
-                            if i == 0:
-                                keyboard = None
-                                if total > 1:
-                                    keyboard = InlineKeyboardMarkup([
-                                        [InlineKeyboardButton(f"➪ 𝗡𝗲𝘅𝘁 𝗣𝗵𝗼𝘁𝗼 ➤ (2/{total})", callback_data=f"nxp_{cache_key}_0")]
-                                    ])
-                                await update.message.reply_photo(
-                                    photo=f,
-                                    caption=f"📸 1/{total}\n\n{CAPTION}",
-                                    parse_mode="Markdown",
-                                    reply_markup=keyboard
-                                )
-                            else:
-                                keyboard = None
-                                if i + 1 < total:
-                                    keyboard = InlineKeyboardMarkup([
-                                        [InlineKeyboardButton(f"➪ 𝗡𝗲𝘅𝘁 𝗣𝗵𝗼𝘁𝗼 ➤ ({i+2}/{total})", callback_data=f"nxp_{cache_key}_{i}")]
-                                    ])
-                                await update.message.reply_photo(
-                                    photo=f,
-                                    caption=f"📸 {i+1}/{total}",
-                                    reply_markup=keyboard
-                                )
+                        if i == 0:
+                            media_group.append(InputMediaPhoto(
+                                open(path, 'rb'),
+                                caption=f"📸 1/{total}\n\n{CAPTION}",
+                                parse_mode="Markdown"
+                            ))
+                        else:
+                            media_group.append(InputMediaPhoto(
+                                open(path, 'rb')
+                            ))
+                
+                try:
+                    await update.message.reply_media_group(media=media_group)
+                except Exception as e:
+                    for i, path in enumerate(batch_paths):
+                        if os.path.exists(path):
+                            with open(path, 'rb') as f:
+                                if i == 0:
+                                    await update.message.reply_photo(
+                                        photo=f,
+                                        caption=f"📸 {i+1}/{total}\n\n{CAPTION}",
+                                        parse_mode="Markdown"
+                                    )
+                                else:
+                                    await update.message.reply_photo(
+                                        photo=f,
+                                        caption=f"📸 {i+1}/{total}"
+                                    )
             
             if total > 10:
                 for i in range(10, min(total, 20)):
                     path = photo_paths[i]
                     if os.path.exists(path):
                         with open(path, 'rb') as f:
-                            keyboard = None
-                            if i + 1 < total:
-                                keyboard = InlineKeyboardMarkup([
-                                    [InlineKeyboardButton(f"➪ 𝗡𝗲𝘅𝘁 𝗣𝗵𝗼𝘁𝗼 ➤ ({i+2}/{total})", callback_data=f"nxp_{cache_key}_{i}")]
-                                ])
                             await update.message.reply_photo(
                                 photo=f,
-                                caption=f"📸 {i+1}/{total}",
-                                reply_markup=keyboard
+                                caption=f"📸 {i+1}/{total}"
                             )
             
             await msg.delete()
@@ -1007,7 +1006,7 @@ def main():
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
     print("╔══════════════════════════╗")
     print("║  🤖 INSTAGRAM BOT vFINAL║")
-    print("║  ✅ NEXT BUTTON FIXED   ║")
+    print("║  ✅ FAST & WITH AUDIO   ║")
     print("╚══════════════════════════╝")
     
     os.system('apt-get update -qq && apt-get install -y -qq ffmpeg 2>/dev/null')
@@ -1041,7 +1040,7 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(CallbackQueryHandler(button_handler))
     
-    print("✅ Bot Started! NEXT BUTTON WORKING! 🚀")
+    print("✅ Bot Started! FAST & RELIABLE! 🚀")
     app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
