@@ -564,25 +564,22 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
         welcome_emojis = ["🩷", "🌸", "🏖️", "🍰", "🥂"]
         welcome_msg = await bot.send_message(chat_id, f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ ꨄ {user_mention}...🩷", parse_mode="Markdown")
         
-        # Step 4: Animate welcome message emojis with proper timing
+        # Step 4: Animate welcome message emojis
         for emoji in welcome_emojis:
-            await asyncio.sleep(0.8)  # Increased timing for smooth animation
+            await asyncio.sleep(0.5)
             try: 
                 await welcome_msg.edit_text(f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ ꨄ {user_mention}...{emoji}", parse_mode="Markdown")
             except: 
                 break
         
-        # Step 5: Wait for emoji sticker to be fully visible
-        await asyncio.sleep(1.5)
-        
-        # Step 6: Delete emoji sticker after user has seen it completely
+        # Step 5: Delete emoji sticker after welcome animation
         if emoji_msg:
             try: 
                 await emoji_msg.delete()
             except: 
                 pass
         
-        # Step 7: Start "starting" animation
+        # Step 6: Start "starting" animation
         await asyncio.sleep(0.2)
         
         starting_emojis = ["🚀", "🌠", "🪶", "🍓", "🤖", "🥡", "🍷", "🍭", "🍨", "🧭", "🫧", "🍫", "🛸"]
@@ -600,7 +597,7 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
         await asyncio.sleep(0.2)
         await welcome_msg.delete()
         
-        # Step 8: Send final welcome message with sticker and video
+        # Step 7: Send sticker
         sticker_id = get_random_sticker()
         sticker_msg = None
         if sticker_id:
@@ -608,8 +605,11 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
                 sticker_msg = await bot.send_sticker(chat_id, sticker_id)
             except: 
                 pass
+        
+        # Step 8: Wait 4 seconds for sticker to show
         await asyncio.sleep(4)
         
+        # Step 9: Send final welcome message
         video_data = get_random_video()
         final_text = WELCOME_TEXT.replace("{mention}", user_mention)
         kb = InlineKeyboardMarkup([[InlineKeyboardButton("◆ ➪ ˹𝜟𝙙𝙙 𝜯𝜣 𝑮𝜞𝜭𝑼𝝆˼ ♪☬", url=f"https://t.me/{(await bot.get_me()).username}?startgroup=true")]])
@@ -619,8 +619,9 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
         else:
             await bot.send_message(chat_id, final_text, parse_mode="Markdown", reply_markup=kb)
         
+        # Step 10: Delete sticker after 4 seconds
         if sticker_msg:
-            await asyncio.sleep(6)
+            await asyncio.sleep(4)
             try: 
                 await sticker_msg.delete()
             except: 
