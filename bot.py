@@ -650,14 +650,14 @@ async def add_emoji_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message.reply_to_message or not update.message.reply_to_message.sticker:
         await update.message.reply_text("⎘ 𝗥𝗲𝗽𝗹𝘆 𝘁𝗼 𝗲𝗺𝗼𝗷𝗶"); return
     s, t = add_emoji_db(update.message.reply_to_message.sticker.file_id)
-    await update.message.reply_text(f"✅ 𝗔𝗗𝗗𝗘𝗗 ({t})" if s else "❌ 𝗘𝘅𝗶𝘀𝘁𝘀")
+    await update.message.reply_text(f"✅ 𝗔𝗗𝗗𝗘𝗗 ༼{t}༽" if s else "❌ 𝗘𝘅𝗶𝘀𝘁𝘀")
 
 async def remove_emoji_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
     try:
         idx = int(update.message.text.split()[1]) - 1
         s, t = remove_emoji_db(idx)
-        await update.message.reply_text(f"✅ 𝗥𝗲𝗺𝗼𝘃𝗲𝗱 ({t})" if s else f"❌ 𝗜𝗻𝘃𝗮𝗹𝗶𝗱 Total: {t}")
+        await update.message.reply_text(f"✅ 𝗥𝗲𝗺𝗼𝘃𝗲𝗱 ༼{t}༽" if s else f"❌ 𝗜𝗻𝘃𝗮𝗹𝗶𝗱 Ｔｏｔａｌ： ༼t༽")
     except: await update.message.reply_text("/removeemoji 🅸🅽🅳🅴🆇")
 
 async def list_emojis_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -672,14 +672,14 @@ async def add_sticker_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message.reply_to_message or not update.message.reply_to_message.sticker:
         await update.message.reply_text("⎘ 𝗥𝗲𝗽𝗹𝘆 𝘁𝗼 𝘀𝘁𝗶𝗰𝗸𝗲𝗿"); return
     s, t = add_sticker_db(update.message.reply_to_message.sticker.file_id)
-    await update.message.reply_text(f"✅ 𝗔𝗗𝗗𝗘𝗗 ({t})" if s else "❌ 𝗘𝘅𝗶𝘀𝘁𝘀")
+    await update.message.reply_text(f"✅ 𝗔𝗗𝗗𝗘𝗗 ༼{t}༽" if s else "❌ 𝗘𝘅𝗶𝘀𝘁𝘀")
 
 async def remove_sticker_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
     try:
         idx = int(update.message.text.split()[1]) - 1
         s, t = remove_sticker_db(idx)
-        await update.message.reply_text(f"✅ 𝗥𝗲𝗺𝗼𝘃𝗲𝗱 ({t})" if s else f"❌ 𝗜𝗻𝘃𝗮𝗹𝗶𝗱 Total: {t}")
+        await update.message.reply_text(f"✅ 𝗥𝗲𝗺𝗼𝘃𝗲𝗱 ༼{t}༽" if s else f"❌ 𝗜𝗻𝘃𝗮𝗹𝗶𝗱 Ｔｏｔａｌ： ༼t༽")
     except: await update.message.reply_text("/removesticker 🅘🅝🅓🅔🅧")
 
 async def list_stickers_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -720,14 +720,14 @@ async def add_video_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         await m.edit_text(text)
     except Exception as e:
-        await m.edit_text(f"❌ Ｅｒｒｏｒ ： {e}")
+        await m.edit_text(f"❌ Ｅｒｒｏｒ ： ༼e༽")
 
 async def del_video_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
     try:
         vid = int(update.message.text.split()[1])
         s, t = delete_video_db(vid)
-        await update.message.reply_text(f"✅ Ｄｅｌｅｔｅｄ！ ({t})" if s else "❌ Ｎｏｔ ｆｏｕｎｄ！")
+        await update.message.reply_text(f"✅ Ｄｅｌｅｔｅｄ！ ༼{t}༽" if s else "❌ Ｎｏｔ ｆｏｕｎｄ！")
     except:
         await update.message.reply_text("Ｕｓｅ ： /delvideo ＩＤ")
 
