@@ -459,7 +459,7 @@ CAPTION = (
     "༼◉𝐂𝛄𝛆𝛂𝛕𝛆𝛄◉༽ 🪽 ➪ [𝜝𝜣𝜯 𝑭𝜟𝜯𝜢𝜮𝜞](https://t.me/FathersOfCreater)"
 )
 
-WELCOME_TEXT = """ʜᴇʏ, {mention} 👋🏻
+WELCOME_TEXT = """ʜᴇʏ, {mention} . ˚◞♡ ◟˚ .
 ɪ'ᴍ [˹𝚰𝖓𝖘𝖙𝖆𝖌𝖗𝖆𝖒 ✘ 𝚫𝐨𝐰𝐧𝐥𝐨𝐚𝐝𝐞𝐫˼ ♪](https://t.me/Instagram_LinkToVideo_Bot),
 
 ┏━━━━━━━━━━━━━━━━━⧫
@@ -482,7 +482,7 @@ WELCOME_TEXT = """ʜᴇʏ, {mention} 👋🏻
 
 🫧 ˹ᴅᴇᴠᴇʟᴏᴩᴇʀ˼ 🪽 ➪ [𝜝𝜣𝜯 𝑭𝜟𝜯𝜢𝜮𝜞](https://t.me/FathersOfCreater) ✔︎"""
 
-GROUP_WELCOME = """👋🏻 **ʜᴇʟʟᴏ {chat_title}!**
+GROUP_WELCOME = """👋🏻 ʜᴇʟʟᴏ {chat_title} ♡ ⋆｡°✩
 
 ɪ'ᴍ [˹𝚰𝖓𝖘𝖙𝖆𝖌𝖗𝖆𝖒 ✘ 𝚫𝐨𝐰𝐧𝐥𝐨𝐚𝐝𝐞𝐫˼ ♪](https://t.me/Instagram_LinkToVideo_Bot),
 
@@ -899,12 +899,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         is_video = result.get("is_video", False) or fp.endswith(('.mp4', '.mov', '.webm'))
         
         if is_video:
-            await msg.edit_text("📤 𝗨𝗽𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗩𝗶𝗱𝗲𝗼...", parse_mode="Markdown")
+            await msg.edit_text("📤 𝗨𝗽𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗩𝗶𝗱𝗲𝗼 . ˚◞♡ ◟˚ .", parse_mode="Markdown")
             keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(AUDIO_BUTTON_TEXT, callback_data=f"aud_{url}")]])
             with open(fp, 'rb') as f:
                 await update.message.reply_video(video=f, caption=CAPTION, parse_mode="Markdown", reply_markup=keyboard, supports_streaming=True)
         else:
-            await msg.edit_text("📤 𝗨𝗽𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗣𝗵𝗼𝘁𝗼...", parse_mode="Markdown")
+            await msg.edit_text("📤 𝗨𝗽𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗣𝗵𝗼𝘁𝗼♡ ⋆｡°✩", parse_mode="Markdown")
             with open(fp, 'rb') as f:
                 await update.message.reply_photo(photo=f, caption=CAPTION, parse_mode="Markdown")
         
@@ -927,14 +927,14 @@ async def extract_and_send_audio(update, context, url, audio_name):
     await asyncio.sleep(3)
     try: await search_msg.delete()
     except: pass
-    status_msg = await update.message.reply_text("🎵 𝗘𝘅𝘁𝗿𝗮𝗰𝘁𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼...", parse_mode="Markdown")
+    status_msg = await update.message.reply_text("🎵 𝗘𝘅𝘁𝗿𝗮𝗰𝘁𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼. ˚◞♡ ◟˚ .", parse_mode="Markdown")
     try:
         result = InstaDownloader.download_media(url)
         if not result.get("success"): await status_msg.edit_text("❌ 𝗙𝗮𝗶𝗹𝗲𝗱", parse_mode="Markdown"); return
         vp = result["file_path"]
         ar = InstaDownloader.extract_audio(vp, audio_name)
         if ar.get("success"):
-            await status_msg.edit_text("📤 𝗦𝗲𝗻𝗱𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼...", parse_mode="Markdown")
+            await status_msg.edit_text("📤 𝗦𝗲𝗻𝗱𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼♡ ⋆｡°✩", parse_mode="Markdown")
             with open(ar["file_path"], 'rb') as f:
                 await update.message.reply_audio(audio=f, title=audio_name, performer="Instagram", caption=CAPTION, parse_mode="Markdown")
             await asyncio.sleep(2); await status_msg.delete()
@@ -949,14 +949,14 @@ async def extract_and_send_audio_direct(query, context, url, audio_name):
     await asyncio.sleep(3)
     try: await search_msg.delete()
     except: pass
-    status_msg = await query.message.reply_text("🎵 𝗘𝘅𝘁𝗿𝗮𝗰𝘁𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼...", parse_mode="Markdown")
+    status_msg = await query.message.reply_text("🎵 𝗘𝘅𝘁𝗿𝗮𝗰𝘁𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼. ˚◞♡ ◟˚ .", parse_mode="Markdown")
     try:
         result = InstaDownloader.download_media(url)
         if not result.get("success"): await status_msg.edit_text("❌ 𝗙𝗮𝗶𝗹𝗲𝗱", parse_mode="Markdown"); return
         vp = result["file_path"]
         ar = InstaDownloader.extract_audio(vp, audio_name)
         if ar.get("success"):
-            await status_msg.edit_text("📤 𝗦𝗲𝗻𝗱𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼...", parse_mode="Markdown")
+            await status_msg.edit_text("📤 𝗦𝗲𝗻𝗱𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼♡ ⋆｡°✩", parse_mode="Markdown")
             with open(ar["file_path"], 'rb') as f:
                 await query.message.reply_audio(audio=f, title=audio_name, performer="Instagram", caption=CAPTION, parse_mode="Markdown")
             await asyncio.sleep(2); await status_msg.delete()
