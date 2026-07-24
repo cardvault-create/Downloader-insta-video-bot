@@ -237,14 +237,13 @@ class InstaDownloader:
     
     @staticmethod
     def _download_photo(shortcode, url):
-        result = InstaDownloader._method_ytdlp(shortcode, url)
-        if result.get("success"):
-            return result
-
-        return {
-            "success": False,
-            "error": "Photo download failed"
-        }
+        """PHOTOS - 5 methods"""
+        result = InstaDownloader._method_scrape_multi(shortcode, url)
+        if result.get("success"): return result
+        for method in [InstaDownloader._method_oembed, InstaDownloader._method_ytdlp, InstaDownloader._method_scrape_single, InstaDownloader._method_cdn]:
+            result = method(shortcode)
+            if result.get("success"): return result
+        return {"success": False, "error": "Photo download failed"}
     
     @staticmethod
     def _method_scrape_multi(shortcode, url):
@@ -368,55 +367,20 @@ class InstaDownloader:
         except: return {"success": False}
     
     @staticmethod
-    def _method_ytdlp(shortcode, url):
+    def _method_ytdlp(shortcode):
+        """yt-dlp for photos"""
         try:
-            ydl_opts = {
-                'quiet': True,
-                'no_warnings': True,
-                'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}_%(playlist_index)s.%(ext)s'),
-                'ignoreerrors': True,
-                'extract_flat': False,
-                'retries': 10,
-            }
-
-            if os.path.exists('cookies.txt'):
-                ydl_opts['cookiefile'] = 'cookies.txt'
-
+            url = f"https://www.instagram.com/p/{shortcode}/"
+            ydl_opts = {'quiet': True, 'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'), 'format': 'best', 'retries': 3}
+            if os.path.exists('cookies.txt'): ydl_opts['cookiefile'] = 'cookies.txt'
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([url])
-
-            files = []
-
-            for f in sorted(os.listdir(DOWNLOAD_DIR)):
-                if f.startswith(shortcode + "_") and f.lower().endswith(
-                    (".jpg", ".jpeg", ".png", ".webp")
-                ):
-                    fp = os.path.join(DOWNLOAD_DIR, f)
-                    if os.path.getsize(fp) > 1000:
-                        files.append(fp)
-
-            if not files:
-                for f in sorted(os.listdir(DOWNLOAD_DIR)):
-                    if shortcode in f and f.lower().endswith(
-                        (".jpg", ".jpeg", ".png", ".webp")
-                    ):
+                ydl.extract_info(url, download=True)
+                time.sleep(0.3)
+                for f in os.listdir(DOWNLOAD_DIR):
+                    if shortcode in f and not f.endswith(('.mp4','.mov','.webm')):
                         fp = os.path.join(DOWNLOAD_DIR, f)
-                        if os.path.getsize(fp) > 1000:
-                            files.append(fp)
-
-            if files:
-                return {
-                    "success": True,
-                    "is_video": False,
-                    "is_multiple": len(files) > 1,
-                    "file_path": files[0],
-                    "file_paths": files,
-                    "total": len(files)
-                }
-
-        except Exception as e:
-            print(e)
-
+                        if os.path.getsize(fp) > 1000: return {"success": True, "file_path": fp, "is_video": False}
+        except: pass
         return {"success": False}
     
     @staticmethod
@@ -861,56 +825,75 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             photo_paths = result.get("file_paths", [])
             total = len(photo_paths)
             save_photo_cache(cache_key, photo_paths)
-
-            await msg.edit_text(
-                f"📤 𝗨𝗽𝗹𝗼𝗮𝗱𝗶𝗻𝗴 {total} 𝗣𝗵𝗼𝘁𝗼𝘀...",
-                parse_mode="Markdown"
-            )
-
-            for i, path in enumerate(photo_paths):
-                if os.path.exists(path):
-                    with open(path, "rb") as f:
-                        await update.message.reply_photo(
-                            photo=f,
-                            caption=f"📸 {i+1}/{total}\n\n{CAPTION}",
-                            parse_mode="Markdown"
-                        )
-
-                    await asyncio.sleep(0.5)
-
+            await msg.edit_text(f"📤 𝗨𝗽𝗹𝗼𝗮𝗱𝗶𝗻𝗴 {total} 𝗣𝗵𝗼𝘁𝗼𝘀...", parse_mode="Markdown")
+            
+            if total > 0:
+                media_group = []
+                batch_paths = photo_paths[:10]
+                
+                for i, path in enumerate(batch_paths):
+                    if os.path.exists(path):
+                        if i == 0:
+                            media_group.append(InputMediaPhoto(
+                                open(path, 'rb'),
+                                caption=f"📸 1/{total}\n\n{CAPTION}",
+                                parse_mode="Markdown"
+                            ))
+                        else:
+                            media_group.append(InputMediaPhoto(
+                                open(path, 'rb')
+                            ))
+                
+                try:
+                    await update.message.reply_media_group(media=media_group)
+                except Exception as e:
+                    for i, path in enumerate(batch_paths):
+                        if os.path.exists(path):
+                            with open(path, 'rb') as f:
+                                if i == 0:
+                                    await update.message.reply_photo(
+                                        photo=f,
+                                        caption=f"📸 {i+1}/{total}\n\n{CAPTION}",
+                                        parse_mode="Markdown"
+                                    )
+                                else:
+                                    await update.message.reply_photo(
+                                        photo=f,
+                                        caption=f"📸 {i+1}/{total}"
+                                    )
+            
+            if total > 10:
+                for i in range(10, min(total, 20)):
+                    path = photo_paths[i]
+                    if os.path.exists(path):
+                        with open(path, 'rb') as f:
+                            await update.message.reply_photo(
+                                photo=f,
+                                caption=f"📸 {i+1}/{total}"
+                            )
+            
             await msg.delete()
-
-            for path in photo_paths:
-                InstaDownloader.cleanup(path)
-
             if sticker_msg:
                 await asyncio.sleep(6)
-                try:
-                    await sticker_msg.delete()
-                except:
-                    pass
-
+                try: await sticker_msg.delete()
+                except: pass
             return
-
+        
         fp = result["file_path"]
         if not os.path.exists(fp) or os.path.getsize(fp) < 1000:
             await msg.edit_text("❌ 𝗙𝗶𝗹𝗲 𝗡𝗼𝘁 𝗙𝗼𝘂𝗻𝗱", parse_mode="Markdown")
             if sticker_msg:
-                try:
-                    await sticker_msg.delete()
-                except:
-                    pass
+                try: await sticker_msg.delete()
+                except: pass
             return
-
+        
         size_mb = os.path.getsize(fp) / (1024 * 1024)
         if size_mb > 50:
             await msg.edit_text(f"❌ >𝟱𝟬𝗠𝗕 ({size_mb:.1f}MB)", parse_mode="Markdown")
             InstaDownloader.cleanup(fp)
             if sticker_msg:
-                try:
-                    await sticker_msg.delete()
-                except:
-                    pass
+                try: await sticker_msg.delete()
+                except: pass
             return
         
         is_video = result.get("is_video", False) or fp.endswith(('.mp4', '.mov', '.webm'))
