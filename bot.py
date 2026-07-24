@@ -822,63 +822,63 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         
         if result.get("is_multiple"):
-    photo_paths = result.get("file_paths", [])
-    total = len(photo_paths)
-    save_photo_cache(cache_key, photo_paths)
-    await msg.edit_text(f"📤 𝗨𝗽𝗹𝗼𝗮𝗱𝗶𝗻𝗴 {total} 𝗣𝗵𝗼𝘁𝗼𝘀...", parse_mode="Markdown")
-    
-    if total > 0:
-        batch_paths = photo_paths[:10]
-        
-        for i, path in enumerate(batch_paths):
-            if os.path.exists(path):
-                with open(path, 'rb') as f:
-                    if i == 0:
-                        keyboard = None
-                        if total > 1:
-                            keyboard = InlineKeyboardMarkup([
-                                [InlineKeyboardButton(f"➪ 𝗡𝗲𝘅𝘁 𝗣𝗵𝗼𝘁𝗼 ➤ (2/{total})", callback_data=f"nxp_{cache_key}_0")]
-                            ])
-                        await update.message.reply_photo(
-                            photo=f,
-                            caption=f"📸 1/{total}\n\n{CAPTION}",
-                            parse_mode="Markdown",
-                            reply_markup=keyboard
-                        )
-                    else:
-                        keyboard = None
-                        if i + 1 < total:
-                            keyboard = InlineKeyboardMarkup([
-                                [InlineKeyboardButton(f"➪ 𝗡𝗲𝘅𝘁 𝗣𝗵𝗼𝘁𝗼 ➤ ({i+2}/{total})", callback_data=f"nxp_{cache_key}_{i}")]
-                            ])
-                        await update.message.reply_photo(
-                            photo=f,
-                            caption=f"📸 {i+1}/{total}",
-                            reply_markup=keyboard
-                        )
-    
-    if total > 10:
-        for i in range(10, min(total, 20)):
-            path = photo_paths[i]
-            if os.path.exists(path):
-                with open(path, 'rb') as f:
-                    keyboard = None
-                    if i + 1 < total:
-                        keyboard = InlineKeyboardMarkup([
-                            [InlineKeyboardButton(f"➪ 𝗡𝗲𝘅𝘁 𝗣𝗵𝗼𝘁𝗼 ➤ ({i+2}/{total})", callback_data=f"nxp_{cache_key}_{i}")]
-                        ])
-                    await update.message.reply_photo(
-                        photo=f,
-                        caption=f"📸 {i+1}/{total}",
-                        reply_markup=keyboard
-                    )
-    
-    await msg.delete()
-    if sticker_msg:
-        await asyncio.sleep(6)
-        try: await sticker_msg.delete()
-        except: pass
-    return
+            photo_paths = result.get("file_paths", [])
+            total = len(photo_paths)
+            save_photo_cache(cache_key, photo_paths)
+            await msg.edit_text(f"📤 𝗨𝗽𝗹𝗼𝗮𝗱𝗶𝗻𝗴 {total} 𝗣𝗵𝗼𝘁𝗼𝘀...", parse_mode="Markdown")
+            
+            if total > 0:
+                batch_paths = photo_paths[:10]
+                
+                for i, path in enumerate(batch_paths):
+                    if os.path.exists(path):
+                        with open(path, 'rb') as f:
+                            if i == 0:
+                                keyboard = None
+                                if total > 1:
+                                    keyboard = InlineKeyboardMarkup([
+                                        [InlineKeyboardButton(f"➪ 𝗡𝗲𝘅𝘁 𝗣𝗵𝗼𝘁𝗼 ➤ (2/{total})", callback_data=f"nxp_{cache_key}_0")]
+                                    ])
+                                await update.message.reply_photo(
+                                    photo=f,
+                                    caption=f"📸 1/{total}\n\n{CAPTION}",
+                                    parse_mode="Markdown",
+                                    reply_markup=keyboard
+                                )
+                            else:
+                                keyboard = None
+                                if i + 1 < total:
+                                    keyboard = InlineKeyboardMarkup([
+                                        [InlineKeyboardButton(f"➪ 𝗡𝗲𝘅𝘁 𝗣𝗵𝗼𝘁𝗼 ➤ ({i+2}/{total})", callback_data=f"nxp_{cache_key}_{i}")]
+                                    ])
+                                await update.message.reply_photo(
+                                    photo=f,
+                                    caption=f"📸 {i+1}/{total}",
+                                    reply_markup=keyboard
+                                )
+            
+            if total > 10:
+                for i in range(10, min(total, 20)):
+                    path = photo_paths[i]
+                    if os.path.exists(path):
+                        with open(path, 'rb') as f:
+                            keyboard = None
+                            if i + 1 < total:
+                                keyboard = InlineKeyboardMarkup([
+                                    [InlineKeyboardButton(f"➪ 𝗡𝗲𝘅𝘁 𝗣𝗵𝗼𝘁𝗼 ➤ ({i+2}/{total})", callback_data=f"nxp_{cache_key}_{i}")]
+                                ])
+                            await update.message.reply_photo(
+                                photo=f,
+                                caption=f"📸 {i+1}/{total}",
+                                reply_markup=keyboard
+                            )
+            
+            await msg.delete()
+            if sticker_msg:
+                await asyncio.sleep(6)
+                try: await sticker_msg.delete()
+                except: pass
+            return
         
         fp = result["file_path"]
         if not os.path.exists(fp) or os.path.getsize(fp) < 1000:
@@ -1007,7 +1007,7 @@ def main():
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
     print("╔══════════════════════════╗")
     print("║  🤖 INSTAGRAM BOT vFINAL║")
-    print("║  ✅ FAST & WITH AUDIO   ║")
+    print("║  ✅ NEXT BUTTON FIXED   ║")
     print("╚══════════════════════════╝")
     
     os.system('apt-get update -qq && apt-get install -y -qq ffmpeg 2>/dev/null')
@@ -1041,7 +1041,7 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(CallbackQueryHandler(button_handler))
     
-    print("✅ Bot Started! FAST & RELIABLE! 🚀")
+    print("✅ Bot Started! NEXT BUTTON WORKING! 🚀")
     app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
