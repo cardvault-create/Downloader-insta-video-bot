@@ -615,7 +615,7 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
                 pass
         
         # STEP 8: Wait 4 seconds
-        await asyncio.sleep(4)
+        await asyncio.sleep(3)
         
         # STEP 9: Final welcome message
         video_data = get_random_video()
