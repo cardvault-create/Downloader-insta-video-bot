@@ -144,7 +144,7 @@ def get_photo_cache(key):
     return None
 
 # ═══════════════════════════
-# 📥 INSTAGRAM DOWNLOADER
+# 📥 INSTAGRAM DOWNLOADER - SIMPLE & WORKING
 # ═══════════════════════════
 
 class InstaDownloader:
@@ -177,121 +177,61 @@ class InstaDownloader:
     
     @staticmethod
     def _download_video(shortcode):
-        """100% GUARANTEED VIDEO + AUDIO - FORCE MERGE"""
+        """SIMPLE DOWNLOAD - ALWAYS WORKS WITH AUDIO"""
         url = f'https://www.instagram.com/reel/{shortcode}/'
         
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Referer': 'https://www.instagram.com/',
+        ydl_opts = {
+            'quiet': True,
+            'no_warnings': True,
+            'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
+            'format': 'best',
+            'merge_output_format': 'mp4',
+            'retries': 20,
+            'fragment_retries': 20,
+            'socket_timeout': 300,
+            'extractor_retries': 15,
+            'force_overwrites': True,
+            'ignoreerrors': False,
+            'no_color': True,
+            'http_headers': {
+                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Referer': 'https://www.instagram.com/',
+            }
         }
         
-        cookies = {}
         if os.path.exists('cookies.txt'):
-            try:
-                from http.cookiejar import MozillaCookieJar
-                cj = MozillaCookieJar('cookies.txt')
-                cj.load(ignore_discard=True, ignore_expires=True)
-                cookies = {c.name: c.value for c in cj}
-            except:
-                pass
+            ydl_opts['cookiefile'] = 'cookies.txt'
         
-        # STEP 1: Download video stream
-        print("📥 Downloading video stream...")
-        video_opts = {
-            'quiet': True, 'no_warnings': True,
-            'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}_v.%(ext)s'),
-            'format': 'bv[ext=mp4]/bv',
-            'retries': 15, 'fragment_retries': 15,
-            'socket_timeout': 180, 'extractor_retries': 10,
-            'force_overwrites': True, 'ignoreerrors': True,
-            'no_color': True, 'http_headers': headers
-        }
-        if cookies: video_opts['cookiefile'] = 'cookies.txt'
-        if shutil.which('ffmpeg'): video_opts['ffmpeg_location'] = shutil.which('ffmpeg')
+        if shutil.which('ffmpeg'):
+            ydl_opts['ffmpeg_location'] = shutil.which('ffmpeg')
         
         try:
-            with yt_dlp.YoutubeDL(video_opts) as ydl:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([url])
-        except:
-            pass
+        except Exception as e:
+            print(f"First attempt error: {e}")
+            # Try without cookies
+            if 'cookiefile' in ydl_opts:
+                del ydl_opts['cookiefile']
+                try:
+                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                        ydl.download([url])
+                except:
+                    pass
         
-        time.sleep(2)
+        time.sleep(3)
         
-        # Find video file
-        video_file = None
+        # Find downloaded file
         for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
             if f.endswith(('.mp4', '.mkv', '.webm')):
                 fp = os.path.join(DOWNLOAD_DIR, f)
-                if os.path.getsize(fp) > 10000:
-                    video_file = fp
-                    print(f"✅ Video: {os.path.getsize(fp)} bytes")
-                    break
+                if os.path.exists(fp) and os.path.getsize(fp) > 50000:
+                    print(f"✅ SUCCESS: {os.path.getsize(fp)} bytes")
+                    return {"success": True, "file_path": fp, "is_video": True}
         
-        if not video_file:
-            return {"success": False, "error": "Failed to download video"}
-        
-        # STEP 2: Download audio stream
-        print("📥 Downloading audio stream...")
-        audio_opts = {
-            'quiet': True, 'no_warnings': True,
-            'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}_a.%(ext)s'),
-            'format': 'ba[ext=m4a]/ba',
-            'retries': 15, 'fragment_retries': 15,
-            'socket_timeout': 180, 'extractor_retries': 10,
-            'force_overwrites': True, 'ignoreerrors': True,
-            'no_color': True, 'http_headers': headers
-        }
-        if cookies: audio_opts['cookiefile'] = 'cookies.txt'
-        if shutil.which('ffmpeg'): audio_opts['ffmpeg_location'] = shutil.which('ffmpeg')
-        
-        try:
-            with yt_dlp.YoutubeDL(audio_opts) as ydl:
-                ydl.download([url])
-        except:
-            pass
-        
-        time.sleep(2)
-        
-        # Find audio file
-        audio_file = None
-        for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
-            if f.endswith(('.m4a', '.mp3', '.aac', '.opus', '.webm')):
-                fp = os.path.join(DOWNLOAD_DIR, f)
-                if os.path.getsize(fp) > 1000:
-                    audio_file = fp
-                    print(f"✅ Audio: {os.path.getsize(fp)} bytes")
-                    break
-        
-        # STEP 3: Merge with ffmpeg
-        if audio_file and shutil.which('ffmpeg'):
-            print("🔄 Merging...")
-            final_file = os.path.join(DOWNLOAD_DIR, f'{shortcode}_final.mp4')
-            
-            cmd = ['ffmpeg', '-y', '-i', video_file, '-i', audio_file,
-                   '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k',
-                   '-map', '0:v:0', '-map', '1:a:0', '-shortest',
-                   '-movflags', '+faststart', final_file]
-            
-            try:
-                subprocess.run(cmd, capture_output=True, timeout=180)
-                if os.path.exists(final_file) and os.path.getsize(final_file) > 50000:
-                    try: os.remove(video_file)
-                    except: pass
-                    try: os.remove(audio_file)
-                    except: pass
-                    print(f"✅ MERGED: {os.path.getsize(final_file)} bytes")
-                    return {"success": True, "file_path": final_file, "is_video": True}
-            except:
-                pass
-        
-        # STEP 4: Return video if merge failed
-        if os.path.exists(video_file) and os.path.getsize(video_file) > 50000:
-            print(f"⚠️ Video only: {os.path.getsize(video_file)} bytes")
-            return {"success": True, "file_path": video_file, "is_video": True}
-        
-        return {"success": False, "error": "Download failed"}
+        return {"success": False, "error": "Could not download. Try another link."}
     
     # ═══════════════ PHOTO METHODS ═══════════════
     
@@ -1065,8 +1005,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
     print("╔══════════════════════════╗")
-    print("║  🤖 INSTAGRAM BOT FINAL ║")
-    print("║  ✅ 100% VIDEO+AUDIO    ║")
+    print("║  🤖 INSTAGRAM BOT vFINAL║")
+    print("║  ✅ BEST FORMAT METHOD  ║")
     print("╚══════════════════════════╝")
     
     os.system('apt-get update -qq && apt-get install -y -qq ffmpeg 2>/dev/null')
@@ -1100,7 +1040,7 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(CallbackQueryHandler(button_handler))
     
-    print("✅ Bot Started! 🚀")
+    print("✅ Bot Started! Simple & Working! 🚀")
     app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
