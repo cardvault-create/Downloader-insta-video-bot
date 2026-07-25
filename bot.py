@@ -947,10 +947,10 @@ async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, u
                                 elif i + 1 < total:
                                     keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(f"➪ 𝗡𝗲𝘅𝘁 𝗣𝗵𝗼𝘁𝗼 ➤ ({i+2}/{total})", callback_data=f"nxp_{cache_key}_{i}")]])
                                 
-                if i == 0:
-                    await update.message.reply_photo(photo=f, caption=f"📸 {i+1}/{total}\n\n{CAPTION}", parse_mode="Markdown", reply_markup=keyboard, reply_to_message_id=update.message.message_id)
-                else:
-                    await update.message.reply_photo(photo=f, caption=f"📸 {i+1}/{total}", reply_markup=keyboard, reply_to_message_id=update.message.message_id)
+                                if i == 0:
+                                    await update.message.reply_photo(photo=f, caption=f"📸 {i+1}/{total}\n\n{CAPTION}", parse_mode="Markdown", reply_markup=keyboard, reply_to_message_id=update.message.message_id)
+                                else:
+                                    await update.message.reply_photo(photo=f, caption=f"📸 {i+1}/{total}", reply_markup=keyboard, reply_to_message_id=update.message.message_id)
                 
                 if total > 10:
                     for i in range(10, min(total, 20)):
