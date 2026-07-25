@@ -451,11 +451,12 @@ class InstaDownloader:
         try:
             if custom_name and custom_name.lower() != "skip":
                 safe = re.sub(r'[^\w\s-]', '', custom_name).strip()[:50] or "Audio"
-                ap = os.path.join(DOWNLOAD_DIR, f"{safe}.mp3")
+                # Audio file VIDEO file ke SAME folder mein banao
+                ap = os.path.join(os.path.dirname(video_path), f"{safe}.mp3")
             else:
-                ap = os.path.join(DOWNLOAD_DIR, f"{os.path.splitext(os.path.basename(video_path))[0]}.mp3")
+                ap = os.path.join(os.path.dirname(video_path), f"{os.path.splitext(os.path.basename(video_path))[0]}.mp3")
             if not shutil.which('ffmpeg'): return {"success": False, "error": "FFmpeg not found"}
-            subprocess.run(['ffmpeg', '-i', video_path, '-vn', '-acodec', 'libmp3lame', '-ab', '192k', '-y', ap], capture_output=True, timeout=2000)
+            subprocess.run(['ffmpeg', '-i', video_path, '-vn', '-acodec', 'libmp3lame', '-ab', '192k', '-y', ap], capture_output=True, timeout=20000)
             if os.path.exists(ap) and os.path.getsize(ap) > 1000: return {"success": True, "file_path": ap}
             return {"success": False, "error": "Audio extraction failed"}
         except Exception as e: return {"success": False, "error": str(e)[:50]}
