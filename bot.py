@@ -797,27 +797,31 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     if not text: return
     
-    if context.user_data.get('awaiting_audio'):
-        context.user_data['awaiting_audio'] = False
+    # User-specific audio awaiting check
+    user_id = update.effective_user.id
+    user_data = context.user_data
+    
+    if user_data.get('awaiting_audio'):
+        user_data['awaiting_audio'] = False
         audio_name = text.strip()
-        url = context.user_data.get('audio_video_url')
-        if 'audio_prompt_msg' in context.user_data:
-            try: await context.user_data['audio_prompt_msg'].delete()
+        url = user_data.get('audio_video_url')
+        if 'audio_prompt_msg' in user_data:
+            try: await user_data['audio_prompt_msg'].delete()
             except: pass
-            context.user_data['audio_prompt_msg'] = None
+            user_data['audio_prompt_msg'] = None
         if url: await extract_and_send_audio(update, context, url, audio_name)
-        context.user_data['audio_video_url'] = None
+        user_data['audio_video_url'] = None
         return
     
     if text == AUDIO_DEFAULT_NAME:
-        context.user_data['awaiting_audio'] = False
-        url = context.user_data.get('audio_video_url')
-        if 'audio_prompt_msg' in context.user_data:
-            try: await context.user_data['audio_prompt_msg'].delete()
+        user_data['awaiting_audio'] = False
+        url = user_data.get('audio_video_url')
+        if 'audio_prompt_msg' in user_data:
+            try: await user_data['audio_prompt_msg'].delete()
             except: pass
-            context.user_data['audio_prompt_msg'] = None
+            user_data['audio_prompt_msg'] = None
         if url: await extract_and_send_audio(update, context, url, AUDIO_DEFAULT_NAME)
-        context.user_data['audio_video_url'] = None
+        user_data['audio_video_url'] = None
         return
     
     if not InstaDownloader.is_instagram_url(text): return
@@ -826,7 +830,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ 𝗜𝗻𝘃𝗮𝗹𝗶𝗱 𝗨𝗥𝗟", parse_mode="Markdown")
         return
 
-    await asyncio.sleep(3)  # 3 second gap between downloads
+    # Don't sleep here - process immediately
     asyncio.create_task(process_download(update, context, url))
     return
 
