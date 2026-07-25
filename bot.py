@@ -878,7 +878,7 @@ async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, u
                 last_percent = current_percent
             if current_percent >= 100:
                 break
-            await asyncio.sleep(1)
+            await asyncio.sleep(2)
     
     progress_task = None
     try:
