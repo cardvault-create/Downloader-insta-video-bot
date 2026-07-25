@@ -257,90 +257,92 @@ class InstaDownloader:
     
     @staticmethod
     def _download_photo(shortcode, url):
-        """Download ALL photos using yt-dlp directly"""
+        """Download ALL photos - scraping method"""
         image_files = []
         task_dir = DOWNLOAD_DIR
     
-        # Method 1: yt-dlp download all files
         try:
-            ydl_opts = {
-                'quiet': True,
-                'no_warnings': True,
-                'outtmpl': os.path.join(task_dir, f'{shortcode}_%(index)s.%(ext)s'),
-                'format': 'best[ext=jpg]/best[ext=png]/best[ext=webp]/best',
-                'retries': 3,
-                'ignoreerrors': True,
-                'no_color': True,
+            session = requests.Session()
+            session.headers.update({'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15'})
+            resp = session.get(url, timeout=15)
+            if resp.status_code != 200:
+                return {"success": False, "error": "Page not accessible"}
+        
+            html = resp.text
+            image_urls = []
+        
+            # Method 1: __NEXT_DATA__ se saare photos
+            nd = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', html, re.DOTALL)
+            if nd:
+                try:
+                    data = json.loads(nd.group(1))
+                    data_str = json.dumps(data)
+                
+                    # Dhundho saare display_url
+                    all_urls = re.findall(r'"display_url":"([^"]+)"', data_str)
+                    for u in all_urls:
+                        cleaned = u.replace('\\u0026', '&')
+                        if cleaned not in image_urls and '.mp4' not in cleaned and 's150x150' not in cleaned:
+                            # HD version lo
+                            hd = re.sub(r'/s\d+x\d+/', '/', cleaned)
+                            if hd not in image_urls:
+                                image_urls.append(hd)
+                except: pass
+        
+            # Method 2: Agar NEXT_DATA se nahi mile toh HTML se
+            if len(image_urls) < 2:
+                urls_found = re.findall(r'"display_url":"([^"]+)"', html)
+                for u in urls_found:
+                    cleaned = u.replace('\\u0026', '&')
+                    if cleaned not in image_urls and '.mp4' not in cleaned:
+                        hd = re.sub(r'/s\d+x\d+/', '/', cleaned)
+                        if hd not in image_urls:
+                            image_urls.append(hd)
+        
+            # Method 3: og:image (last resort)
+            if not image_urls:
+                og = re.findall(r'<meta\s+property="og:image"\s+content="([^"]+)"', html)
+                for o in og:
+                    if o not in image_urls:
+                        image_urls.append(o)
+        
+            # Remove duplicates
+            seen = set()
+            unique_urls = []
+            for u in image_urls:
+                if u not in seen:
+                    seen.add(u)
+                    unique_urls.append(u)
+            image_urls = unique_urls
+        
+            if not image_urls:
+                return {"success": False, "error": "No photos found"}
+        
+            # Download ALL photos
+            for i, img_url in enumerate(image_urls):
+                try:
+                    fp = os.path.join(task_dir, f"multi_{shortcode}_{i+1}.jpg")
+                    r = session.get(img_url, headers={'User-Agent': 'Mozilla/5.0'}, stream=True, timeout=30)
+                    if r.status_code == 200:
+                        with open(fp, 'wb') as f:
+                            for chunk in r.iter_content(8192):
+                                f.write(chunk)
+                        if os.path.getsize(fp) > 1000:
+                            image_files.append(fp)
+                except: continue
+        
+            if not image_files:
+                return {"success": False, "error": "No photos found"}
+        
+            return {
+                "success": True,
+                "file_path": image_files[0],
+                "file_paths": image_files,
+                "is_video": False,
+                "is_multiple": len(image_files) > 1,
+                "total": len(image_files)
             }
-            if os.path.exists('cookies.txt'):
-                ydl_opts['cookiefile'] = 'cookies.txt'
-        
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.extract_info(url, download=True)
-        
-            # Collect downloaded files
-            for f in sorted(os.listdir(task_dir)):
-                if shortcode in f and f.endswith(('.jpg', '.jpeg', '.png', '.webp')) and '_' in f:
-                    fp = os.path.join(task_dir, f)
-                    if os.path.getsize(fp) > 1000:
-                        image_files.append(fp)
-        except:
-            pass
-    
-        # Method 2: Fallback scraping
-        if not image_files:
-            try:
-                session = requests.Session()
-                session.headers.update({'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15'})
-                resp = session.get(url, timeout=15)
-                if resp.status_code == 200:
-                    html = resp.text
-                    urls = []
-                
-                    nd = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', html, re.DOTALL)
-                    if nd:
-                        try:
-                            data = json.loads(nd.group(1))
-                            data_str = json.dumps(data)
-                            all_urls = re.findall(r'"display_url":"([^"]+)"', data_str)
-                            urls = [u.replace('\\u0026', '&') for u in all_urls if '.mp4' not in u]
-                        except: pass
-                
-                    if not urls:
-                        urls_found = re.findall(r'"display_url":"([^"]+)"', html)
-                        urls = [u.replace('\\u0026', '&') for u in urls_found if '.mp4' not in u]
-                
-                    if not urls:
-                        og = re.findall(r'<meta\s+property="og:image"\s+content="([^"]+)"', html)
-                        urls = list(set(og))
-                
-                    seen = set()
-                    for img_url in urls:
-                        if img_url not in seen:
-                            seen.add(img_url)
-                            try:
-                                fp = os.path.join(task_dir, f"multi_{shortcode}_{len(image_files)+1}.jpg")
-                                r = session.get(img_url, headers={'User-Agent': 'Mozilla/5.0'}, stream=True, timeout=30)
-                                if r.status_code == 200:
-                                    with open(fp, 'wb') as f:
-                                        for chunk in r.iter_content(8192):
-                                            f.write(chunk)
-                                    if os.path.getsize(fp) > 1000:
-                                        image_files.append(fp)
-                            except: continue
-            except: pass
-    
-        if not image_files:
-            return {"success": False, "error": "No photos found"}
-    
-        return {
-            "success": True,
-            "file_path": image_files[0],
-            "file_paths": image_files,
-            "is_video": False,
-            "is_multiple": len(image_files) > 1,
-            "total": len(image_files)
-        }
+        except: return {"success": False, "error": "Download failed"}
     
     @staticmethod
     def _method_scrape_multi(shortcode, url):
