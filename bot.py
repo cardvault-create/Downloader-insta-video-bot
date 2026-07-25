@@ -456,7 +456,7 @@ class InstaDownloader:
             else:
                 ap = os.path.join(os.path.dirname(video_path), f"{os.path.splitext(os.path.basename(video_path))[0]}.mp3")
             if not shutil.which('ffmpeg'): return {"success": False, "error": "FFmpeg not found"}
-            subprocess.run(['ffmpeg', '-i', video_path, '-vn', '-acodec', 'libmp3lame', '-ab', '192k', '-y', ap], capture_output=True, timeout=100000)
+            subprocess.run(['ffmpeg', '-i', video_path, '-vn', '-acodec', 'libmp3lame', '-ab', '192k', '-y', ap], capture_output=True, timeout=300)
             if os.path.exists(ap) and os.path.getsize(ap) > 1000: return {"success": True, "file_path": ap}
             return {"success": False, "error": "Audio extraction failed"}
         except Exception as e: return {"success": False, "error": str(e)[:50]}
@@ -934,14 +934,14 @@ async def extract_and_send_audio_direct(query, context, url, audio_name):
         # Unique folder for THIS audio request
         import uuid
         audio_uid = str(uuid.uuid4())[:8]
+        audio_dir = os.path.join("downloads", f"audio_{audio_uid}")
+        os.makedirs(audio_dir, exist_ok=True)
+
+        # Temp change DOWNLOAD_DIR for this download
         global DOWNLOAD_DIR
         original_dir = DOWNLOAD_DIR
-        DOWNLOAD_DIR = os.path.join(original_dir, f"audio_{audio_uid}")
-        os.makedirs(DOWNLOAD_DIR, exist_ok=True)
-        
+        DOWNLOAD_DIR = audio_dir
         result = InstaDownloader.download_media(url)
-        
-        # Wapas original pe lao
         DOWNLOAD_DIR = original_dir
         
         if not result.get("success"): 
