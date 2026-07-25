@@ -905,6 +905,7 @@ async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, u
         if is_video:
             await msg.edit_text("📤 𝗨𝗽𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗩𝗶𝗱𝗲𝗼 . ˚◞♡ ◟˚ .", parse_mode="Markdown")
             keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(AUDIO_BUTTON_TEXT, callback_data=f"aud_{url}")]])
+            await context.bot.send_chat_action(chat_id=chat_id, action='upload_video')
             with open(fp, 'rb') as f:
                 await update.message.reply_video(video=f, caption=CAPTION, parse_mode="Markdown", reply_markup=keyboard, supports_streaming=True)
         else:
@@ -944,6 +945,7 @@ async def extract_and_send_audio_direct(query, context, url, audio_name):
         ar = InstaDownloader.extract_audio(vp, audio_name)
         if ar.get("success"):
             await status_msg.edit_text("📤 𝗦𝗲𝗻𝗱𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼♡ ⋆｡°✩", parse_mode="Markdown")
+            await context.bot.send_chat_action(chat_id=query.message.chat_id, action='upload_audio')
             with open(ar["file_path"], 'rb') as f:
                 await query.message.reply_audio(audio=f, title=audio_name, performer="𝗕𝘆 ➪ 𓆩#ＫＡＲＴＩＫ𓆪", caption=CAPTION, parse_mode="Markdown")
             await asyncio.sleep(2)
