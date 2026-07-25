@@ -642,7 +642,7 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_bot_enabled(): return
     if update.effective_chat.type != 'private': return
-    await welcome_animation(context.bot, update.effective_chat.id, update.effective_user.id, update.effective_user.first_name or "User")
+    asyncio.create_task(welcome_animation(context.bot, update.effective_chat.id, update.effective_user.id, update.effective_user.first_name or "User"))
 
 async def activate_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
