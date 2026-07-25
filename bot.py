@@ -181,85 +181,74 @@ class InstaDownloader:
         url = f'https://www.instagram.com/reel/{shortcode}/'
     
         ydl_opts = {
-        'quiet': True,
-        'no_warnings': True,
-        'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
-        'format': 'bv*+ba/b',
-        'merge_output_format': 'mp4',
-        'retries': 15,
-        'fragment_retries': 15,
-        'socket_timeout': 1200,
-        'extractor_retries': 10,
-        'force_overwrites': True,
-        'ignoreerrors': True,
-        'no_color': True,
-        'http_headers': {
-            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Referer': 'https://www.instagram.com/',
+            'quiet': True,
+            'no_warnings': True,
+            'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
+            'format': 'bv*+ba/b',
+            'merge_output_format': 'mp4',
+            'retries': 15,
+            'fragment_retries': 15,
+            'socket_timeout': 1200,
+            'extractor_retries': 10,
+            'force_overwrites': True,
+            'ignoreerrors': True,
+            'no_color': True,
+            'http_headers': {
+                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Referer': 'https://www.instagram.com/',
+            }
         }
-    }
     
-    if os.path.exists('cookies.txt'):
-        ydl_opts['cookiefile'] = 'cookies.txt'
+        if os.path.exists('cookies.txt'):
+            ydl_opts['cookiefile'] = 'cookies.txt'
     
-    if shutil.which('ffmpeg'):
-        ydl_opts['ffmpeg_location'] = shutil.which('ffmpeg')
+        if shutil.which('ffmpeg'):
+            ydl_opts['ffmpeg_location'] = shutil.which('ffmpeg')
     
-    # First try with cookies
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([url])
-    except:
-        pass
-    
-    time.sleep(2)
-    
-    # Check for file
-    for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
-        if f.endswith(('.mp4', '.mkv', '.webm')):
-            fp = os.path.join(DOWNLOAD_DIR, f)
-            if os.path.exists(fp) and os.path.getsize(fp) > 50000:
-                print(f"✅ SUCCESS: {os.path.getsize(fp)} bytes")
-                return {"success": True, "file_path": fp, "is_video": True}
-    
-    # Try without cookies
-    if 'cookiefile' in ydl_opts:
-        del ydl_opts['cookiefile']
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([url])
         except:
             pass
-        
+    
         time.sleep(2)
-        
+    
         for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
             if f.endswith(('.mp4', '.mkv', '.webm')):
                 fp = os.path.join(DOWNLOAD_DIR, f)
                 if os.path.exists(fp) and os.path.getsize(fp) > 50000:
-                    print(f"✅ SUCCESS: {os.path.getsize(fp)} bytes")
                     return {"success": True, "file_path": fp, "is_video": True}
     
-    # Last try with best format
-    ydl_opts['format'] = 'best[ext=mp4]/best'
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([url])
-    except:
-        pass
+        if 'cookiefile' in ydl_opts:
+            del ydl_opts['cookiefile']
+            try:
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([url])
+            except:
+                pass
+            time.sleep(2)
+            for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
+                if f.endswith(('.mp4', '.mkv', '.webm')):
+                    fp = os.path.join(DOWNLOAD_DIR, f)
+                    if os.path.exists(fp) and os.path.getsize(fp) > 50000:
+                        return {"success": True, "file_path": fp, "is_video": True}
     
-    time.sleep(2)
+        ydl_opts['format'] = 'best[ext=mp4]/best'
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([url])
+        except:
+            pass
+        time.sleep(2)
+        for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
+            if f.endswith(('.mp4', '.mkv', '.webm')):
+                fp = os.path.join(DOWNLOAD_DIR, f)
+                if os.path.exists(fp) and os.path.getsize(fp) > 50000:
+                    return {"success": True, "file_path": fp, "is_video": True}
     
-    for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
-        if f.endswith(('.mp4', '.mkv', '.webm')):
-            fp = os.path.join(DOWNLOAD_DIR, f)
-            if os.path.exists(fp) and os.path.getsize(fp) > 50000:
-                print(f"✅ SUCCESS: {os.path.getsize(fp)} bytes")
-                return {"success": True, "file_path": fp, "is_video": True}
-    
-    return {"success": False, "error": "Try another link"}
+        return {"success": False, "error": "Try another link"}
     
     # ═══════════════ PHOTO METHODS ═══════════════
     
