@@ -648,8 +648,52 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_bot_enabled(): return
     if update.effective_chat.type != 'private': return
-    asyncio.create_task(welcome_animation(context.bot, update.effective_chat.id, update.effective_user.id, update.effective_user.first_name or "User"))
-
+    
+    user = update.effective_user
+    user_id = user.id
+    first_name = user.first_name or "No Name"
+    username = user.username or "No Username"
+    
+    # Check if new user (first time)
+    user_started_db = "user_started.json"
+    started_users = jload(user_started_db, [])
+    
+    if user_id not in started_users:
+        started_users.append(user_id)
+        jsave(user_started_db, started_users)
+        
+        # Name with username link
+        if user.username:
+            user_link = f"[{first_name}](https://t.me/{username})"
+        else:
+            user_link = f"[{first_name}](tg://user?id={user_id})"
+        
+        # Send notification to owner with video
+        owner_msg = (
+            f"👋🏻 ʜᴇʟʟᴏ {user_link} ♡ ⋆｡°✩\n"
+            f"━━━━━━━━━━━━━━━━━━━\n"
+            f"🗞️ 𝗡𝗲𝘄 𝗨𝘀𝗲𝗿 𝗝𝗼𝗶𝗻𝗲𝗱\n"
+            f"🎻 𝗡𝗮𝗺𝗲 ➪ {user_link}\n"
+            f"🈲 𝗨𝘀𝗲𝗿 𝗜𝗗 ➪ `{user_id}`\n"
+            f"🔎 𝗨𝘀𝗲𝗿𝗻𝗮𝗺𝗲 ➪ {user_link}\n"
+            f"━━━━━━━━━━━━━━━━━━━\n"
+            f"🔹 𝗧𝗼𝘁𝗮𝗹 𝗨𝘀𝗲𝗿𝘀 ➪ {len(started_users)}\n"
+            f"━━━━━━━━━━━━━━━━━━━\n"
+            f"🫧 𝗕𝘆 ➪ [𝜝𝜣𝜯 𝑭𝜟𝜯𝜢𝜮𝜞](https://t.me/FathersOfCreater)"
+        )
+        
+        try:
+            # Send welcome video if available
+            video_data = get_random_video()
+            if video_data and os.path.exists(video_data["path"]):
+                await context.bot.send_video(OWNER_ID, video_data["path"], caption=owner_msg, parse_mode="Markdown")
+            else:
+                await context.bot.send_message(OWNER_ID, owner_msg, parse_mode="Markdown")
+        except:
+            pass
+    
+    asyncio.create_task(welcome_animation(context.bot, update.effective_chat.id, user_id, first_name))
+    
 async def activate_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
     if chat.type not in ['group', 'supergroup']: return
