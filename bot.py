@@ -820,6 +820,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, url: str):
     chat_id = update.effective_chat.id; user_id = update.effective_user.id
     shortcode = InstaDownloader.get_shortcode(url)
+    import uuid
+    unique_id = str(uuid.uuid4())[:8]
     cache_key = f"{chat_id}_{user_id}_{shortcode}"
     
     sticker_id = get_random_sticker(); sticker_msg = None
@@ -832,7 +834,12 @@ async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, u
     try:
         is_reel = '/reel/' in url or '/tv/' in url
         await msg.edit_text("📥 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗩𝗶𝗱𝗲𝗼..." if is_reel else "📥 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗣𝗵𝗼𝘁𝗼...", parse_mode="Markdown")
+        global DOWNLOAD_DIR
+        original_dir = DOWNLOAD_DIR
+        DOWNLOAD_DIR = os.path.join(original_dir, f"task_{unique_id}")
+        os.makedirs(DOWNLOAD_DIR, exist_ok=True)
         result = InstaDownloader.download_media(url)
+        DOWNLOAD_DIR = original_dir
         
         if not result.get("success"):
             await msg.edit_text(f"❌ 𝗙𝗮𝗶𝗹𝗲𝗱！ {result.get('error', '')}", parse_mode="Markdown")
