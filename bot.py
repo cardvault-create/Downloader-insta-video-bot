@@ -188,7 +188,7 @@ class InstaDownloader:
             'merge_output_format': 'mp4',
             'retries': 15,
             'fragment_retries': 15,
-            'socket_timeout': 2000,
+            'socket_timeout': 20000,
             'extractor_retries': 10,
             'force_overwrites': True,
             'ignoreerrors': True,
