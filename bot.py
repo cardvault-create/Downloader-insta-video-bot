@@ -954,27 +954,31 @@ async def extract_and_send_audio_direct(query, context, url, audio_name):
             DOWNLOAD_DIR = audio_dir
             result = InstaDownloader.download_media(url)
             DOWNLOAD_DIR = original_dir
-        
-        if not result.get("success"): 
-            await status_msg.edit_text("❌ 𝗙𝗮𝗶𝗹𝗲𝗱", parse_mode="Markdown")
-            return
-        vp = result["file_path"]
-        ar = InstaDownloader.extract_audio(vp, audio_name)
-        if ar.get("success"):
-            await status_msg.edit_text("📤 𝗦𝗲𝗻𝗱𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼♡ ⋆｡°✩", parse_mode="Markdown")
-            await context.bot.send_chat_action(chat_id=query.message.chat_id, action='upload_audio')
-            with open(ar["file_path"], 'rb') as f:
-                await query.message.reply_audio(audio=f, title=audio_name, performer="𝗕𝘆 ➪ 𓆩#ＫＡＲＴＩＫ𓆪", caption=CAPTION, parse_mode="Markdown")
-            await asyncio.sleep(2)
-        await status_msg.delete()
-        try: os.remove(ar["file_path"])
-        except: pass
-    else: 
-        await status_msg.edit_text(f"❌ {ar.get('error')}", parse_mode="Markdown")
-    InstaDownloader.cleanup(vp)
-except Exception as e: 
-    try: await status_msg.edit_text(f"❌ {str(e)[:80]}", parse_mode="Markdown")
-    except: pass
+            
+            if not result.get("success"): 
+                await status_msg.edit_text("❌ 𝗙𝗮𝗶𝗹𝗲𝗱", parse_mode="Markdown")
+                return
+            vp = result["file_path"]
+            ar = InstaDownloader.extract_audio(vp, audio_name)
+            if ar.get("success"):
+                await status_msg.edit_text("📤 𝗦𝗲𝗻𝗱𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼♡ ⋆｡°✩", parse_mode="Markdown")
+                await context.bot.send_chat_action(chat_id=query.message.chat_id, action='upload_audio')
+                with open(ar["file_path"], 'rb') as f:
+                    await query.message.reply_audio(audio=f, title=audio_name, performer="𝗕𝘆 ➪ 𓆩#ＫＡＲＴＩＫ𓆪", caption=CAPTION, parse_mode="Markdown")
+                await asyncio.sleep(2)
+                await status_msg.delete()
+                try: os.remove(ar["file_path"])
+                except: pass
+            else: 
+                await status_msg.edit_text(f"❌ {ar.get('error')}", parse_mode="Markdown")
+            InstaDownloader.cleanup(vp)
+        except Exception as e: 
+            try: await status_msg.edit_text(f"❌ {str(e)[:80]}", parse_mode="Markdown")
+            except: pass
+
+async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query; await query.answer()
+    
     if query.data.startswith("aud_"):
         shortcode = query.data[4:]
         video_url = f"https://www.instagram.com/reel/{shortcode}/"
