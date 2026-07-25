@@ -848,20 +848,30 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return
 
 async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, url: str):
-    chat_id = update.effective_chat.id; user_id = update.effective_user.id
+    chat_id = update.effective_chat.id
+    user_id = update.effective_user.id
     shortcode = InstaDownloader.get_shortcode(url)
     import uuid
     unique_id = str(uuid.uuid4())[:8]
     cache_key = f"{chat_id}_{user_id}_{shortcode}"
     
-    sticker_id = get_random_sticker(); sticker_msg = None
+    # ✅ Send initial status message
+    msg = await update.message.reply_text("⏳ 𝗣𝗿𝗼𝗰𝗲𝘀𝘀𝗶𝗻𝗴...", parse_mode="Markdown")
+    
+    sticker_id = get_random_sticker()
+    sticker_msg = None
     if sticker_id:
-        try: sticker_msg = await context.bot.send_sticker(chat_id, sticker_id)
-        except: pass
+        try: 
+            sticker_msg = await context.bot.send_sticker(chat_id, sticker_id)
+        except: 
+            pass
             
     try:
         is_reel = '/reel/' in url or '/tv/' in url
-        await msg.edit_text("📥 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗩𝗶𝗱𝗲𝗼..." if is_reel else "📥 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗣𝗵𝗼𝘁𝗼...", parse_mode="Markdown")
+        await msg.edit_text(
+            "📥 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗩𝗶𝗱𝗲𝗼..." if is_reel else "📥 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗣𝗵𝗼𝘁𝗼...", 
+            parse_mode="Markdown"
+        )
         
         global DOWNLOAD_DIR
         original_dir = DOWNLOAD_DIR
@@ -921,14 +931,18 @@ async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, u
         fp = result["file_path"]
         if not os.path.exists(fp) or os.path.getsize(fp) < 1000:
             await msg.edit_text("❌ 𝗙𝗶𝗹𝗲 𝗡𝗼𝘁 𝗙𝗼𝘂𝗻𝗱", parse_mode="Markdown")
-            if sticker_msg: await sticker_msg.delete()
+            if sticker_msg: 
+                try: await sticker_msg.delete()
+                except: pass
             return
         
         size_mb = os.path.getsize(fp) / (1024 * 1024)
         if size_mb > 45:
-            await msg.edit_text(f"❌ >𝟱𝟬𝗠𝗕 ({size_mb:.1f}MB)", parse_mode="Markdown")
+            await msg.edit_text(f"❌ 𝗙𝗶𝗹𝗲 𝘁𝗼𝗼 𝗹𝗮𝗿𝗴𝗲 ({size_mb:.1f}MB)", parse_mode="Markdown")
             InstaDownloader.cleanup(fp)
-            if sticker_msg: await sticker_msg.delete()
+            if sticker_msg: 
+                try: await sticker_msg.delete()
+                except: pass
             return
         
         is_video = result.get("is_video", False) or fp.endswith(('.mp4', '.mov', '.webm'))
@@ -938,22 +952,31 @@ async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, u
             keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(AUDIO_BUTTON_TEXT, callback_data=f"aud_{shortcode}")]])
             await context.bot.send_chat_action(chat_id=chat_id, action='upload_video')
             with open(fp, 'rb') as f:
-                await update.message.reply_video(video=f, caption=CAPTION, parse_mode="Markdown", reply_markup=keyboard, supports_streaming=True)
+                await update.message.reply_video(
+                    video=f, 
+                    caption=CAPTION, 
+                    parse_mode="Markdown", 
+                    reply_markup=keyboard, 
+                    supports_streaming=True
+                )
         else:
             await msg.edit_text("📤 𝗨𝗽𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗣𝗵𝗼𝘁𝗼♡ ⋆｡°✩", parse_mode="Markdown")
             with open(fp, 'rb') as f:
                 await update.message.reply_photo(photo=f, caption=CAPTION, parse_mode="Markdown")
         
-        await msg.delete(); InstaDownloader.cleanup(fp)
+        await msg.delete()
+        InstaDownloader.cleanup(fp)
+        
         if sticker_msg:
             await asyncio.sleep(6)
             try: await sticker_msg.delete()
             except: pass
+            
     except Exception as e:
-        if progress_task:
-            progress_task.cancel()
-        try: await msg.edit_text(f"❌ 𝗘𝗿𝗿𝗼𝗿： {str(e)[:100]}", parse_mode="Markdown")
-        except: pass
+        try: 
+            await msg.edit_text(f"❌ 𝗘𝗿𝗿𝗼𝗿： {str(e)[:100]}", parse_mode="Markdown")
+        except: 
+            pass
             
 async def extract_and_send_audio_direct(query, context, url, audio_name):
     search_msg = await query.message.reply_text("🔎")
