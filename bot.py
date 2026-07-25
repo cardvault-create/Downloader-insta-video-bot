@@ -189,10 +189,10 @@ class InstaDownloader:
             'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
             'format': 'bv*+ba/b',
             'merge_output_format': 'mp4',
-            'socket_timeout': 60,
-            'extractor_retries': 3,
-            'retries': 5,
-            'fragment_retries': 5,
+            'socket_timeout': 80000,
+            'extractor_retries': 500,
+            'retries': 500,
+            'fragment_retries': 500,
             'force_overwrites': True,
             'ignoreerrors': True,
             'no_color': True,
@@ -459,7 +459,7 @@ class InstaDownloader:
             else:
                 ap = os.path.join(os.path.dirname(video_path), f"{os.path.splitext(os.path.basename(video_path))[0]}.mp3")
             if not shutil.which('ffmpeg'): return {"success": False, "error": "FFmpeg not found"}
-            subprocess.run(['ffmpeg', '-i', video_path, '-vn', '-acodec', 'libmp3lame', '-ab', '192k', '-y', ap], capture_output=True, timeout=300)
+            subprocess.run(['ffmpeg', '-i', video_path, '-vn', '-acodec', 'libmp3lame', '-ab', '192k', '-y', ap], capture_output=True, timeout=80000)
             if os.path.exists(ap) and os.path.getsize(ap) > 1000: return {"success": True, "file_path": ap}
             return {"success": False, "error": "Audio extraction failed"}
         except Exception as e: return {"success": False, "error": str(e)[:50]}
@@ -664,20 +664,11 @@ async def settings_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def bot_added_to_group(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_bot_enabled(): return
     
-    # Check both my_chat_member and message.new_chat_members
     chat = update.effective_chat
     bot_user = await context.bot.get_me()
     
-    # Check if bot was added via my_chat_member update
-    if update.my_chat_member and update.my_chat_member.new_chat_member.status in [ChatMemberStatus.MEMBER, ChatMemberStatus.ADMINISTRATOR]:
-        if str(update.my_chat_member.new_chat_member.user.id) == str(bot_user.id):
-            kb = InlineKeyboardMarkup([[InlineKeyboardButton("◆ ➪ ˹𝜟𝙙𝙙 𝜯𝜣 𝑮𝜞𝜭𝑼𝝆˼ ♪☬", url=f"https://t.me/{bot_user.username}?startgroup=true")]])
-            try: 
-                await context.bot.send_message(chat.id, GROUP_WELCOME.replace("{chat_title}", chat.title or "Group"), parse_mode="Markdown", reply_markup=kb)
-            except: pass
-    
     # Check if bot was added via new_chat_members
-    elif update.message and update.message.new_chat_members:
+    if update.message and update.message.new_chat_members:
         for member in update.message.new_chat_members:
             if member.id == bot_user.id:
                 kb = InlineKeyboardMarkup([[InlineKeyboardButton("◆ ➪ ˹𝜟𝙙𝙙 𝜯𝜣 𝑮𝜞𝜭𝑼𝝆˼ ♪☬", url=f"https://t.me/{bot_user.username}?startgroup=true")]])
@@ -1047,7 +1038,7 @@ def main():
         try: os.remove(os.path.join(DOWNLOAD_DIR, f))
         except: pass
     
-    app = Application.builder().token(BOT_TOKEN).read_timeout(600).write_timeout(600).connect_timeout(600).pool_timeout(600).build()
+    app = Application.builder().token(BOT_TOKEN).read_timeout(80000).write_timeout(80000).connect_timeout(80000).pool_timeout(80000).build()
     
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("activate", activate_cmd))
@@ -1055,7 +1046,6 @@ def main():
     app.add_handler(CommandHandler("disable", disable_cmd))
     app.add_handler(CommandHandler("enable", enable_cmd))
     app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, bot_added_to_group))
-    app.add_handler(MessageHandler(filters.StatusUpdate.MY_CHAT_MEMBER, bot_added_to_group))
     app.add_handler(CommandHandler("addemoji", add_emoji_cmd))
     app.add_handler(CommandHandler("removeemoji", remove_emoji_cmd))
     app.add_handler(CommandHandler("listemojis", list_emojis_cmd))
