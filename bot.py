@@ -276,20 +276,43 @@ class InstaDownloader:
             html = resp.text
             image_urls = []
 
-            # Method 1: Try __NEXT_DATA__
+            # Method 1: Deep search in __NEXT_DATA__ for carousel items
             nd = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', html, re.DOTALL)
             if nd:
                 try:
                     data = json.loads(nd.group(1))
                     data_str = json.dumps(data)
-                    all_urls = re.findall(r'"display_url":"([^"]+)"', data_str)
-                    for du in all_urls:
-                        cleaned = du.replace('\\u0026', '&')
-                        if cleaned not in image_urls and '.mp4' not in cleaned:
-                            image_urls.append(cleaned)
+                
+                    # Search for carousel_media or edge_sidecar in entire JSON
+                    carousel_sections = re.findall(r'"carousel_media":\s*\[(.*?)\]', data_str, re.DOTALL)
+                    if not carousel_sections:
+                        carousel_sections = re.findall(r'"edge_sidecar_to_children":\s*\{(.*?)\}', data_str, re.DOTALL)
+                
+                    for section in carousel_sections:
+                        urls = re.findall(r'"display_url":"([^"]+)"', section)
+                        for du in urls:
+                            cleaned = du.replace('\\u0026', '&')
+                            if cleaned not in image_urls and '.mp4' not in cleaned:
+                                image_urls.append(cleaned)
+                
+                    # If still empty, get ALL display_url from JSON
+                    if not image_urls:
+                        all_urls = re.findall(r'"display_url":"([^"]+)"', data_str)
+                        for du in all_urls:
+                            cleaned = du.replace('\\u0026', '&')
+                            if cleaned not in image_urls and '.mp4' not in cleaned:
+                                image_urls.append(cleaned)
                 except: pass
 
-            # Method 2: Scrape directly from HTML
+            # Method 2: Find all image URLs in HTML with dimensions (carousel indicators)
+            if len(image_urls) < 2:
+                # Look for all high-res image URLs
+                all_imgs = re.findall(r'https?://[^"\']+\.(?:jpg|jpeg|png|webp)\?[^"\']*', html)
+                for img in all_imgs:
+                    if 'instagram' in img and img not in image_urls and '.mp4' not in img:
+                        image_urls.append(img)
+
+            # Method 3: Scrape display_url from HTML
             if len(image_urls) < 2:
                 urls_found = re.findall(r'"display_url":"([^"]+)"', html)
                 for u in urls_found:
@@ -297,24 +320,10 @@ class InstaDownloader:
                     if cleaned not in image_urls and '.mp4' not in cleaned:
                         image_urls.append(cleaned)
 
-            # Method 3: og:image tags
+            # Method 4: og:image tags
             if not image_urls:
                 og = re.findall(r'<meta\s+property="og:image"\s+content="([^"]+)"', html)
                 image_urls = list(set(og))
-
-            # Method 4: Try yt-dlp for carousel
-            if len(image_urls) < 2:
-                try:
-                    ydl_opts = {'quiet': True, 'extract_flat': False, 'playlist_items': '1-20'}
-                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                        info = ydl.extract_info(url, download=False)
-                        if info and 'entries' in info:
-                            for entry in info['entries']:
-                                if 'thumbnail' in entry:
-                                    thumb = entry['thumbnail']
-                                    if thumb not in image_urls:
-                                        image_urls.append(thumb)
-                except: pass
 
             # Remove duplicates
             seen = set()
