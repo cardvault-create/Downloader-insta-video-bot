@@ -175,8 +175,8 @@ class InstaDownloader:
         if is_reel: return InstaDownloader._download_video(shortcode)
         else: return InstaDownloader._download_photo(shortcode, url)
     
-@staticmethod
-def _download_video(shortcode):
+    @staticmethod
+    def _download_video(shortcode):
     """FAST DOWNLOAD - ALWAYS WITH AUDIO"""
     url = f'https://www.instagram.com/reel/{shortcode}/'
     
