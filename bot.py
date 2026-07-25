@@ -204,7 +204,7 @@ class InstaDownloader:
 
     _progress = {'percent': 0, 'speed': 'N/A', 'total': 0, 'downloaded': 0}
 
-    @staticmethod
+        @staticmethod
         def _download_video(shortcode):
             """FAST DOWNLOAD - ALWAYS WITH AUDIO"""
             url = f'https://www.instagram.com/reel/{shortcode}/'
