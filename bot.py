@@ -929,7 +929,18 @@ async def extract_and_send_audio_direct(query, context, url, audio_name):
     except: pass
     status_msg = await query.message.reply_text("🎵 𝗘𝘅𝘁𝗿𝗮𝗰𝘁𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼. ˚◞♡ ◟˚ .", parse_mode="Markdown")
     try:
+        # Unique folder for THIS audio request
+        import uuid
+        audio_uid = str(uuid.uuid4())[:8]
+        global DOWNLOAD_DIR
+        original_dir = DOWNLOAD_DIR
+        DOWNLOAD_DIR = os.path.join(original_dir, f"audio_{audio_uid}")
+        os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+        
         result = InstaDownloader.download_media(url)
+        
+        # Wapas original pe lao
+        DOWNLOAD_DIR = original_dir
         
         if not result.get("success"): 
             await status_msg.edit_text("❌ 𝗙𝗮𝗶𝗹𝗲𝗱", parse_mode="Markdown")
@@ -951,7 +962,7 @@ async def extract_and_send_audio_direct(query, context, url, audio_name):
     except Exception as e: 
         try: await status_msg.edit_text(f"❌ {str(e)[:80]}", parse_mode="Markdown")
         except: pass
-
+            
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query; await query.answer()
     
@@ -1006,7 +1017,7 @@ def main():
         try: os.remove(os.path.join(DOWNLOAD_DIR, f))
         except: pass
     
-    app = Application.builder().token(BOT_TOKEN).read_timeout(7200).write_timeout(7200).connect_timeout(7200).pool_timeout(7200).build()
+    app = Application.builder().token(BOT_TOKEN).read_timeout(20000).write_timeout(20000).connect_timeout(20000).pool_timeout(20000).build()
     
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("activate", activate_cmd))
