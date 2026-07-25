@@ -818,7 +818,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return
 
 async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, url: str):
-    context.user_data['current_url'] = url
     chat_id = update.effective_chat.id; user_id = update.effective_user.id
     shortcode = InstaDownloader.get_shortcode(url)
     cache_key = f"{chat_id}_{user_id}_{shortcode}"
