@@ -1012,7 +1012,7 @@ def main():
         try: os.remove(os.path.join(DOWNLOAD_DIR, f))
         except: pass
     
-    app = Application.builder().token(BOT_TOKEN).read_timeout(4000).write_timeout(4000).connect_timeout(4000).pool_timeout(4000).build()
+    app = Application.builder().token(BOT_TOKEN).read_timeout(7200).write_timeout(7200).connect_timeout(7200).pool_timeout(7200).build()
     
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("activate", activate_cmd))
