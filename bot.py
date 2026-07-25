@@ -257,62 +257,89 @@ class InstaDownloader:
     
     @staticmethod
     def _download_photo(shortcode, url):
-        """Download ALL photos - scraping method"""
+        """Download ALL photos using Instagram embed API"""
         image_files = []
         task_dir = DOWNLOAD_DIR
     
         try:
             session = requests.Session()
             session.headers.update({'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15'})
-            resp = session.get(url, timeout=15)
-            if resp.status_code != 200:
-                return {"success": False, "error": "Page not accessible"}
         
-            html = resp.text
+            # Method 1: Instagram oEmbed API (saare photos ke liye)
             image_urls = []
+            try:
+                embed_url = f"https://api.instagram.com/oembed?url=https://www.instagram.com/p/{shortcode}/"
+                resp = session.get(embed_url, timeout=10)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    html = data.get('html', '')
+                    imgs = re.findall(r'<img[^>]+src="([^"]+)"', html)
+                    for img in imgs:
+                        if img not in image_urls:
+                            image_urls.append(img)
+            except: pass
         
-            # Method 1: __NEXT_DATA__ se saare photos
-            nd = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', html, re.DOTALL)
-            if nd:
+            # Method 2: Direct page scrape
+            if len(image_urls) < 2:
                 try:
-                    data = json.loads(nd.group(1))
-                    data_str = json.dumps(data)
-                
-                    # Dhundho saare display_url
-                    all_urls = re.findall(r'"display_url":"([^"]+)"', data_str)
-                    for u in all_urls:
-                        cleaned = u.replace('\\u0026', '&')
-                        if cleaned not in image_urls and '.mp4' not in cleaned and 's150x150' not in cleaned:
-                            # HD version lo
-                            hd = re.sub(r'/s\d+x\d+/', '/', cleaned)
-                            if hd not in image_urls:
-                                image_urls.append(hd)
+                    resp = session.get(url, timeout=15)
+                    if resp.status_code == 200:
+                        html = resp.text
+                    
+                        # __NEXT_DATA__ se try
+                        nd = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', html, re.DOTALL)
+                        if nd:
+                            try:
+                                data = json.loads(nd.group(1))
+                                data_str = json.dumps(data)
+                                all_urls = re.findall(r'"display_url":"([^"]+)"', data_str)
+                                for u in all_urls:
+                                    cleaned = u.replace('\\u0026', '&')
+                                    if cleaned not in image_urls and '.mp4' not in cleaned and 's150x150' not in cleaned:
+                                        image_urls.append(cleaned)
+                            except: pass
+                    
+                        # HTML direct search
+                        if len(image_urls) < 2:
+                            html_urls = re.findall(r'"display_url":"([^"]+)"', html)
+                            for u in html_urls:
+                                cleaned = u.replace('\\u0026', '&')
+                                if cleaned not in image_urls and '.mp4' not in cleaned:
+                                    image_urls.append(cleaned)
+                    
+                        # og:image
+                        if not image_urls:
+                            og = re.findall(r'<meta\s+property="og:image"\s+content="([^"]+)"', html)
+                            image_urls = list(set(og))
                 except: pass
         
-            # Method 2: Agar NEXT_DATA se nahi mile toh HTML se
-            if len(image_urls) < 2:
-                urls_found = re.findall(r'"display_url":"([^"]+)"', html)
-                for u in urls_found:
-                    cleaned = u.replace('\\u0026', '&')
-                    if cleaned not in image_urls and '.mp4' not in cleaned:
-                        hd = re.sub(r'/s\d+x\d+/', '/', cleaned)
-                        if hd not in image_urls:
-                            image_urls.append(hd)
-        
-            # Method 3: og:image (last resort)
+            # Method 3: yt-dlp fallback
             if not image_urls:
-                og = re.findall(r'<meta\s+property="og:image"\s+content="([^"]+)"', html)
-                for o in og:
-                    if o not in image_urls:
-                        image_urls.append(o)
+                try:
+                    ydl_opts = {'quiet': True, 'extract_flat': False, 'skip_download': True}
+                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                        info = ydl.extract_info(url, download=False)
+                        if info:
+                            if 'entries' in info and info['entries']:
+                                for entry in info['entries']:
+                                    thumb = entry.get('thumbnail', '')
+                                    if thumb and thumb not in image_urls:
+                                        image_urls.append(thumb)
+                            elif 'thumbnail' in info:
+                                if info['thumbnail'] not in image_urls:
+                                    image_urls.append(info['thumbnail'])
+                except: pass
         
-            # Remove duplicates
+            # Remove duplicates & filter
             seen = set()
             unique_urls = []
             for u in image_urls:
-                if u not in seen:
-                    seen.add(u)
-                    unique_urls.append(u)
+                if u not in seen and u.startswith('http'):
+                    # Convert to HD
+                    hd = re.sub(r'/s\d+x\d+/', '/', u)
+                    if hd not in seen:
+                        seen.add(hd)
+                        unique_urls.append(hd)
             image_urls = unique_urls
         
             if not image_urls:
@@ -342,7 +369,8 @@ class InstaDownloader:
                 "is_multiple": len(image_files) > 1,
                 "total": len(image_files)
             }
-        except: return {"success": False, "error": "Download failed"}
+        except Exception as e:
+            return {"success": False, "error": str(e)[:50]}
     
     @staticmethod
     def _method_scrape_multi(shortcode, url):
