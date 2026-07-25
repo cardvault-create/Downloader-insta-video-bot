@@ -207,7 +207,7 @@ class InstaDownloader:
     def _download_video(shortcode):
         """FAST DOWNLOAD - ALWAYS WITH AUDIO"""
         url = f'https://www.instagram.com/reel/{shortcode}/'
-    
+
         ydl_opts = {
             'quiet': True,
             'no_warnings': True,
@@ -229,27 +229,27 @@ class InstaDownloader:
                 'Referer': 'https://www.instagram.com/',
             }
         }
-    
+
         if os.path.exists('cookies.txt'):
             ydl_opts['cookiefile'] = 'cookies.txt'
-    
+
         if shutil.which('ffmpeg'):
             ydl_opts['ffmpeg_location'] = shutil.which('ffmpeg')
-    
+
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([url])
         except:
             pass
-    
-        time.sleep(2)
-    
+
+        time.sleep(1)
+
         for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
             if f.endswith(('.mp4', '.mkv', '.webm')):
                 fp = os.path.join(DOWNLOAD_DIR, f)
                 if os.path.exists(fp) and os.path.getsize(fp) > 50000:
                     return {"success": True, "file_path": fp, "is_video": True}
-    
+
         if 'cookiefile' in ydl_opts:
             del ydl_opts['cookiefile']
             try:
@@ -257,26 +257,26 @@ class InstaDownloader:
                     ydl.download([url])
             except:
                 pass
-            time.sleep(2)
+            time.sleep(1)
             for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
                 if f.endswith(('.mp4', '.mkv', '.webm')):
                     fp = os.path.join(DOWNLOAD_DIR, f)
                     if os.path.exists(fp) and os.path.getsize(fp) > 50000:
                         return {"success": True, "file_path": fp, "is_video": True}
-    
+
         ydl_opts['format'] = 'best[ext=mp4]/best'
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([url])
         except:
             pass
-        time.sleep(2)
+        time.sleep(1)
         for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
             if f.endswith(('.mp4', '.mkv', '.webm')):
                 fp = os.path.join(DOWNLOAD_DIR, f)
                 if os.path.exists(fp) and os.path.getsize(fp) > 50000:
                     return {"success": True, "file_path": fp, "is_video": True}
-    
+
         return {"success": False, "error": "Try another link"}
     
     # ═══════════════ PHOTO METHODS ═══════════════
@@ -861,24 +861,28 @@ async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, u
     
     msg = await update.message.reply_text("⏳ 𝗣𝗿𝗼𝗰𝗲𝘀𝘀𝗶𝗻𝗴...", parse_mode="Markdown")
     
-    # Progress update function
-    async def update_progress():
-        last_percent = -1
-        while True:
-            prog = InstaDownloader._progress
-            current_percent = int(prog.get('percent', 0))
-            if current_percent != last_percent and current_percent > 0:
-                speed = prog.get('speed', 'N/A')
-                bar_filled = int(current_percent / 10)
-                bar = '█' * bar_filled + '░' * (10 - bar_filled)
-                try:
-                    await msg.edit_text(f"📥 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗩𝗶𝗱𝗲𝗼...\n\n[{bar}] {current_percent}%\n⚡ {speed}", parse_mode="Markdown")
-                except:
-                    pass
-                last_percent = current_percent
-            if current_percent >= 100:
-                break
-            await asyncio.sleep(2)
+# Progress update function
+async def update_progress():
+    last_percent = -1
+    while True:
+        prog = InstaDownloader._progress
+        current_percent = int(prog.get('percent', 0))
+        if current_percent != last_percent and current_percent >= 0:
+            speed = prog.get('speed', 'N/A')
+            bar_filled = max(1, int(current_percent / 10))
+            bar = '█' * bar_filled + '░' * (10 - bar_filled)
+            try:
+                await msg.edit_text(f"📥 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗩𝗶𝗱𝗲𝗼...\n\n[{bar}] {current_percent:.0f}%\n⚡ {speed}", parse_mode="Markdown")
+            except:
+                pass
+            last_percent = current_percent
+        if current_percent >= 100:
+            try:
+                await msg.edit_text("📥 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗩𝗶𝗱𝗲𝗼...\n\n[██████████] 100%\n✅ Complete!", parse_mode="Markdown")
+            except:
+                pass
+            break
+        await asyncio.sleep(1.5)
     
     progress_task = None
     try:
