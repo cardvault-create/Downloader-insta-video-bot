@@ -205,80 +205,80 @@ class InstaDownloader:
     _progress = {'percent': 0, 'speed': 'N/A', 'total': 0, 'downloaded': 0}
 
     @staticmethod
-    def _download_video(shortcode):
-        """FAST DOWNLOAD - ALWAYS WITH AUDIO"""
-        url = f'https://www.instagram.com/reel/{shortcode}/'
-
-        ydl_opts = {
-            'quiet': True,
-            'no_warnings': True,
-            'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
-            'format': 'bv*+ba/b',
-            'merge_output_format': 'mp4',
-            'retries': 15,
-            'fragment_retries': 15,
-            'socket_timeout': 100000,
-            'extractor_retries': 10,
-            'force_overwrites': True,
-            'ignoreerrors': True,
-            'no_color': True,
-            'progress_hooks': [InstaDownloader._progress_hook],
-            'http_headers': {
-                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.9',
-                'Referer': 'https://www.instagram.com/',
+        def _download_video(shortcode):
+            """FAST DOWNLOAD - ALWAYS WITH AUDIO"""
+            url = f'https://www.instagram.com/reel/{shortcode}/'
+    
+            ydl_opts = {
+                'quiet': True,
+                'no_warnings': True,
+               'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
+                'format': 'bv*+ba/b',
+                'merge_output_format': 'mp4',
+                'retries': 15,
+                'fragment_retries': 15,
+                'socket_timeout': 100000,
+                'extractor_retries': 10,
+                'force_overwrites': True,
+                'ignoreerrors': True,
+                'no_color': True,
+                'progress_hooks': [InstaDownloader._progress_hook],
+                'http_headers': {
+                    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                    'Referer': 'https://www.instagram.com/',
+                }
             }
-        }
-
-        if os.path.exists('cookies.txt'):
-            ydl_opts['cookiefile'] = 'cookies.txt'
-
-        if shutil.which('ffmpeg'):
-            ydl_opts['ffmpeg_location'] = shutil.which('ffmpeg')
-
-        try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([url])
-        except:
-            pass
-
-        time.sleep(1)
-
-        for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
-            if f.endswith(('.mp4', '.mkv', '.webm')):
-                fp = os.path.join(DOWNLOAD_DIR, f)
-                if os.path.exists(fp) and os.path.getsize(fp) > 50000:
-                    return {"success": True, "file_path": fp, "is_video": True}
-
-        if 'cookiefile' in ydl_opts:
-            del ydl_opts['cookiefile']
+    
+            if os.path.exists('cookies.txt'):
+                ydl_opts['cookiefile'] = 'cookies.txt'
+    
+            if shutil.which('ffmpeg'):
+                ydl_opts['ffmpeg_location'] = shutil.which('ffmpeg')
+    
             try:
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     ydl.download([url])
             except:
                 pass
-            time.sleep(1)
+    
+            time.sleep(2)
+    
             for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
                 if f.endswith(('.mp4', '.mkv', '.webm')):
                     fp = os.path.join(DOWNLOAD_DIR, f)
                     if os.path.exists(fp) and os.path.getsize(fp) > 50000:
                         return {"success": True, "file_path": fp, "is_video": True}
-
-        ydl_opts['format'] = 'best[ext=mp4]/best'
-        try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([url])
-        except:
-            pass
-        time.sleep(1)
-        for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
-            if f.endswith(('.mp4', '.mkv', '.webm')):
-                fp = os.path.join(DOWNLOAD_DIR, f)
-                if os.path.exists(fp) and os.path.getsize(fp) > 50000:
-                    return {"success": True, "file_path": fp, "is_video": True}
-
-        return {"success": False, "error": "Try another link"}
+    
+            if 'cookiefile' in ydl_opts:
+                del ydl_opts['cookiefile']
+                try:
+                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                        ydl.download([url])
+                except:
+                    pass
+                time.sleep(2)
+                for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
+                    if f.endswith(('.mp4', '.mkv', '.webm')):
+                        fp = os.path.join(DOWNLOAD_DIR, f)
+                        if os.path.exists(fp) and os.path.getsize(fp) > 50000:
+                            return {"success": True, "file_path": fp, "is_video": True}
+    
+            ydl_opts['format'] = 'best[ext=mp4]/best'
+            try:
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([url])
+            except:
+                pass
+            time.sleep(2)
+            for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
+                if f.endswith(('.mp4', '.mkv', '.webm')):
+                    fp = os.path.join(DOWNLOAD_DIR, f)
+                    if os.path.exists(fp) and os.path.getsize(fp) > 50000:
+                        return {"success": True, "file_path": fp, "is_video": True}
+    
+            return {"success": False, "error": "Try another link"}
     
     # ═══════════════ PHOTO METHODS ═══════════════
     
