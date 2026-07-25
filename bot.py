@@ -188,8 +188,10 @@ class InstaDownloader:
             'merge_output_format': 'mp4',
             'retries': 15,
             'fragment_retries': 15,
-            'socket_timeout': 100000,
-            'extractor_retries': 10,
+            'socket_timeout': 30,
+            'extractor_retries': 3,
+            'retries': 5,
+            'fragment_retries': 5,
             'force_overwrites': True,
             'ignoreerrors': True,
             'no_color': True,
@@ -815,6 +817,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ 𝗜𝗻𝘃𝗮𝗹𝗶𝗱 𝗨𝗥𝗟", parse_mode="Markdown")
         return
 
+    await asyncio.sleep(3)  # 3 second gap between downloads
     asyncio.create_task(process_download(update, context, url))
     return
 
@@ -1018,7 +1021,7 @@ def main():
         try: os.remove(os.path.join(DOWNLOAD_DIR, f))
         except: pass
     
-    app = Application.builder().token(BOT_TOKEN).read_timeout(100000).write_timeout(100000).connect_timeout(100000).pool_timeout(100000).build()
+    app = Application.builder().token(BOT_TOKEN).read_timeout(600).write_timeout(600).connect_timeout(600).pool_timeout(600).build()
     
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("activate", activate_cmd))
