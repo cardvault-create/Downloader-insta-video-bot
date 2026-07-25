@@ -253,194 +253,60 @@ class InstaDownloader:
     
         return {"success": False, "error": "Try another link"}
     
-    # ═══════════════ PHOTO METHODS ═══════════════
+   # ═══════════════ PHOTO METHODS ═══════════════
     
     @staticmethod
     def _download_photo(shortcode, url):
-        """Single method to rule them all - yt-dlp + fallback scrape, NO API needed"""
-        task_id = f"photo_{shortcode}_{int(time.time()*1000) % 10000}"
-        task_dir = os.path.join(DOWNLOAD_DIR, task_id)
-        os.makedirs(task_dir, exist_ok=True)
-        image_files = []
-
-        # ── Method 1: yt-dlp (primary) ──
-        ydl_opts = {
-            'quiet': True,
-            'no_warnings': True,
-            'outtmpl': os.path.join(task_dir, f'{shortcode}_%(page_number)s.%(ext)s'),
-            'format': 'jpg/jpeg/png/webp',
-            'ignoreerrors': True,
-            'no_color': True,
-            'extract_flat': False,
-            'socket_timeout': 60,
-            'retries': 5,
-            'fragment_retries': 5,
-            'extractor_retries': 3,
-            'http_headers': {
-                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.9',
-            }
-        }
-        if os.path.exists('cookies.txt'):
-            ydl_opts['cookiefile'] = 'cookies.txt'
-
-        try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([url])
-            time.sleep(0.5)
-            for f in sorted(os.listdir(task_dir)):
-                fp = os.path.join(task_dir, f)
-                if f.endswith(('.jpg', '.jpeg', '.png', '.webp')) and os.path.getsize(fp) > 1000:
-                    image_files.append(fp)
-        except:
-            pass
-
-        # ── Method 2: Direct scrape (fallback) ──
-        if not image_files:
-            try:
-                sess = requests.Session()
-                sess.headers.update({
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                    'Accept-Language': 'en-US,en;q=0.5',
-                })
-                resp = sess.get(url, timeout=30)
-                if resp.status_code == 200:
-                    html = resp.text
-                    img_urls = []
-
-                    # Try __NEXT_DATA__ first
-                    nd = re.search(r'<script[^>]*id="__NEXT_DATA__"[^>]*>(.*?)</script>', html, re.DOTALL)
-                    if nd:
-                        try:
-                            data = json.loads(nd.group(1))
-                            data_str = json.dumps(data)
-                            for u in re.findall(r'"display_url":"([^"]+)"', data_str):
-                                cleaned = u.replace('\\u0026', '&').split('?')[0]
-                                if '.mp4' not in cleaned and cleaned not in img_urls:
-                                    img_urls.append(cleaned)
-                        except:
-                            pass
-
-                    # Fallback: direct regex
-                    if not img_urls:
-                        for u in re.findall(r'"display_url":"([^"]+)"', html):
-                            cleaned = u.replace('\\u0026', '&').split('?')[0]
-                            if '.mp4' not in cleaned and cleaned not in img_urls:
-                                img_urls.append(cleaned)
-
-                    # Last resort: og:image
-                    if not img_urls:
-                        img_urls = list(set(re.findall(r'<meta[^>]+property="og:image"[^>]+content="([^"]+)"', html)))
-
-                    # Download all unique images
-                    seen = set()
-                    for img_url in img_urls:
-                        if img_url in seen:
-                            continue
-                        seen.add(img_url)
-                        try:
-                            hd_url = re.sub(r'/s\d+x\d+/', '/', img_url).split('?')[0]
-                            fp = os.path.join(task_dir, f"{shortcode}_{len(image_files)+1}.jpg")
-                            r = sess.get(hd_url, stream=True, timeout=30)
-                            if r.status_code == 200:
-                                with open(fp, 'wb') as f:
-                                    for chunk in r.iter_content(8192):
-                                        f.write(chunk)
-                                if os.path.getsize(fp) > 1000:
-                                    image_files.append(fp)
-                        except:
-                            continue
-            except:
-                pass
-
-        # ── Final result ──
-        if image_files:
-            result = {
-                "success": True,
-                "file_path": image_files[0],
-                "file_paths": image_files,
-                "is_video": False,
-                "is_multiple": len(image_files) > 1,
-                "total": len(image_files)
-            }
-            return result
-
-        # Cleanup if failed
-        try:
-            shutil.rmtree(task_dir, ignore_errors=True)
-        except:
-            pass
-        return {"success": False, "error": "No photos found"}
+        """PHOTOS - 5 methods"""
+        result = InstaDownloader._method_scrape_multi(shortcode, url)
+        if result.get("success"): return result
+        for method in [InstaDownloader._method_oembed, InstaDownloader._method_ytdlp, InstaDownloader._method_scrape_single, InstaDownloader._method_cdn]:
+            result = method(shortcode)
+            if result.get("success"): return result
+        return {"success": False, "error": "🚫 𝐒𝐞𝐫𝐯𝐞𝐫 𝐢𝐬𝐬𝐮𝐞, 𝐩𝐥𝐞𝐚𝐬𝐞 𝐭𝐫𝐲 𝐚𝐠𝐚𝐢𝐧 (˃̣̣̥᷄⌓˂̣̣̥᷅)"}
     
     @staticmethod
     def _method_scrape_multi(shortcode, url):
-        """Multiple photos from carousel posts - ALL PHOTOS using yt-dlp"""
+        """Multiple photos from carousel posts"""
         try:
-            # Method 1: Use yt-dlp to get ALL carousel images
+            session = requests.Session()
+            session.headers.update({'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15'})
+            resp = session.get(url, timeout=15)
+            if resp.status_code != 200: return {"success": False}
+            html = resp.text
             image_urls = []
-            try:
-                ydl_opts = {
-                    'quiet': True,
-                    'extract_flat': False,
-                    'skip_download': True,
-                }
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    info = ydl.extract_info(url, download=False)
-                    if info:
-                        # Check for entries (carousel)
-                        if 'entries' in info and info['entries']:
-                            for entry in info['entries']:
-                                thumb = entry.get('thumbnail', '')
-                                if thumb and thumb not in image_urls:
-                                    image_urls.append(thumb)
-                        # Single image
-                        elif 'thumbnail' in info:
-                            thumb = info['thumbnail']
-                            if thumb and thumb not in image_urls:
-                                image_urls.append(thumb)
-            except:
-                pass
-
-            # Method 2: If yt-dlp failed, scrape HTML
-            if not image_urls:
-                session = requests.Session()
-                session.headers.update({'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15'})
-                resp = session.get(url, timeout=15)
-                if resp.status_code == 200:
-                    html = resp.text
-                
-                    # Try NEXT_DATA
-                    nd = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', html, re.DOTALL)
-                    if nd:
-                        try:
-                            data = json.loads(nd.group(1))
-                            data_str = json.dumps(data)
-                            all_urls = re.findall(r'"display_url":"([^"]+)"', data_str)
-                            for du in all_urls:
+            
+            nd = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', html, re.DOTALL)
+            if nd:
+                try:
+                    data = json.loads(nd.group(1))
+                    data_str = json.dumps(data)
+                    
+                    carousel_matches = re.findall(r'"edge_sidecar_to_children"[^}]*"edges":\s*\[(.*?)\]', data_str, re.DOTALL)
+                    if carousel_matches:
+                        for carousel in carousel_matches:
+                            display_urls = re.findall(r'"display_url":"([^"]+)"', carousel)
+                            for du in display_urls:
                                 cleaned = du.replace('\\u0026', '&')
                                 if cleaned not in image_urls and '.mp4' not in cleaned:
                                     image_urls.append(cleaned)
-                        except: pass
-                
-                    # HTML fallback
-                    if len(image_urls) < 2:
-                        urls_found = re.findall(r'"display_url":"([^"]+)"', html)
-                        for u in urls_found:
-                            cleaned = u.replace('\\u0026', '&')
+                    
+                    if not image_urls:
+                        display_urls = re.findall(r'"display_url":"([^"]+)"', data_str)
+                        for du in display_urls:
+                            cleaned = du.replace('\\u0026', '&')
                             if cleaned not in image_urls and '.mp4' not in cleaned:
                                 image_urls.append(cleaned)
-                
-                    # og:image
-                    if not image_urls:
-                        og = re.findall(r'<meta\s+property="og:image"\s+content="([^"]+)"', html)
-                        image_urls = list(set(og))
-
+                except: pass
+            
             if not image_urls:
-                return {"success": False}
-
-            # Remove duplicates
+                urls_found = re.findall(r'"display_url":"([^"]+)"', html)
+                image_urls = [u.replace('\\u0026', '&') for u in urls_found if '.mp4' not in u]
+            
+            if not image_urls:
+                og = re.findall(r'<meta\s+property="og:image"\s+content="([^"]+)"', html)
+                image_urls = list(set(og))
+            
             seen = set()
             unique_urls = []
             for u in image_urls:
@@ -448,12 +314,12 @@ class InstaDownloader:
                     seen.add(u)
                     unique_urls.append(u)
             image_urls = unique_urls
-
-            # Download ALL photos
-            session = requests.Session()
-            session.headers.update({'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15'})
+            
+            if not image_urls:
+                return {"success": False}
+            
             downloaded = []
-            for i, img_url in enumerate(image_urls):
+            for i, img_url in enumerate(image_urls[:10]):
                 try:
                     fp = os.path.join(DOWNLOAD_DIR, f"multi_{shortcode}_{i+1}.jpg")
                     r = session.get(img_url, headers={'User-Agent': 'Mozilla/5.0'}, stream=True, timeout=30)
@@ -464,7 +330,7 @@ class InstaDownloader:
                         if os.path.getsize(fp) > 1000:
                             downloaded.append(fp)
                 except: continue
-
+            
             if downloaded:
                 return {
                     "success": True,
@@ -593,7 +459,7 @@ class InstaDownloader:
             else:
                 ap = os.path.join(os.path.dirname(video_path), f"{os.path.splitext(os.path.basename(video_path))[0]}.mp3")
             if not shutil.which('ffmpeg'): return {"success": False, "error": "FFmpeg not found"}
-            subprocess.run(['ffmpeg', '-i', video_path, '-vn', '-acodec', 'libmp3lame', '-ab', '192k', '-y', ap], capture_output=True, timeout=80000)
+            subprocess.run(['ffmpeg', '-i', video_path, '-vn', '-acodec', 'libmp3lame', '-ab', '192k', '-y', ap], capture_output=True, timeout=300)
             if os.path.exists(ap) and os.path.getsize(ap) > 1000: return {"success": True, "file_path": ap}
             return {"success": False, "error": "Audio extraction failed"}
         except Exception as e: return {"success": False, "error": str(e)[:50]}
