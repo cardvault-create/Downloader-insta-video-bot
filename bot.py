@@ -209,14 +209,14 @@ class InstaDownloader:
         url = f'https://www.instagram.com/reel/{shortcode}/'
     
         ydl_opts = {
-            'quiet': True,
+            'quiet': False,
             'no_warnings': True,
             'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
             'format': 'bv*+ba/b',
             'merge_output_format': 'mp4',
             'retries': 15,
             'fragment_retries': 15,
-            'socket_timeout': 20000,
+            'socket_timeout': 100000,
             'extractor_retries': 10,
             'force_overwrites': True,
             'ignoreerrors': True,
@@ -485,7 +485,7 @@ class InstaDownloader:
             else:
                 ap = os.path.join(os.path.dirname(video_path), f"{os.path.splitext(os.path.basename(video_path))[0]}.mp3")
             if not shutil.which('ffmpeg'): return {"success": False, "error": "FFmpeg not found"}
-            subprocess.run(['ffmpeg', '-i', video_path, '-vn', '-acodec', 'libmp3lame', '-ab', '192k', '-y', ap], capture_output=True, timeout=20000)
+            subprocess.run(['ffmpeg', '-i', video_path, '-vn', '-acodec', 'libmp3lame', '-ab', '192k', '-y', ap], capture_output=True, timeout=100000)
             if os.path.exists(ap) and os.path.getsize(ap) > 1000: return {"success": True, "file_path": ap}
             return {"success": False, "error": "Audio extraction failed"}
         except Exception as e: return {"success": False, "error": str(e)[:50]}
@@ -1071,7 +1071,7 @@ def main():
         try: os.remove(os.path.join(DOWNLOAD_DIR, f))
         except: pass
     
-    app = Application.builder().token(BOT_TOKEN).read_timeout(20000).write_timeout(20000).connect_timeout(20000).pool_timeout(20000).build()
+    app = Application.builder().token(BOT_TOKEN).read_timeout(100000).write_timeout(100000).connect_timeout(100000).pool_timeout(100000).build()
     
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("activate", activate_cmd))
