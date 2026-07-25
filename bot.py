@@ -255,7 +255,7 @@ class InstaDownloader:
     
     # ═══════════════ PHOTO METHODS ═══════════════
     
-@staticmethod
+    @staticmethod
     def _download_photo(shortcode, url):
         """Single method to rule them all - yt-dlp + fallback scrape, NO API needed"""
         task_id = f"photo_{shortcode}_{int(time.time()*1000) % 10000}"
