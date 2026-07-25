@@ -24,6 +24,9 @@ OWNER_ID = 1987818347
 DOWNLOAD_DIR = "downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
+# Add this line
+download_semaphore = asyncio.Semaphore(2)  # Max 2 parallel downloads
+
 # ═══════════════════════════
 # 📊 DATABASES
 # ═══════════════════════════
@@ -833,27 +836,20 @@ async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, u
     
     msg = await update.message.reply_text("⏳ 𝗣𝗿𝗼𝗰𝗲𝘀𝘀𝗶𝗻𝗴...", parse_mode="Markdown")
     
-    try:
-        is_reel = '/reel/' in url or '/tv/' in url
-        await msg.edit_text("📥 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗩𝗶𝗱𝗲𝗼..." if is_reel else "📥 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗣𝗵𝗼𝘁𝗼...", parse_mode="Markdown")
-        task_dir = os.path.join("downloads", f"task_{unique_id}")
-        os.makedirs(task_dir, exist_ok=True)
-
-        # Temp change DOWNLOAD_DIR for isolated download
-        global DOWNLOAD_DIR
-        original_dir = DOWNLOAD_DIR
-        DOWNLOAD_DIR = task_dir
-
-        # Add timeout wrapper
-        import concurrent.futures
+    # Wait for semaphore (max 2 parallel)
+    async with download_semaphore:
         try:
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(InstaDownloader.download_media, url)
-                result = future.result(timeout=120)
-        except concurrent.futures.TimeoutError:
-            result = {"success": False, "error": "Download timeout"}
-
-        DOWNLOAD_DIR = original_dir
+            is_reel = '/reel/' in url or '/tv/' in url
+            await msg.edit_text("📥 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗩𝗶𝗱𝗲𝗼..." if is_reel else "📥 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗣𝗵𝗼𝘁𝗼...", parse_mode="Markdown")
+            task_dir = os.path.join("downloads", f"task_{unique_id}")
+            os.makedirs(task_dir, exist_ok=True)
+    
+            # Temp change DOWNLOAD_DIR for isolated download
+            global DOWNLOAD_DIR
+            original_dir = DOWNLOAD_DIR
+            DOWNLOAD_DIR = task_dir
+            result = InstaDownloader.download_media(url)
+            DOWNLOAD_DIR = original_dir
         
         if not result.get("success"):
             await msg.edit_text(f"❌ 𝗙𝗮𝗶𝗹𝗲𝗱！ {result.get('error', '')}", parse_mode="Markdown")
@@ -941,20 +937,23 @@ async def extract_and_send_audio_direct(query, context, url, audio_name):
     await asyncio.sleep(3)
     try: await search_msg.delete()
     except: pass
-    status_msg = await query.message.reply_text("🎵 𝗘𝘅𝘁𝗿𝗮𝗰𝘁𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼. ˚◞♡ ◟˚ .", parse_mode="Markdown")
-    try:
-        # Unique folder for THIS audio request
-        import uuid
-        audio_uid = str(uuid.uuid4())[:8]
-        audio_dir = os.path.join("downloads", f"audio_{audio_uid}")
-        os.makedirs(audio_dir, exist_ok=True)
-
-        # Temp change DOWNLOAD_DIR for this download
-        global DOWNLOAD_DIR
-        original_dir = DOWNLOAD_DIR
-        DOWNLOAD_DIR = audio_dir
-        result = InstaDownloader.download_media(url)
-        DOWNLOAD_DIR = original_dir
+    status_msg = await query.message.reply_text("📣 𝗘𝘅𝘁𝗿𝗮𝗰𝘁𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼. ˚◞♡ ◟˚ .", parse_mode="Markdown")
+    
+    # Wait for semaphore (max 2 parallel)
+    async with download_semaphore:
+        try:
+            # Unique folder for THIS audio request
+            import uuid
+            audio_uid = str(uuid.uuid4())[:8]
+            audio_dir = os.path.join("downloads", f"audio_{audio_uid}")
+            os.makedirs(audio_dir, exist_ok=True)
+    
+            # Temp change DOWNLOAD_DIR for this download
+            global DOWNLOAD_DIR
+            original_dir = DOWNLOAD_DIR
+            DOWNLOAD_DIR = audio_dir
+            result = InstaDownloader.download_media(url)
+            DOWNLOAD_DIR = original_dir
         
         if not result.get("success"): 
             await status_msg.edit_text("❌ 𝗙𝗮𝗶𝗹𝗲𝗱", parse_mode="Markdown")
