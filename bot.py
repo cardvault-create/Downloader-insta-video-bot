@@ -174,7 +174,35 @@ class InstaDownloader:
         is_reel = '/reel/' in url or '/tv/' in url
         if is_reel: return InstaDownloader._download_video(shortcode)
         else: return InstaDownloader._download_photo(shortcode, url)
-    
+
+    @staticmethod
+    def _progress_hook(d):
+        """Progress hook for yt-dlp"""
+        if d['status'] == 'downloading':
+            try:
+                total = d.get('total_bytes') or d.get('total_bytes_estimate', 0)
+                downloaded = d.get('downloaded_bytes', 0)
+                if total > 0:
+                    percent = downloaded / total * 100
+                    speed = d.get('speed', 0)
+                    if speed:
+                        speed_str = f"{speed/1024/1024:.1f} MB/s"
+                    else:
+                        speed_str = "N/A"
+                    # Store progress for external use
+                    InstaDownloader._progress = {
+                        'percent': percent,
+                        'speed': speed_str,
+                        'total': total,
+                        'downloaded': downloaded
+                    }
+            except:
+                pass
+        elif d['status'] == 'finished':
+            InstaDownloader._progress = {'percent': 100, 'speed': 'Done', 'total': 0, 'downloaded': 0}
+
+    _progress = {'percent': 0, 'speed': 'N/A', 'total': 0, 'downloaded': 0}
+
     @staticmethod
     def _download_video(shortcode):
         """FAST DOWNLOAD - ALWAYS WITH AUDIO"""
@@ -193,6 +221,7 @@ class InstaDownloader:
             'force_overwrites': True,
             'ignoreerrors': True,
             'no_color': True,
+            'progress_hooks': [InstaDownloader._progress_hook],
             'http_headers': {
                 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -835,11 +864,35 @@ async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, u
     try:
         is_reel = '/reel/' in url or '/tv/' in url
         await msg.edit_text("📥 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗩𝗶𝗱𝗲𝗼..." if is_reel else "📥 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗣𝗵𝗼𝘁𝗼...", parse_mode="Markdown")
+        
+        # Progress update function
+        async def update_progress():
+            last_percent = -1
+            while True:
+                prog = InstaDownloader._progress
+                current_percent = int(prog.get('percent', 0))
+                if current_percent != last_percent and current_percent > 0:
+                    speed = prog.get('speed', 'N/A')
+                    bar_filled = int(current_percent / 10)
+                    bar = '█' * bar_filled + '░' * (10 - bar_filled)
+                    try:
+                        await msg.edit_text(f"📥 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗩𝗶𝗱𝗲𝗼...\n\n[{bar}] {current_percent}%\n⚡ {speed}", parse_mode="Markdown")
+                    except:
+                        pass
+                    last_percent = current_percent
+                if current_percent >= 100:
+                    break
+                await asyncio.sleep(1)
+        
         global DOWNLOAD_DIR
         original_dir = DOWNLOAD_DIR
         DOWNLOAD_DIR = os.path.join(original_dir, f"task_{unique_id}")
         os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+        
+        progress_task = asyncio.create_task(update_progress())
         result = InstaDownloader.download_media(url)
+        progress_task.cancel()
+        
         DOWNLOAD_DIR = original_dir
         
         if not result.get("success"):
