@@ -188,10 +188,10 @@ class InstaDownloader:
             'merge_output_format': 'mp4',
             'retries': 10,
             'fragment_retries': 10,
-            'socket_timeout': 600,
+            'socket_timeout': 1200,
             'extractor_retries': 5,
             'force_overwrites': True,
-            'ignoreerrors': False,
+            'ignoreerrors': True,
             'no_color': True,
             'http_headers': {
                 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
@@ -438,7 +438,7 @@ class InstaDownloader:
             else:
                 ap = os.path.join(DOWNLOAD_DIR, f"{os.path.splitext(os.path.basename(video_path))[0]}.mp3")
             if not shutil.which('ffmpeg'): return {"success": False, "error": "FFmpeg not found"}
-            subprocess.run(['ffmpeg', '-i', video_path, '-vn', '-acodec', 'libmp3lame', '-ab', '192k', '-y', ap], capture_output=True, timeout=180)
+            subprocess.run(['ffmpeg', '-i', video_path, '-vn', '-acodec', 'libmp3lame', '-ab', '192k', '-y', ap], capture_output=True, timeout=1200)
             if os.path.exists(ap) and os.path.getsize(ap) > 1000: return {"success": True, "file_path": ap}
             return {"success": False, "error": "Audio extraction failed"}
         except Exception as e: return {"success": False, "error": str(e)[:50]}
@@ -1019,7 +1019,7 @@ def main():
         try: os.remove(os.path.join(DOWNLOAD_DIR, f))
         except: pass
     
-    app = Application.builder().token(BOT_TOKEN).read_timeout(600).write_timeout(600).connect_timeout(600).pool_timeout(600).build()
+    app = Application.builder().token(BOT_TOKEN).read_timeout(1200).write_timeout(1200).connect_timeout(1200).pool_timeout(1200).build()
     
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("activate", activate_cmd))
