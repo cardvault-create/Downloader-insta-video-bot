@@ -189,10 +189,10 @@ class InstaDownloader:
             'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
             'format': 'bv*+ba/b',
             'merge_output_format': 'mp4',
-            'socket_timeout': 80000,
-            'extractor_retries': 500,
-            'retries': 500,
-            'fragment_retries': 500,
+            'socket_timeout': 30,
+            'extractor_retries': 2,
+            'retries': 3,
+            'fragment_retries': 3,
             'force_overwrites': True,
             'ignoreerrors': True,
             'no_color': True,
@@ -920,7 +920,26 @@ async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, u
             global DOWNLOAD_DIR
             original_dir = DOWNLOAD_DIR
             DOWNLOAD_DIR = task_dir
-            result = InstaDownloader.download_media(url)
+
+            import concurrent.futures
+            result = None
+            for attempt in range(2):
+                try:
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        future = executor.submit(InstaDownloader.download_media, url)
+                        result = future.result(timeout=90)
+                    if result.get("success"):
+                        break
+                except concurrent.futures.TimeoutError:
+                    time.sleep(2)
+                    continue
+                except Exception:
+                    time.sleep(2)
+                    continue
+
+            if result is None:
+                result = {"success": False, "error": "🚫 𝐒𝐞𝐫𝐯𝐞𝐫 𝐢𝐬𝐬𝐮𝐞, 𝐩𝐥𝐞𝐚𝐬𝐞 𝐭𝐫𝐲 𝐚𝐠𝐚𝐢𝐧 (˃̣̣̥᷄⌓˂̣̣̥᷅)"}
+
             DOWNLOAD_DIR = original_dir
             
             if not result.get("success"):
@@ -1024,7 +1043,26 @@ async def extract_and_send_audio_direct(query, context, url, audio_name):
             global DOWNLOAD_DIR
             original_dir = DOWNLOAD_DIR
             DOWNLOAD_DIR = audio_dir
-            result = InstaDownloader.download_media(url)
+
+            import concurrent.futures
+            result = None
+            for attempt in range(2):
+                try:
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        future = executor.submit(InstaDownloader.download_media, url)
+                        result = future.result(timeout=90)
+                    if result.get("success"):
+                        break
+                except concurrent.futures.TimeoutError:
+                    time.sleep(2)
+                    continue
+                except Exception:
+                    time.sleep(2)
+                    continue
+
+            if result is None:
+                result = {"success": False, "error": "🚫 𝐒𝐞𝐫𝐯𝐞𝐫 𝐢𝐬𝐬𝐮𝐞, 𝐩𝐥𝐞𝐚𝐬𝐞 𝐭𝐫𝐲 𝐚𝐠𝐚𝐢𝐧 (｡•́︿•̀｡)"}
+
             DOWNLOAD_DIR = original_dir
             
             if not result.get("success"): 
