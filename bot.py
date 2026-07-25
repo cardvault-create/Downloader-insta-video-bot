@@ -265,90 +265,90 @@ class InstaDownloader:
             if result.get("success"): return result
         return {"success": False, "error": "Photo download failed"}
     
-    @staticmethod
-    def _method_scrape_multi(shortcode, url):
-        """Multiple photos from carousel posts - ALL PHOTOS"""
-        try:
-            session = requests.Session()
-            session.headers.update({'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15'})
-            resp = session.get(url, timeout=15)
-            if resp.status_code != 200: return {"success": False}
-            html = resp.text
-            image_urls = []
-        
-            # Method 1: Try to get from __NEXT_DATA__ (carousel)
-            nd = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', html, re.DOTALL)
-            if nd:
-                try:
-                    data = json.loads(nd.group(1))
-                    data_str = json.dumps(data)
-                
-                    # Find carousel edges - all photos
-                    carousel_matches = re.findall(r'"edge_sidecar_to_children"[^}]*"edges":\s*\[(.*?)\]', data_str, re.DOTALL)
-                    if carousel_matches:
-                        for carousel in carousel_matches:
-                            display_urls = re.findall(r'"display_url":"([^"]+)"', carousel)
-                            for du in display_urls:
-                                cleaned = du.replace('\\u0026', '&')
-                                if cleaned not in image_urls and '.mp4' not in cleaned:
-                                    image_urls.append(cleaned)
-                
-                    # Also check for display_url outside carousel
-                    if not image_urls:
-                        display_urls = re.findall(r'"display_url":"([^"]+)"', data_str)
+@staticmethod
+def _method_scrape_multi(shortcode, url):
+    """Multiple photos from carousel posts - ALL PHOTOS"""
+    try:
+        session = requests.Session()
+        session.headers.update({'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15'})
+        resp = session.get(url, timeout=15)
+        if resp.status_code != 200: return {"success": False}
+        html = resp.text
+        image_urls = []
+    
+        # Method 1: Try to get from __NEXT_DATA__ (carousel)
+        nd = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', html, re.DOTALL)
+        if nd:
+            try:
+                data = json.loads(nd.group(1))
+                data_str = json.dumps(data)
+            
+                # Find carousel edges - all photos
+                carousel_matches = re.findall(r'"edge_sidecar_to_children"[^}]*"edges":\s*\[(.*?)\]', data_str, re.DOTALL)
+                if carousel_matches:
+                    for carousel in carousel_matches:
+                        display_urls = re.findall(r'"display_url":"([^"]+)"', carousel)
                         for du in display_urls:
                             cleaned = du.replace('\\u0026', '&')
                             if cleaned not in image_urls and '.mp4' not in cleaned:
                                 image_urls.append(cleaned)
-                except: pass
-        
-            # Method 2: If still empty, scrape from HTML
-            if not image_urls:
-                urls_found = re.findall(r'"display_url":"([^"]+)"', html)
-                image_urls = [u.replace('\\u0026', '&') for u in urls_found if '.mp4' not in u]
-        
-            # Method 3: Try og:image tags
-            if not image_urls:
-                og = re.findall(r'<meta\s+property="og:image"\s+content="([^"]+)"', html)
-                image_urls = list(set(og))
-        
-            # Remove duplicates
-            seen = set()
-            unique_urls = []
-            for u in image_urls:
-                if u not in seen:
-                    seen.add(u)
-                    unique_urls.append(u)
-            image_urls = unique_urls
-        
-            if not image_urls:
+            
+                # Also check for display_url outside carousel
+                if not image_urls:
+                    display_urls = re.findall(r'"display_url":"([^"]+)"', data_str)
+                    for du in display_urls:
+                        cleaned = du.replace('\\u0026', '&')
+                        if cleaned not in image_urls and '.mp4' not in cleaned:
+                            image_urls.append(cleaned)
+            except: pass
+    
+        # Method 2: If still empty, scrape from HTML
+        if not image_urls:
+            urls_found = re.findall(r'"display_url":"([^"]+)"', html)
+            image_urls = [u.replace('\\u0026', '&') for u in urls_found if '.mp4' not in u]
+    
+        # Method 3: Try og:image tags
+        if not image_urls:
+            og = re.findall(r'<meta\s+property="og:image"\s+content="([^"]+)"', html)
+            image_urls = list(set(og))
+    
+        # Remove duplicates
+        seen = set()
+        unique_urls = []
+        for u in image_urls:
+            if u not in seen:
+                seen.add(u)
+                unique_urls.append(u)
+        image_urls = unique_urls
+    
+        if not image_urls:
             return {"success": False}
-        
-            # Download ALL photos (no limit)
-            downloaded = []
-            for i, img_url in enumerate(image_urls):
-                try:
-                    fp = os.path.join(DOWNLOAD_DIR, f"multi_{shortcode}_{i+1}.jpg")
-                    r = session.get(img_url, headers={'User-Agent': 'Mozilla/5.0'}, stream=True, timeout=30)
-                    if r.status_code == 200:
-                        with open(fp, 'wb') as f:
-                            for chunk in r.iter_content(8192):
-                                f.write(chunk)
-                        if os.path.getsize(fp) > 1000:
-                            downloaded.append(fp)
-                except: continue
-        
-            if downloaded:
-                return {
-                    "success": True,
-                    "file_path": downloaded[0],
-                    "file_paths": downloaded,
-                    "is_video": False,
-                    "is_multiple": len(downloaded) > 1,
-                    "total": len(downloaded)
-                }
-            return {"success": False}
-        except: return {"success": False}
+    
+        # Download ALL photos (no limit)
+        downloaded = []
+        for i, img_url in enumerate(image_urls):
+            try:
+                fp = os.path.join(DOWNLOAD_DIR, f"multi_{shortcode}_{i+1}.jpg")
+                r = session.get(img_url, headers={'User-Agent': 'Mozilla/5.0'}, stream=True, timeout=30)
+                if r.status_code == 200:
+                    with open(fp, 'wb') as f:
+                        for chunk in r.iter_content(8192):
+                            f.write(chunk)
+                    if os.path.getsize(fp) > 1000:
+                        downloaded.append(fp)
+            except: continue
+    
+        if downloaded:
+            return {
+                "success": True,
+                "file_path": downloaded[0],
+                "file_paths": downloaded,
+                "is_video": False,
+                "is_multiple": len(downloaded) > 1,
+                "total": len(downloaded)
+            }
+        return {"success": False}
+    except: return {"success": False}
     
     @staticmethod
     def _method_oembed(shortcode):
