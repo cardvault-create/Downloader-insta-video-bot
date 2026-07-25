@@ -862,7 +862,7 @@ async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, u
                 photo_paths = result.get("file_paths", [])
                 total = len(photo_paths)
                 save_photo_cache(cache_key, photo_paths)
-                await msg.edit_text(f"📤 𝗨𝗽𝗹𝗼𝗮𝗱𝗶𝗻𝗴 {total} 𝗣𝗵𝗼𝘁𝗼𝘀...", parse_mode="Markdown")
+                await msg.edit_text(f"🪂 𝗨𝗽𝗹𝗼𝗮𝗱𝗶𝗻𝗴 {total} 𝗣𝗵𝗼𝘁𝗼𝘀...", parse_mode="Markdown")
                 
                 if total > 0:
                     batch_paths = photo_paths[:10]
@@ -961,10 +961,10 @@ async def extract_and_send_audio_direct(query, context, url, audio_name):
             vp = result["file_path"]
             ar = InstaDownloader.extract_audio(vp, audio_name)
             if ar.get("success"):
-                await status_msg.edit_text("📤 𝗦𝗲𝗻𝗱𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼♡ ⋆｡°✩", parse_mode="Markdown")
+                await status_msg.edit_text("🎻 𝗦𝗲𝗻𝗱𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼♡ ⋆｡°✩", parse_mode="Markdown")
                 await context.bot.send_chat_action(chat_id=query.message.chat_id, action='upload_audio')
                 with open(ar["file_path"], 'rb') as f:
-                    await query.message.reply_audio(audio=f, title=audio_name, performer="𝗕𝘆 ➪ 𓆩#ＫＡＲＴＩＫ𓆪", caption=CAPTION, parse_mode="Markdown")
+                    await query.message.reply_audio(audio=f, title=audio_name, performer="🈲 𝗕𝘆 ➪ 𓆩#ＫＡＲＴＩＫ𓆪", caption=CAPTION, parse_mode="Markdown")
                 await asyncio.sleep(2)
                 await status_msg.delete()
                 try: os.remove(ar["file_path"])
