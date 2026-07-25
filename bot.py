@@ -929,14 +929,7 @@ async def extract_and_send_audio_direct(query, context, url, audio_name):
     except: pass
     status_msg = await query.message.reply_text("🎵 𝗘𝘅𝘁𝗿𝗮𝗰𝘁𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼. ˚◞♡ ◟˚ .", parse_mode="Markdown")
     try:
-        import uuid
-        unique_id = str(uuid.uuid4())[:8]
-        global DOWNLOAD_DIR
-        original_dir = DOWNLOAD_DIR
-        DOWNLOAD_DIR = os.path.join(original_dir, f"audio_{unique_id}")
-        os.makedirs(DOWNLOAD_DIR, exist_ok=True)
         result = InstaDownloader.download_media(url)
-        DOWNLOAD_DIR = original_dir
         
         if not result.get("success"): 
             await status_msg.edit_text("❌ 𝗙𝗮𝗶𝗹𝗲𝗱", parse_mode="Markdown")
