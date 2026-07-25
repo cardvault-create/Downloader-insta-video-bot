@@ -966,19 +966,15 @@ async def extract_and_send_audio_direct(query, context, url, audio_name):
             with open(ar["file_path"], 'rb') as f:
                 await query.message.reply_audio(audio=f, title=audio_name, performer="𝗕𝘆 ➪ 𓆩#ＫＡＲＴＩＫ𓆪", caption=CAPTION, parse_mode="Markdown")
             await asyncio.sleep(2)
-            await status_msg.delete()
-            try: os.remove(ar["file_path"])
-            except: pass
-        else: 
-            await status_msg.edit_text(f"❌ {ar.get('error')}", parse_mode="Markdown")
-        InstaDownloader.cleanup(vp)
-    except Exception as e: 
-        try: await status_msg.edit_text(f"❌ {str(e)[:80]}", parse_mode="Markdown")
+        await status_msg.delete()
+        try: os.remove(ar["file_path"])
         except: pass
-            
-async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query; await query.answer()
-    
+    else: 
+        await status_msg.edit_text(f"❌ {ar.get('error')}", parse_mode="Markdown")
+    InstaDownloader.cleanup(vp)
+except Exception as e: 
+    try: await status_msg.edit_text(f"❌ {str(e)[:80]}", parse_mode="Markdown")
+    except: pass
     if query.data.startswith("aud_"):
         shortcode = query.data[4:]
         video_url = f"https://www.instagram.com/reel/{shortcode}/"
