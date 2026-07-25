@@ -267,63 +267,69 @@ class InstaDownloader:
     
     @staticmethod
     def _method_scrape_multi(shortcode, url):
-        """Multiple photos from carousel posts - ALL PHOTOS"""
+        """Multiple photos from carousel posts - ALL PHOTOS using yt-dlp"""
         try:
-            session = requests.Session()
-            session.headers.update({'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15'})
-            resp = session.get(url, timeout=15)
-            if resp.status_code != 200: return {"success": False}
-            html = resp.text
+            # Method 1: Use yt-dlp to get ALL carousel images
             image_urls = []
+            try:
+                ydl_opts = {
+                    'quiet': True,
+                    'extract_flat': False,
+                    'skip_download': True,
+                }
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    info = ydl.extract_info(url, download=False)
+                    if info:
+                        # Check for entries (carousel)
+                        if 'entries' in info and info['entries']:
+                            for entry in info['entries']:
+                                thumb = entry.get('thumbnail', '')
+                                if thumb and thumb not in image_urls:
+                                    image_urls.append(thumb)
+                        # Single image
+                        elif 'thumbnail' in info:
+                            thumb = info['thumbnail']
+                            if thumb and thumb not in image_urls:
+                                image_urls.append(thumb)
+            except:
+                pass
 
-            # Method 1: Deep search in __NEXT_DATA__ for carousel items
-            nd = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', html, re.DOTALL)
-            if nd:
-                try:
-                    data = json.loads(nd.group(1))
-                    data_str = json.dumps(data)
-                
-                    # Search for carousel_media or edge_sidecar in entire JSON
-                    carousel_sections = re.findall(r'"carousel_media":\s*\[(.*?)\]', data_str, re.DOTALL)
-                    if not carousel_sections:
-                        carousel_sections = re.findall(r'"edge_sidecar_to_children":\s*\{(.*?)\}', data_str, re.DOTALL)
-                
-                    for section in carousel_sections:
-                        urls = re.findall(r'"display_url":"([^"]+)"', section)
-                        for du in urls:
-                            cleaned = du.replace('\\u0026', '&')
-                            if cleaned not in image_urls and '.mp4' not in cleaned:
-                                image_urls.append(cleaned)
-                
-                    # If still empty, get ALL display_url from JSON
-                    if not image_urls:
-                        all_urls = re.findall(r'"display_url":"([^"]+)"', data_str)
-                        for du in all_urls:
-                            cleaned = du.replace('\\u0026', '&')
-                            if cleaned not in image_urls and '.mp4' not in cleaned:
-                                image_urls.append(cleaned)
-                except: pass
-
-            # Method 2: Find all image URLs in HTML with dimensions (carousel indicators)
-            if len(image_urls) < 2:
-                # Look for all high-res image URLs
-                all_imgs = re.findall(r'https?://[^"\']+\.(?:jpg|jpeg|png|webp)\?[^"\']*', html)
-                for img in all_imgs:
-                    if 'instagram' in img and img not in image_urls and '.mp4' not in img:
-                        image_urls.append(img)
-
-            # Method 3: Scrape display_url from HTML
-            if len(image_urls) < 2:
-                urls_found = re.findall(r'"display_url":"([^"]+)"', html)
-                for u in urls_found:
-                    cleaned = u.replace('\\u0026', '&')
-                    if cleaned not in image_urls and '.mp4' not in cleaned:
-                        image_urls.append(cleaned)
-
-            # Method 4: og:image tags
+            # Method 2: If yt-dlp failed, scrape HTML
             if not image_urls:
-                og = re.findall(r'<meta\s+property="og:image"\s+content="([^"]+)"', html)
-                image_urls = list(set(og))
+                session = requests.Session()
+                session.headers.update({'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15'})
+                resp = session.get(url, timeout=15)
+                if resp.status_code == 200:
+                    html = resp.text
+                
+                    # Try NEXT_DATA
+                    nd = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', html, re.DOTALL)
+                    if nd:
+                        try:
+                            data = json.loads(nd.group(1))
+                            data_str = json.dumps(data)
+                            all_urls = re.findall(r'"display_url":"([^"]+)"', data_str)
+                            for du in all_urls:
+                                cleaned = du.replace('\\u0026', '&')
+                                if cleaned not in image_urls and '.mp4' not in cleaned:
+                                    image_urls.append(cleaned)
+                        except: pass
+                
+                    # HTML fallback
+                    if len(image_urls) < 2:
+                        urls_found = re.findall(r'"display_url":"([^"]+)"', html)
+                        for u in urls_found:
+                            cleaned = u.replace('\\u0026', '&')
+                            if cleaned not in image_urls and '.mp4' not in cleaned:
+                                image_urls.append(cleaned)
+                
+                    # og:image
+                    if not image_urls:
+                        og = re.findall(r'<meta\s+property="og:image"\s+content="([^"]+)"', html)
+                        image_urls = list(set(og))
+
+            if not image_urls:
+                return {"success": False}
 
             # Remove duplicates
             seen = set()
@@ -334,10 +340,9 @@ class InstaDownloader:
                     unique_urls.append(u)
             image_urls = unique_urls
 
-            if not image_urls:
-                return {"success": False}
-
             # Download ALL photos
+            session = requests.Session()
+            session.headers.update({'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15'})
             downloaded = []
             for i, img_url in enumerate(image_urls):
                 try:
