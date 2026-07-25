@@ -177,10 +177,10 @@ class InstaDownloader:
     
     @staticmethod
     def _download_video(shortcode):
-    """FAST DOWNLOAD - ALWAYS WITH AUDIO"""
-    url = f'https://www.instagram.com/reel/{shortcode}/'
+        """FAST DOWNLOAD - ALWAYS WITH AUDIO"""
+        url = f'https://www.instagram.com/reel/{shortcode}/'
     
-    ydl_opts = {
+        ydl_opts = {
         'quiet': True,
         'no_warnings': True,
         'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
