@@ -517,7 +517,7 @@ GROUP_WELCOME = """👋🏻 ʜᴇʟʟᴏ {chat_title} ♡ ⋆｡°✩
 
 🫧 ˹ᴅᴇᴠᴇʟᴏᴩᴇʀ˼ 🪽 ➪ [𝜝𝜣𝜯 𝑭𝜟𝜯𝜢𝜮𝜞](https://t.me/FathersOfCreater) ✔︎"""
 
-BOT_DISABLED_MSG = "🚫 𝗕𝗢𝗧 𝗦𝗧𝗢𝗣 𝗕𝗬 𝗢𝗪𝗡𝗘𝗥\n\n𝗕𝗼𝘁 𝗶𝘀 𝗰𝘂𝗿𝗿𝗲𝗻𝘁𝗹𝘆 𝗱𝗶𝘀𝗮𝗯𝗹𝗲𝗱."
+BOT_DISABLED_MSG = "🚫 𝗕𝗢𝗧 𝗦𝗧𝗢𝗣 𝗕𝗬 𝗢𝗪𝗡𝗘𝗥\n\n𝗕𝗼𝘁 𝗶𝘀 𝗰𝘂𝗿𝗿𝗲𝗻𝘁𝗹𝘆 𝗱𝗶𝘀𝗮𝗯𝗹𝗲𝗱. (˃̣̣̥᷄⌓˂̣̣̥᷅)"
 
 AUDIO_BUTTON_TEXT = "➪ ˹𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝 𝐕𝐢𝐝𝐞𝐨 𝐀𝐮𝐝𝐢𝐨˼  ♪"
 AUDIO_DEFAULT_NAME = "➪ ༼◉♡ 𝙈𝙮 𝙈𝙪𝙨𝙞𝙘 ♪🛸◉༽"
@@ -954,36 +954,20 @@ async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, u
                 total = len(photo_paths)
                 save_photo_cache(cache_key, photo_paths)
                 await msg.edit_text(f"🪂 𝗨𝗽𝗹𝗼𝗮𝗱𝗶𝗻𝗴 {total} 𝗣𝗵𝗼𝘁𝗼𝘀...", parse_mode="Markdown")
-                
-                if total > 0:
-                    batch_paths = photo_paths[:10]
-                    for i, path in enumerate(batch_paths):
-                        if os.path.exists(path):
-                            with open(path, 'rb') as f:
-                                keyboard = None
-                                if total > 1 and i == 0:
-                                    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(f"➪ 𝗡𝗲𝘅𝘁 𝗣𝗵𝗼𝘁𝗼 ➤ (2/{total})", callback_data=f"nxp_{cache_key}_0")]])
-                                elif i + 1 < total:
-                                    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(f"➪ 𝗡𝗲𝘅𝘁 𝗣𝗵𝗼𝘁𝗼 ➤ ({i+2}/{total})", callback_data=f"nxp_{cache_key}_{i}")]])
-                                
-                                if i == 0:
-                                    await update.message.reply_photo(photo=f, caption=f"📸 {i+1}/{total}\n\n{CAPTION}", parse_mode="Markdown", reply_markup=keyboard, reply_to_message_id=update.message.message_id)
-                                else:
-                                    await update.message.reply_photo(photo=f, caption=f"📸 {i+1}/{total}", reply_markup=keyboard, reply_to_message_id=update.message.message_id)
-                
-                if total > 10:
-                    for i in range(10, min(total, 20)):
-                        path = photo_paths[i]
-                        if os.path.exists(path):
-                            with open(path, 'rb') as f:
-                                keyboard = None
-                                if i + 1 < total:
-                                    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(f"➪ 𝗡𝗲𝘅𝘁 𝗣𝗵𝗼𝘁𝗼 ➤ ({i+2}/{total})", callback_data=f"nxp_{cache_key}_{i}")]])
-                                await update.message.reply_photo(photo=f, caption=f"📸 {i+1}/{total}", reply_markup=keyboard)
-                
+    
+                # Saare photos ek ek karke bhejo - No buttons
+                for i, path in enumerate(photo_paths):
+                    if os.path.exists(path):
+                        with open(path, 'rb') as f:
+                            if i == 0:
+                                await update.message.reply_photo(photo=f, caption=f"📸 {i+1}/{total}\n\n{CAPTION}", parse_mode="Markdown", reply_to_message_id=update.message.message_id)
+                            else:
+                                await update.message.reply_photo(photo=f, caption=f"📸 {i+1}/{total}", reply_to_message_id=update.message.message_id)
+                        await asyncio.sleep(0.5)  # Thoda gap
+    
                 await msg.delete()
                 if sticker_msg:
-                    await asyncio.sleep(6)
+                    await asyncio.sleep(2)
                     try: await sticker_msg.delete()
                     except: pass
                 return
