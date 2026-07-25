@@ -936,7 +936,7 @@ async def extract_and_send_audio_direct(query, context, url, audio_name):
         os.makedirs(DOWNLOAD_DIR, exist_ok=True)
         result = InstaDownloader.download_media(url)
         DOWNLOAD_DIR = original_dir
-        result = InstaDownloader.download_media(url)
+        
         if not result.get("success"): 
             await status_msg.edit_text("❌ 𝗙𝗮𝗶𝗹𝗲𝗱", parse_mode="Markdown")
             return
