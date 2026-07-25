@@ -663,11 +663,28 @@ async def settings_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def bot_added_to_group(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_bot_enabled(): return
-    if update.my_chat_member.new_chat_member.status in [ChatMemberStatus.MEMBER, ChatMemberStatus.ADMINISTRATOR]:
-        chat = update.effective_chat; bot_user = await context.bot.get_me()
-        kb = InlineKeyboardMarkup([[InlineKeyboardButton("◆ ➪ ˹𝜟𝙙𝙙 𝜯𝜣 𝑮𝜞𝜭𝑼𝝆˼ ♪☬", url=f"https://t.me/{bot_user.username}?startgroup=true")]])
-        try: await context.bot.send_message(chat.id, GROUP_WELCOME.replace("{chat_title}", chat.title or "Group"), parse_mode="Markdown", reply_markup=kb)
-        except: pass
+    
+    # Check both my_chat_member and message.new_chat_members
+    chat = update.effective_chat
+    bot_user = await context.bot.get_me()
+    
+    # Check if bot was added via my_chat_member update
+    if update.my_chat_member and update.my_chat_member.new_chat_member.status in [ChatMemberStatus.MEMBER, ChatMemberStatus.ADMINISTRATOR]:
+        if str(update.my_chat_member.new_chat_member.user.id) == str(bot_user.id):
+            kb = InlineKeyboardMarkup([[InlineKeyboardButton("◆ ➪ ˹𝜟𝙙𝙙 𝜯𝜣 𝑮𝜞𝜭𝑼𝝆˼ ♪☬", url=f"https://t.me/{bot_user.username}?startgroup=true")]])
+            try: 
+                await context.bot.send_message(chat.id, GROUP_WELCOME.replace("{chat_title}", chat.title or "Group"), parse_mode="Markdown", reply_markup=kb)
+            except: pass
+    
+    # Check if bot was added via new_chat_members
+    elif update.message and update.message.new_chat_members:
+        for member in update.message.new_chat_members:
+            if member.id == bot_user.id:
+                kb = InlineKeyboardMarkup([[InlineKeyboardButton("◆ ➪ ˹𝜟𝙙𝙙 𝜯𝜣 𝑮𝜞𝜭𝑼𝝆˼ ♪☬", url=f"https://t.me/{bot_user.username}?startgroup=true")]])
+                try: 
+                    await update.message.reply_text(GROUP_WELCOME.replace("{chat_title}", chat.title or "Group"), parse_mode="Markdown", reply_markup=kb)
+                except: pass
+                break
 
 async def disable_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
@@ -937,7 +954,7 @@ async def extract_and_send_audio_direct(query, context, url, audio_name):
     await asyncio.sleep(3)
     try: await search_msg.delete()
     except: pass
-    status_msg = await query.message.reply_text("📣 𝗘𝘅𝘁𝗿𝗮𝗰𝘁𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼. ˚◞♡ ◟˚ .", parse_mode="Markdown")
+    status_msg = await query.message.reply_text("💽 𝗘𝘅𝘁𝗿𝗮𝗰𝘁𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼. ˚◞♡ ◟˚ .", parse_mode="Markdown")
     
     # Wait for semaphore (max 2 parallel)
     async with download_semaphore:
@@ -964,7 +981,7 @@ async def extract_and_send_audio_direct(query, context, url, audio_name):
                 await status_msg.edit_text("🎻 𝗦𝗲𝗻𝗱𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼♡ ⋆｡°✩", parse_mode="Markdown")
                 await context.bot.send_chat_action(chat_id=query.message.chat_id, action='upload_audio')
                 with open(ar["file_path"], 'rb') as f:
-                    await query.message.reply_audio(audio=f, title=audio_name, performer="🈲 𝗕𝘆 ➪ 𓆩#ＫＡＲＴＩＫ𓆪", caption=CAPTION, parse_mode="Markdown")
+                    await query.message.reply_audio(audio=f, title=audio_name, performer="✩⋆｡°𝗕𝘆 ➪ 𓆩#ＫＡＲＴＩＫ𓆪 ♡", caption=CAPTION, parse_mode="Markdown")
                 await asyncio.sleep(2)
                 await status_msg.delete()
                 try: os.remove(ar["file_path"])
@@ -1038,6 +1055,7 @@ def main():
     app.add_handler(CommandHandler("disable", disable_cmd))
     app.add_handler(CommandHandler("enable", enable_cmd))
     app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, bot_added_to_group))
+    app.add_handler(MessageHandler(filters.StatusUpdate.MY_CHAT_MEMBER, bot_added_to_group))
     app.add_handler(CommandHandler("addemoji", add_emoji_cmd))
     app.add_handler(CommandHandler("removeemoji", remove_emoji_cmd))
     app.add_handler(CommandHandler("listemojis", list_emojis_cmd))
