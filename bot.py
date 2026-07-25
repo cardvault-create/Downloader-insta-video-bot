@@ -186,7 +186,7 @@ class InstaDownloader:
             'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
             'format': 'bv*+ba/b',
             'merge_output_format': 'mp4',
-            'socket_timeout': 30,
+            'socket_timeout': 60,
             'extractor_retries': 3,
             'retries': 5,
             'fragment_retries': 5,
@@ -836,11 +836,23 @@ async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, u
     try:
         is_reel = '/reel/' in url or '/tv/' in url
         await msg.edit_text("📥 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗩𝗶𝗱𝗲𝗼..." if is_reel else "📥 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗣𝗵𝗼𝘁𝗼...", parse_mode="Markdown")
+        task_dir = os.path.join("downloads", f"task_{unique_id}")
+        os.makedirs(task_dir, exist_ok=True)
+
+        # Temp change DOWNLOAD_DIR for isolated download
         global DOWNLOAD_DIR
         original_dir = DOWNLOAD_DIR
-        DOWNLOAD_DIR = os.path.join(original_dir, f"task_{unique_id}")
-        os.makedirs(DOWNLOAD_DIR, exist_ok=True)
-        result = InstaDownloader.download_media(url)
+        DOWNLOAD_DIR = task_dir
+
+        # Add timeout wrapper
+        import concurrent.futures
+        try:
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(InstaDownloader.download_media, url)
+                result = future.result(timeout=120)
+        except concurrent.futures.TimeoutError:
+            result = {"success": False, "error": "Download timeout"}
+
         DOWNLOAD_DIR = original_dir
         
         if not result.get("success"):
