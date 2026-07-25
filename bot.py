@@ -915,28 +915,6 @@ async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, u
         try: await msg.edit_text(f"❌ 𝗘𝗿𝗿𝗼𝗿： {str(e)[:100]}", parse_mode="Markdown")
         except: pass
             
-async def extract_and_send_audio(update, context, url, audio_name):
-    search_msg = await update.message.reply_text("🔎")
-    await asyncio.sleep(3)
-    try: await search_msg.delete()
-    except: pass
-    status_msg = await update.message.reply_text("🎵 𝗘𝘅𝘁𝗿𝗮𝗰𝘁𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼. ˚◞♡ ◟˚ .", parse_mode="Markdown")
-    try:
-        result = InstaDownloader.download_media(url)
-        if not result.get("success"): await status_msg.edit_text("❌ 𝗙𝗮𝗶𝗹𝗲𝗱", parse_mode="Markdown"); return
-        vp = result["file_path"]
-        ar = InstaDownloader.extract_audio(vp, audio_name)
-        if ar.get("success"):
-            await status_msg.edit_text("📤 𝗦𝗲𝗻𝗱𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼♡ ⋆｡°✩", parse_mode="Markdown")
-            with open(ar["file_path"], 'rb') as f:
-                await update.message.reply_audio(audio=f, title=audio_name, performer="Instagram", caption=CAPTION, parse_mode="Markdown")
-            await asyncio.sleep(2); await status_msg.delete()
-            try: os.remove(ar["file_path"])
-            except: pass
-        else: await status_msg.edit_text(f"❌ {ar.get('error')}", parse_mode="Markdown")
-        InstaDownloader.cleanup(vp)
-    except Exception as e: await status_msg.edit_text(f"❌ {str(e)[:80]}", parse_mode="Markdown")
-
 async def extract_and_send_audio_direct(query, context, url, audio_name):
     search_msg = await query.message.reply_text("🔎")
     await asyncio.sleep(3)
@@ -945,37 +923,43 @@ async def extract_and_send_audio_direct(query, context, url, audio_name):
     status_msg = await query.message.reply_text("🎵 𝗘𝘅𝘁𝗿𝗮𝗰𝘁𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼. ˚◞♡ ◟˚ .", parse_mode="Markdown")
     try:
         result = InstaDownloader.download_media(url)
-        if not result.get("success"): await status_msg.edit_text("❌ 𝗙𝗮𝗶𝗹𝗲𝗱", parse_mode="Markdown"); return
+        if not result.get("success"): 
+            await status_msg.edit_text("❌ 𝗙𝗮𝗶𝗹𝗲𝗱", parse_mode="Markdown")
+            return
         vp = result["file_path"]
         ar = InstaDownloader.extract_audio(vp, audio_name)
         if ar.get("success"):
             await status_msg.edit_text("📤 𝗦𝗲𝗻𝗱𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼♡ ⋆｡°✩", parse_mode="Markdown")
             with open(ar["file_path"], 'rb') as f:
                 await query.message.reply_audio(audio=f, title=audio_name, performer="𝗕𝘆 ➪ 𓆩#ＫＡＲＴＩＫ𓆪", caption=CAPTION, parse_mode="Markdown")
-            await asyncio.sleep(2); await status_msg.delete()
+            await asyncio.sleep(2)
+            await status_msg.delete()
             try: os.remove(ar["file_path"])
             except: pass
-        else: await status_msg.edit_text(f"❌ {ar.get('error')}", parse_mode="Markdown")
+        else: 
+            await status_msg.edit_text(f"❌ {ar.get('error')}", parse_mode="Markdown")
         InstaDownloader.cleanup(vp)
-    except Exception as e: await status_msg.edit_text(f"❌ {str(e)[:80]}", parse_mode="Markdown")
+    except Exception as e: 
+        try: await status_msg.edit_text(f"❌ {str(e)[:80]}", parse_mode="Markdown")
+        except: pass
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query; await query.answer()
     
     if query.data.startswith("aud_"):
         video_url = query.data[4:]
-        context.user_data['audio_video_url'] = video_url; context.user_data['current_url'] = video_url
+        context.user_data['audio_video_url'] = video_url
         await query.edit_message_reply_markup(reply_markup=None)
-        await asyncio.sleep(1.5)
-        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(AUDIO_DEFAULT_NAME, callback_data="def_audio")]])
-        prompt_msg = await query.message.reply_text(AUDIO_NAME_PROMPT, parse_mode="Markdown", reply_markup=keyboard)
-        context.user_data['awaiting_audio'] = True; context.user_data['audio_prompt_msg'] = prompt_msg
+        asyncio.create_task(extract_and_send_audio_direct(query, context, video_url, AUDIO_DEFAULT_NAME))
+        return
     elif query.data == "def_audio":
         await query.message.delete()
         context.user_data['awaiting_audio'] = False; context.user_data['audio_prompt_msg'] = None
         url = context.user_data.get('audio_video_url') or context.user_data.get('current_url')
-        if url: await extract_and_send_audio_direct(query, context, url, AUDIO_DEFAULT_NAME)
+        if url: 
+            asyncio.create_task(extract_and_send_audio_direct(query, context, url, AUDIO_DEFAULT_NAME))
         context.user_data['audio_video_url'] = None
+        return
     elif query.data.startswith("nxp_"):
         parts = query.data[4:].rsplit("_", 1); cache_key = parts[0]; current_idx = int(parts[1]); next_idx = current_idx + 1
         photo_paths = get_photo_cache(cache_key)
@@ -990,7 +974,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await query.message.reply_photo(photo=f, caption=f"📸 𝗣𝗵𝗼𝘁𝗼 {next_idx + 1}/{len(photo_paths)}**\n\n{CAPTION}", parse_mode="Markdown", reply_markup=keyboard)
         else:
             await query.answer("No more photos!", show_alert=True)
-
+            
 # ═══════════════════════════
 # 🚀 MAIN
 # ═══════════════════════════
