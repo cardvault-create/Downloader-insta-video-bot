@@ -664,10 +664,19 @@ async def settings_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(SETTINGS_TEXT, parse_mode="Markdown", disable_web_page_preview=True)
 
 async def bot_added_to_group(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_bot_enabled(): return
-    
     chat = update.effective_chat
     bot_user = await context.bot.get_me()
+    
+    # Bot disabled hone pe alag message
+    if not is_bot_enabled():
+        if update.message and update.message.new_chat_members:
+            for member in update.message.new_chat_members:
+                if member.id == bot_user.id:
+                    try: 
+                        await update.message.reply_text(BOT_DISABLED_MSG, parse_mode="Markdown")
+                    except: pass
+                    break
+        return
     
     # Check if bot was added via new_chat_members
     if update.message and update.message.new_chat_members:
@@ -792,12 +801,17 @@ async def clear_videos_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ═══════════════ MESSAGE HANDLER ═══════════════
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_bot_enabled(): return
     chat_type = update.effective_chat.type
     if chat_type in ['group', 'supergroup'] and not is_group_activated(update.effective_chat.id): return
     
     text = update.message.text
     if not text: return
+    
+    # Bot disabled check - only for instagram links
+    if not is_bot_enabled():
+        if InstaDownloader.is_instagram_url(text):
+            await update.message.reply_text(BOT_DISABLED_MSG, parse_mode="Markdown")
+        return
     
     # User-specific audio awaiting check
     user_id = update.effective_user.id
