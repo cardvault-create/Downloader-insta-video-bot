@@ -251,7 +251,7 @@ class InstaDownloader:
                 if os.path.exists(fp) and os.path.getsize(fp) > 50000:
                     return {"success": True, "file_path": fp, "is_video": True}
     
-        return {"success": False, "error": "Try another link"}
+        return {"success": False, "error": "🚫 𝐒𝐞𝐫𝐯𝐞𝐫 𝐢𝐬𝐬𝐮𝐞, 𝐩𝐥𝐞𝐚𝐬𝐞 𝐭𝐫𝐲 𝐚𝐠𝐚𝐢𝐧 (˃̣̣̥᷄⌓˂̣̣̥᷅)"}
     
    # ═══════════════ PHOTO METHODS ═══════════════
     
