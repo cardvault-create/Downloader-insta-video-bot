@@ -257,66 +257,108 @@ class InstaDownloader:
     
     @staticmethod
     def _download_photo(shortcode, url):
-        """FINAL WORKING - with proxy support"""
+        """FINAL - No proxy, direct download"""
         image_files = []
         task_dir = DOWNLOAD_DIR
     
-        # Free proxies - try multiple
-        proxies_list = [
-            'http://103.152.232.98:8080',
-            'http://103.86.193.18:8080',
-            'http://103.160.82.130:8080',
-            None  # Try without proxy also
-        ]
-    
-        for proxy in proxies_list:
-            try:
-                ydl_opts = {
-                    'quiet': True,
-                    'no_warnings': True,
-                    'outtmpl': os.path.join(task_dir, f'{shortcode}_%(id)s.%(ext)s'),
-                    'format': 'best[ext=jpg]/best[ext=png]/best[ext=webp]/best',
-                    'ignoreerrors': True,
-                    'no_color': True,
-                    'extract_flat': False,
-                    'socket_timeout': 30,
-                    'retries': 2,
-                }
-            
-                if proxy:
-                    ydl_opts['proxy'] = proxy
-            
-                if os.path.exists('cookies.txt'):
-                    ydl_opts['cookiefile'] = 'cookies.txt'
-            
-                # Download
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    ydl.download([url])
-            
-                time.sleep(1)
-            
-                # Collect images
-                for f in sorted(os.listdir(task_dir)):
-                    if f.endswith(('.jpg', '.jpeg', '.png', '.webp')) and os.path.getsize(os.path.join(task_dir, f)) > 1000:
-                        image_files.append(os.path.join(task_dir, f))
-            
-                if image_files:
-                    break  # Success, stop trying more proxies
-                
-            except:
-                continue
-    
-        if image_files:
-            return {
-                "success": True,
-                "file_path": image_files[0],
-                "file_paths": image_files,
-                "is_video": False,
-                "is_multiple": len(image_files) > 1,
-                "total": len(image_files)
+        try:
+            ydl_opts = {
+                'quiet': True,
+                'no_warnings': True,
+                'outtmpl': os.path.join(task_dir, f'{shortcode}_%(id)s.%(ext)s'),
+                'format': 'jpg/jpeg/png/webp',
+                'ignoreerrors': True,
+                'no_color': True,
+                'extract_flat': False,
+                'socket_timeout': 60,
+                'retries': 10,
+                'fragment_retries': 10,
+                'extractor_retries': 5,
             }
         
-        return {"success": False, "error": "No photos found"}
+            if os.path.exists('cookies.txt'):
+                ydl_opts['cookiefile'] = 'cookies.txt'
+        
+            # Download
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([url])
+        
+            time.sleep(1)
+        
+            # Collect all images
+            for f in sorted(os.listdir(task_dir)):
+                if f.endswith(('.jpg', '.jpeg', '.png', '.webp')) and os.path.getsize(os.path.join(task_dir, f)) > 1000:
+                    image_files.append(os.path.join(task_dir, f))
+        
+            # If yt-dlp failed, try requests with direct page scrape
+            if not image_files:
+                session = requests.Session()
+                session.headers.update({
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                    'Accept-Language': 'en-US,en;q=0.5',
+                    'Accept-Encoding': 'gzip, deflate, br',
+                    'Connection': 'keep-alive',
+                })
+            
+                resp = session.get(url, timeout=30)
+                if resp.status_code == 200:
+                    html = resp.text
+                    image_urls = []
+                
+                    # Try NEXT_DATA
+                    nd = re.search(r'<script[^>]*id="__NEXT_DATA__"[^>]*>(.*?)</script>', html, re.DOTALL)
+                    if nd:
+                        try:
+                            data = json.loads(nd.group(1))
+                            data_str = json.dumps(data)
+                            all_urls = re.findall(r'"display_url":"([^"]+)"', data_str)
+                            for u in all_urls:
+                                cleaned = u.replace('\\u0026', '&')
+                                if cleaned not in image_urls and '.mp4' not in cleaned and 's150x150' not in cleaned:
+                                    image_urls.append(cleaned)
+                        except: pass
+                
+                    if not image_urls:
+                        html_urls = re.findall(r'"display_url":"([^"]+)"', html)
+                        for u in html_urls:
+                            cleaned = u.replace('\\u0026', '&')
+                            if cleaned not in image_urls and '.mp4' not in cleaned:
+                                image_urls.append(cleaned)
+                
+                    if not image_urls:
+                        og = re.findall(r'<meta[^>]+property="og:image"[^>]+content="([^"]+)"', html)
+                        image_urls = list(set(og))
+                
+                    seen = set()
+                    for img_url in image_urls:
+                        if img_url not in seen:
+                            seen.add(img_url)
+                            try:
+                                hd = re.sub(r'/s\d+x\d+/', '/', img_url)
+                                fp = os.path.join(task_dir, f"img_{shortcode}_{len(image_files)+1}.jpg")
+                                r = session.get(hd, stream=True, timeout=30)
+                                if r.status_code == 200:
+                                    with open(fp, 'wb') as f:
+                                        for chunk in r.iter_content(8192):
+                                            f.write(chunk)
+                                    if os.path.getsize(fp) > 1000:
+                                        image_files.append(fp)
+                            except: continue
+        
+            if image_files:
+                return {
+                    "success": True,
+                    "file_path": image_files[0],
+                    "file_paths": image_files,
+                    "is_video": False,
+                    "is_multiple": len(image_files) > 1,
+                    "total": len(image_files)
+                }
+        
+            return {"success": False, "error": "No photos found"}
+        except Exception as e:
+            return {"success": False, "error": str(e)[:50]}
     
     @staticmethod
     def _method_scrape_multi(shortcode, url):
