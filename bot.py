@@ -917,6 +917,9 @@ async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, u
             
 async def extract_and_send_audio(update, context, url, audio_name):
     search_msg = await update.message.reply_text("🔎")
+    await asyncio.sleep(3)
+    try: await search_msg.delete()
+    except: pass
     status_msg = await update.message.reply_text("🎵 𝗘𝘅𝘁𝗿𝗮𝗰𝘁𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼. ˚◞♡ ◟˚ .", parse_mode="Markdown")
     try:
         result = InstaDownloader.download_media(url)
@@ -936,9 +939,6 @@ async def extract_and_send_audio(update, context, url, audio_name):
 
 async def extract_and_send_audio_direct(query, context, url, audio_name):
     search_msg = await query.message.reply_text("🔎")
-    await asyncio.sleep(3)
-    try: await search_msg.delete()
-    except: pass
     await asyncio.sleep(3)
     try: await search_msg.delete()
     except: pass
