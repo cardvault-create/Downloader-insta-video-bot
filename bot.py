@@ -607,9 +607,10 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
                 )
             except: 
                 break
-        await asyncio.sleep(0.2)
+        
         await welcome_msg.delete()
         
+        # Sticker pehle bhejo, wait mat karo
         sticker_id = get_random_sticker()
         sticker_msg = None
         if sticker_id:
@@ -618,6 +619,7 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
             except: 
                 pass
         
+        # Video bhejne se pehle thoda wait karo taaki sticker dikh jaaye
         await asyncio.sleep(3)
         
         video_data = get_random_video()
