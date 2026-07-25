@@ -861,47 +861,43 @@ async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, u
     
     msg = await update.message.reply_text("⏳ 𝗣𝗿𝗼𝗰𝗲𝘀𝘀𝗶𝗻𝗴...", parse_mode="Markdown")
     
+    # Progress update function
+    async def update_progress():
+        last_percent = -1
+        while True:
+            prog = InstaDownloader._progress
+            current_percent = int(prog.get('percent', 0))
+            if current_percent != last_percent and current_percent > 0:
+                speed = prog.get('speed', 'N/A')
+                bar_filled = int(current_percent / 10)
+                bar = '█' * bar_filled + '░' * (10 - bar_filled)
+                try:
+                    await msg.edit_text(f"📥 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗩𝗶𝗱𝗲𝗼...\n\n[{bar}] {current_percent}%\n⚡ {speed}", parse_mode="Markdown")
+                except:
+                    pass
+                last_percent = current_percent
+            if current_percent >= 100:
+                break
+            await asyncio.sleep(1)
+    
+    progress_task = None
     try:
         is_reel = '/reel/' in url or '/tv/' in url
         await msg.edit_text("📥 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗩𝗶𝗱𝗲𝗼..." if is_reel else "📥 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗣𝗵𝗼𝘁𝗼...", parse_mode="Markdown")
-        
-        # Progress update function
-        async def update_progress():
-            last_percent = -1
-            while True:
-                prog = InstaDownloader._progress
-                current_percent = int(prog.get('percent', 0))
-                if current_percent != last_percent and current_percent > 0:
-                    speed = prog.get('speed', 'N/A')
-                    bar_filled = int(current_percent / 10)
-                    bar = '█' * bar_filled + '░' * (10 - bar_filled)
-                    try:
-                        await msg.edit_text(f"📥 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗩𝗶𝗱𝗲𝗼...\n\n[{bar}] {current_percent}%\n⚡ {speed}", parse_mode="Markdown")
-                    except:
-                        pass
-                    last_percent = current_percent
-                if current_percent >= 100:
-                    break
-                await asyncio.sleep(1)
         
         global DOWNLOAD_DIR
         original_dir = DOWNLOAD_DIR
         DOWNLOAD_DIR = os.path.join(original_dir, f"task_{unique_id}")
         os.makedirs(DOWNLOAD_DIR, exist_ok=True)
         
-        progress_task = None
-        try:
-            is_reel = '/reel/' in url or '/tv/' in url
-            await msg.edit_text("📥 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗩𝗶𝗱𝗲𝗼..." if is_reel else "📥 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗣𝗵𝗼𝘁𝗼...", parse_mode="Markdown")
-    
-            # Start progress only for videos
-            if is_reel:
-                progress_task = asyncio.create_task(update_progress())
-
-            result = InstaDownloader.download_media(url)
-
-            if progress_task:
-                progress_task.cancel()
+        # Start progress only for videos
+        if is_reel:
+            progress_task = asyncio.create_task(update_progress())
+        
+        result = InstaDownloader.download_media(url)
+        
+        if progress_task:
+            progress_task.cancel()
         
         DOWNLOAD_DIR = original_dir
         
@@ -983,6 +979,8 @@ async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, u
             try: await sticker_msg.delete()
             except: pass
     except Exception as e:
+        if progress_task:
+            progress_task.cancel()
         try: await msg.edit_text(f"❌ 𝗘𝗿𝗿𝗼𝗿： {str(e)[:100]}", parse_mode="Markdown")
         except: pass
             
