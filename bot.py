@@ -190,8 +190,6 @@ class InstaDownloader:
             'fragment_retries': 15,
             'socket_timeout': 30,
             'extractor_retries': 3,
-            'retries': 5,
-            'fragment_retries': 5,
             'force_overwrites': True,
             'ignoreerrors': True,
             'no_color': True,
