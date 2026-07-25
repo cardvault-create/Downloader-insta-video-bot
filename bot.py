@@ -8,7 +8,6 @@ import json
 import urllib.parse
 import random
 import asyncio
-from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ChatMemberHandler, filters, ContextTypes
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 from telegram.constants import ChatMemberStatus
@@ -175,97 +174,55 @@ class InstaDownloader:
         is_reel = '/reel/' in url or '/tv/' in url
         if is_reel: return InstaDownloader._download_video(shortcode)
         else: return InstaDownloader._download_photo(shortcode, url)
-
-    @staticmethod
-    def _progress_hook(d):
-        """Progress hook for yt-dlp"""
-        if d['status'] == 'downloading':
-            try:
-                total = d.get('total_bytes') or d.get('total_bytes_estimate', 0)
-                downloaded = d.get('downloaded_bytes', 0)
-                if total > 0:
-                    percent = downloaded / total * 100
-                    speed = d.get('speed', 0)
-                    if speed:
-                        speed_str = f"{speed/1024/1024:.1f} MB/s"
-                    else:
-                        speed_str = "N/A"
-                    # Store progress for external use
-                    InstaDownloader._progress = {
-                        'percent': percent,
-                        'speed': speed_str,
-                        'total': total,
-                        'downloaded': downloaded
-                    }
-            except:
-                pass
-        elif d['status'] == 'finished':
-            InstaDownloader._progress = {'percent': 100, 'speed': 'Done', 'total': 0, 'downloaded': 0}
-
-    _progress = {'percent': 0, 'speed': 'N/A', 'total': 0, 'downloaded': 0}
-
+    
     @staticmethod
     def _download_video(shortcode):
-            """FAST DOWNLOAD - ALWAYS WITH AUDIO"""
-            url = f'https://www.instagram.com/reel/{shortcode}/'
+        """FAST DOWNLOAD - ALWAYS WITH AUDIO"""
+        url = f'https://www.instagram.com/reel/{shortcode}/'
     
-            ydl_opts = {
-                'quiet': True,
-                'no_warnings': True,
-               'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
-                'format': 'bv*+ba/b',
-                'merge_output_format': 'mp4',
-                'retries': 15,
-                'fragment_retries': 15,
-                'socket_timeout': 100000,
-                'extractor_retries': 10,
-                'force_overwrites': True,
-                'ignoreerrors': True,
-                'no_color': True,
-                'progress_hooks': [InstaDownloader._progress_hook],
-                'http_headers': {
-                    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                    'Accept-Language': 'en-US,en;q=0.9',
-                    'Referer': 'https://www.instagram.com/',
-                }
+        ydl_opts = {
+            'quiet': True,
+            'no_warnings': True,
+            'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
+            'format': 'bv*+ba/b',
+            'merge_output_format': 'mp4',
+            'retries': 15,
+            'fragment_retries': 15,
+            'socket_timeout': 100000,
+            'extractor_retries': 10,
+            'force_overwrites': True,
+            'ignoreerrors': True,
+            'no_color': True,
+            'http_headers': {
+                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Referer': 'https://www.instagram.com/',
             }
+        }
     
-            if os.path.exists('cookies.txt'):
-                ydl_opts['cookiefile'] = 'cookies.txt'
+        if os.path.exists('cookies.txt'):
+            ydl_opts['cookiefile'] = 'cookies.txt'
     
-            if shutil.which('ffmpeg'):
-                ydl_opts['ffmpeg_location'] = shutil.which('ffmpeg')
+        if shutil.which('ffmpeg'):
+            ydl_opts['ffmpeg_location'] = shutil.which('ffmpeg')
     
-            try:
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    ydl.download([url])
-            except:
-                pass
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([url])
+        except:
+            pass
     
-            time.sleep(2)
+        time.sleep(2)
     
-            for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
-                if f.endswith(('.mp4', '.mkv', '.webm')):
-                    fp = os.path.join(DOWNLOAD_DIR, f)
-                    if os.path.exists(fp) and os.path.getsize(fp) > 50000:
-                        return {"success": True, "file_path": fp, "is_video": True}
+        for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
+            if f.endswith(('.mp4', '.mkv', '.webm')):
+                fp = os.path.join(DOWNLOAD_DIR, f)
+                if os.path.exists(fp) and os.path.getsize(fp) > 50000:
+                    return {"success": True, "file_path": fp, "is_video": True}
     
-            if 'cookiefile' in ydl_opts:
-                del ydl_opts['cookiefile']
-                try:
-                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                        ydl.download([url])
-                except:
-                    pass
-                time.sleep(2)
-                for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
-                    if f.endswith(('.mp4', '.mkv', '.webm')):
-                        fp = os.path.join(DOWNLOAD_DIR, f)
-                        if os.path.exists(fp) and os.path.getsize(fp) > 50000:
-                            return {"success": True, "file_path": fp, "is_video": True}
-    
-            ydl_opts['format'] = 'best[ext=mp4]/best'
+        if 'cookiefile' in ydl_opts:
+            del ydl_opts['cookiefile']
             try:
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     ydl.download([url])
@@ -278,7 +235,20 @@ class InstaDownloader:
                     if os.path.exists(fp) and os.path.getsize(fp) > 50000:
                         return {"success": True, "file_path": fp, "is_video": True}
     
-            return {"success": False, "error": "Try another link"}
+        ydl_opts['format'] = 'best[ext=mp4]/best'
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([url])
+        except:
+            pass
+        time.sleep(2)
+        for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
+            if f.endswith(('.mp4', '.mkv', '.webm')):
+                fp = os.path.join(DOWNLOAD_DIR, f)
+                if os.path.exists(fp) and os.path.getsize(fp) > 50000:
+                    return {"success": True, "file_path": fp, "is_video": True}
+    
+        return {"success": False, "error": "Try another link"}
     
     # ═══════════════ PHOTO METHODS ═══════════════
     
@@ -849,38 +819,27 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return
 
 async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, url: str):
-    chat_id = update.effective_chat.id
-    user_id = update.effective_user.id
+    chat_id = update.effective_chat.id; user_id = update.effective_user.id
     shortcode = InstaDownloader.get_shortcode(url)
     import uuid
     unique_id = str(uuid.uuid4())[:8]
     cache_key = f"{chat_id}_{user_id}_{shortcode}"
     
-    # ✅ Send initial status message
+    sticker_id = get_random_sticker(); sticker_msg = None
+    if sticker_id:
+        try: sticker_msg = await context.bot.send_sticker(chat_id, sticker_id)
+        except: pass
+    
     msg = await update.message.reply_text("⏳ 𝗣𝗿𝗼𝗰𝗲𝘀𝘀𝗶𝗻𝗴...", parse_mode="Markdown")
     
-    sticker_id = get_random_sticker()
-    sticker_msg = None
-    if sticker_id:
-        try: 
-            sticker_msg = await context.bot.send_sticker(chat_id, sticker_id)
-        except: 
-            pass
-            
     try:
         is_reel = '/reel/' in url or '/tv/' in url
-        await msg.edit_text(
-            "📥 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗩𝗶𝗱𝗲𝗼..." if is_reel else "📥 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗣𝗵𝗼𝘁𝗼...", 
-            parse_mode="Markdown"
-        )
-        
+        await msg.edit_text("📥 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗩𝗶𝗱𝗲𝗼..." if is_reel else "📥 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗣𝗵𝗼𝘁𝗼...", parse_mode="Markdown")
         global DOWNLOAD_DIR
         original_dir = DOWNLOAD_DIR
         DOWNLOAD_DIR = os.path.join(original_dir, f"task_{unique_id}")
         os.makedirs(DOWNLOAD_DIR, exist_ok=True)
-        
         result = InstaDownloader.download_media(url)
-        
         DOWNLOAD_DIR = original_dir
         
         if not result.get("success"):
@@ -932,18 +891,14 @@ async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, u
         fp = result["file_path"]
         if not os.path.exists(fp) or os.path.getsize(fp) < 1000:
             await msg.edit_text("❌ 𝗙𝗶𝗹𝗲 𝗡𝗼𝘁 𝗙𝗼𝘂𝗻𝗱", parse_mode="Markdown")
-            if sticker_msg: 
-                try: await sticker_msg.delete()
-                except: pass
+            if sticker_msg: await sticker_msg.delete()
             return
         
         size_mb = os.path.getsize(fp) / (1024 * 1024)
         if size_mb > 45:
-            await msg.edit_text(f"❌ 𝗙𝗶𝗹𝗲 𝘁𝗼𝗼 𝗹𝗮𝗿𝗴𝗲 ({size_mb:.1f}MB)", parse_mode="Markdown")
+            await msg.edit_text(f"❌ >𝟱𝟬𝗠𝗕 ({size_mb:.1f}MB)", parse_mode="Markdown")
             InstaDownloader.cleanup(fp)
-            if sticker_msg: 
-                try: await sticker_msg.delete()
-                except: pass
+            if sticker_msg: await sticker_msg.delete()
             return
         
         is_video = result.get("is_video", False) or fp.endswith(('.mp4', '.mov', '.webm'))
@@ -953,31 +908,20 @@ async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, u
             keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(AUDIO_BUTTON_TEXT, callback_data=f"aud_{shortcode}")]])
             await context.bot.send_chat_action(chat_id=chat_id, action='upload_video')
             with open(fp, 'rb') as f:
-                await update.message.reply_video(
-                    video=f, 
-                    caption=CAPTION, 
-                    parse_mode="Markdown", 
-                    reply_markup=keyboard, 
-                    supports_streaming=True
-                )
+                await update.message.reply_video(video=f, caption=CAPTION, parse_mode="Markdown", reply_markup=keyboard, supports_streaming=True)
         else:
             await msg.edit_text("📤 𝗨𝗽𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗣𝗵𝗼𝘁𝗼♡ ⋆｡°✩", parse_mode="Markdown")
             with open(fp, 'rb') as f:
                 await update.message.reply_photo(photo=f, caption=CAPTION, parse_mode="Markdown")
         
-        await msg.delete()
-        InstaDownloader.cleanup(fp)
-        
+        await msg.delete(); InstaDownloader.cleanup(fp)
         if sticker_msg:
             await asyncio.sleep(6)
             try: await sticker_msg.delete()
             except: pass
-            
     except Exception as e:
-        try: 
-            await msg.edit_text(f"❌ 𝗘𝗿𝗿𝗼𝗿： {str(e)[:100]}", parse_mode="Markdown")
-        except: 
-            pass
+        try: await msg.edit_text(f"❌ 𝗘𝗿𝗿𝗼𝗿： {str(e)[:100]}", parse_mode="Markdown")
+        except: pass
             
 async def extract_and_send_audio_direct(query, context, url, audio_name):
     search_msg = await query.message.reply_text("🔎")
@@ -1081,7 +1025,7 @@ def main():
     app.add_handler(CommandHandler("settings", settings_cmd))
     app.add_handler(CommandHandler("disable", disable_cmd))
     app.add_handler(CommandHandler("enable", enable_cmd))
-    app.add_handler(ChatMemberHandler(bot_added_to_group, ChatMemberHandler.MY_CHAT_MEMBER))
+    app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, bot_added_to_group))
     app.add_handler(CommandHandler("addemoji", add_emoji_cmd))
     app.add_handler(CommandHandler("removeemoji", remove_emoji_cmd))
     app.add_handler(CommandHandler("listemojis", list_emojis_cmd))
