@@ -947,10 +947,10 @@ async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, u
                                 elif i + 1 < total:
                                     keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(f"➪ 𝗡𝗲𝘅𝘁 𝗣𝗵𝗼𝘁𝗼 ➤ ({i+2}/{total})", callback_data=f"nxp_{cache_key}_{i}")]])
                                 
-                                if i == 0:
-                                    await update.message.reply_photo(photo=f, caption=f"📸 {i+1}/{total}\n\n{CAPTION}", parse_mode="Markdown", reply_markup=keyboard)
-                                else:
-                                    await update.message.reply_photo(photo=f, caption=f"📸 {i+1}/{total}", reply_markup=keyboard)
+                if i == 0:
+                    await update.message.reply_photo(photo=f, caption=f"📸 {i+1}/{total}\n\n{CAPTION}", parse_mode="Markdown", reply_markup=keyboard, reply_to_message_id=update.message.message_id)
+                else:
+                    await update.message.reply_photo(photo=f, caption=f"📸 {i+1}/{total}", reply_markup=keyboard, reply_to_message_id=update.message.message_id)
                 
                 if total > 10:
                     for i in range(10, min(total, 20)):
@@ -989,11 +989,11 @@ async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, u
                 keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(AUDIO_BUTTON_TEXT, callback_data=f"aud_{shortcode}")]])
                 await context.bot.send_chat_action(chat_id=chat_id, action='upload_video')
                 with open(fp, 'rb') as f:
-                    await update.message.reply_video(video=f, caption=CAPTION, parse_mode="Markdown", reply_markup=keyboard, supports_streaming=True)
+                   await update.message.reply_video(video=f, caption=CAPTION, parse_mode="Markdown", reply_markup=keyboard, supports_streaming=True, reply_to_message_id=update.message.message_id)
             else:
                 await msg.edit_text("🪂 𝗨𝗽𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗣𝗵𝗼𝘁𝗼♡ ⋆｡°✩", parse_mode="Markdown")
                 with open(fp, 'rb') as f:
-                    await update.message.reply_photo(photo=f, caption=CAPTION, parse_mode="Markdown")
+                    await update.message.reply_photo(photo=f, caption=CAPTION, parse_mode="Markdown", reply_to_message_id=update.message.message_id)
             
             await msg.delete(); InstaDownloader.cleanup(fp)
             if sticker_msg:
@@ -1036,7 +1036,7 @@ async def extract_and_send_audio_direct(query, context, url, audio_name):
                 await status_msg.edit_text("🎻 𝗦𝗲𝗻𝗱𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼♡ ⋆｡°✩", parse_mode="Markdown")
                 await context.bot.send_chat_action(chat_id=query.message.chat_id, action='upload_audio')
                 with open(ar["file_path"], 'rb') as f:
-                    await query.message.reply_audio(audio=f, title=audio_name, performer="✩⋆｡°𝗕𝘆 ➪ 𓆩#ＫＡＲＴＩＫ𓆪 ♡", caption=CAPTION, parse_mode="Markdown")
+                    await query.message.reply_audio(audio=f, title=audio_name, performer="✩⋆｡°𝗕𝘆 ➪ 𓆩#ＫＡＲＴＩＫ𓆪 ♡", caption=CAPTION, parse_mode="Markdown", reply_to_message_id=query.message.message_id)
                 await asyncio.sleep(2)
                 await status_msg.delete()
                 try: os.remove(ar["file_path"])
