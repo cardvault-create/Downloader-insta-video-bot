@@ -597,22 +597,20 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
         
         starting_emojis = ["🚀", "🌠", "🪶", "🍓", "🤖", "🥡", "🍷", "🍭", "🍨", "🧭", "🫧", "🍫", "🛸"]
         words = ["𝙨", "𝙩", "α", "я", "†", "ι", "и", "g", ".", ".", ".", ".", "."]
-        
-        # Sticker ready rakho
+
         sticker_id = get_random_sticker()
         sticker_msg = None
-        
+
         for i in range(len(words)):
             await asyncio.sleep(0.08)
-            
-            # Last word "g....." par turant sticker bhejo
-            if i == len(words) - 1:
-                if sticker_id:
-                    try: 
-                        sticker_msg = await bot.send_sticker(chat_id, sticker_id)
-                    except: 
-                        pass
-            
+    
+            # Last dot "." se pehle (i == 11) sticker bhejo
+            if i == 12 and sticker_id:
+                try: 
+                    sticker_msg = await bot.send_sticker(chat_id, sticker_id)
+                except: 
+                    pass
+    
             try: 
                 await welcome_msg.edit_text(
                     f"**{starting_emojis[i%len(starting_emojis)]} " + "".join(words[:i+1]) + "**", 
@@ -620,7 +618,7 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
                 )
             except: 
                 break
-        
+
         await welcome_msg.delete()
         
         await asyncio.sleep(3)
