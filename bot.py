@@ -253,7 +253,7 @@ class InstaDownloader:
     
         return {"success": False, "error": "🚫 𝐒𝐞𝐫𝐯𝐞𝐫 𝐁𝐮𝐬𝐲, 𝐓𝐫𝐲 𝐀𝐠𝐚𝐢𝐧 (˃̣̣̥᷄⌓˂̣̣̥᷅)"}
     
-   # ═══════════════ PHOTO METHODS ═══════════════
+    # ═══════════════ PHOTO METHODS ═══════════════
     
     @staticmethod
     def _download_photo(shortcode, url):
