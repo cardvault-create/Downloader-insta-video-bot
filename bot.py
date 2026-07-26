@@ -620,8 +620,6 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
                 sticker_msg = await bot.send_sticker(chat_id, sticker_id)
             except: 
                 pass
-
-        await welcome_msg.delete()
         
         await asyncio.sleep(3)
         
