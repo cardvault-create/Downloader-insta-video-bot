@@ -189,10 +189,10 @@ class InstaDownloader:
             'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
             'format': 'bv*+ba/b',
             'merge_output_format': 'mp4',
-            'socket_timeout': 30,
-            'extractor_retries': 2,
-            'retries': 3,
-            'fragment_retries': 3,
+            'socket_timeout': 60,
+            'extractor_retries': 5,
+            'retries': 10,
+            'fragment_retries': 10,
             'force_overwrites': True,
             'ignoreerrors': True,
             'no_color': True,
@@ -598,8 +598,21 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
         starting_emojis = ["🚀", "🌠", "🪶", "🍓", "🤖", "🥡", "🍷", "🍭", "🍨", "🧭", "🫧", "🍫", "🛸"]
         words = ["𝙨", "𝙩", "α", "я", "†", "ι", "и", "g", ".", ".", ".", ".", "."]
         
+        # Sticker ready rakho
+        sticker_id = get_random_sticker()
+        sticker_msg = None
+        
         for i in range(len(words)):
             await asyncio.sleep(0.08)
+            
+            # Last word "g....." par turant sticker bhejo
+            if i == len(words) - 1:
+                if sticker_id:
+                    try: 
+                        sticker_msg = await bot.send_sticker(chat_id, sticker_id)
+                    except: 
+                        pass
+            
             try: 
                 await welcome_msg.edit_text(
                     f"**{starting_emojis[i%len(starting_emojis)]} " + "".join(words[:i+1]) + "**", 
@@ -610,25 +623,21 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
         
         await welcome_msg.delete()
         
-        # Sticker pehle bhejo, wait mat karo
-        sticker_id = get_random_sticker()
-        sticker_msg = None
-        if sticker_id:
-            try: 
-                sticker_msg = await bot.send_sticker(chat_id, sticker_id)
-            except: 
-                pass
-        
-        # Video bhejne se pehle thoda wait karo taaki sticker dikh jaaye
         await asyncio.sleep(3)
         
         video_data = get_random_video()
         final_text = WELCOME_TEXT.replace("{mention}", user_mention)
         kb = InlineKeyboardMarkup([[InlineKeyboardButton("◆ ➪ ˹𝜟𝙙𝙙 𝜯𝜣 𝑮𝜞𝜭𝑼𝝆˼ ♪☬", url=f"https://t.me/{(await bot.get_me()).username}?startgroup=true")]])
         
-        if video_data and os.path.exists(video_data["path"]):
-            await bot.send_video(chat_id, video_data["path"], caption=final_text, parse_mode="Markdown", reply_markup=kb)
-        else:
+        video_sent = False
+        try:
+            if video_data and os.path.exists(video_data["path"]):
+                await bot.send_video(chat_id, video_data["path"], caption=final_text, parse_mode="Markdown", reply_markup=kb)
+                video_sent = True
+        except:
+            pass
+        
+        if not video_sent:
             await bot.send_message(chat_id, final_text, parse_mode="Markdown", reply_markup=kb)
         
         if sticker_msg:
@@ -727,8 +736,22 @@ async def bot_added_to_group(update: Update, context: ContextTypes.DEFAULT_TYPE)
         for member in update.message.new_chat_members:
             if member.id == bot_user.id:
                 kb = InlineKeyboardMarkup([[InlineKeyboardButton("◆ ➪ ˹𝜟𝙙𝙙 𝜯𝜣 𝑮𝜞𝜭𝑼𝝆˼ ♪☬", url=f"https://t.me/{bot_user.username}?startgroup=true")]])
-                try: 
-                    await update.message.reply_text(GROUP_WELCOME.replace("{chat_title}", chat.title or "Group"), parse_mode="Markdown", reply_markup=kb)
+                try:
+                    # Try to send welcome video if available
+                    video_data = get_random_video()
+                    if video_data and os.path.exists(video_data["path"]):
+                        await update.message.reply_video(
+                            video=open(video_data["path"], 'rb'),
+                            caption=GROUP_WELCOME.replace("{chat_title}", chat.title or "Group"),
+                            parse_mode="Markdown",
+                            reply_markup=kb
+                        )
+                    else:
+                        await update.message.reply_text(
+                            GROUP_WELCOME.replace("{chat_title}", chat.title or "Group"),
+                            parse_mode="Markdown",
+                            reply_markup=kb
+                        )
                 except: pass
                 break
 
@@ -923,18 +946,18 @@ async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, u
 
             import concurrent.futures
             result = None
-            for attempt in range(2):
+            for attempt in range(3):
                 try:
                     with concurrent.futures.ThreadPoolExecutor() as executor:
                         future = executor.submit(InstaDownloader.download_media, url)
-                        result = future.result(timeout=90)
+                        result = future.result(timeout=120)
                     if result.get("success"):
                         break
                 except concurrent.futures.TimeoutError:
-                    time.sleep(2)
+                    time.sleep(3)
                     continue
                 except Exception:
-                    time.sleep(2)
+                    time.sleep(3)
                     continue
 
             if result is None:
@@ -967,9 +990,11 @@ async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, u
     
                 await msg.delete()
                 if sticker_msg:
-                    await asyncio.sleep(2)
-                    try: await sticker_msg.delete()
-                    except: pass
+                    try:
+                        await asyncio.sleep(2)
+                        await context.bot.delete_message(chat_id=chat_id, message_id=sticker_msg.message_id)
+                    except:
+                        pass
                 return
             
             fp = result["file_path"]
@@ -1000,9 +1025,11 @@ async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, u
             
             await msg.delete(); InstaDownloader.cleanup(fp)
             if sticker_msg:
-                await asyncio.sleep(6)
-                try: await sticker_msg.delete()
-                except: pass
+                try:
+                    await asyncio.sleep(4)
+                    await context.bot.delete_message(chat_id=chat_id, message_id=sticker_msg.message_id)
+                except:
+                    pass
         except Exception as e:
             try: await msg.edit_text(f"❌ 𝗘𝗿𝗿𝗼𝗿： {str(e)[:100]}", parse_mode="Markdown")
             except: pass
