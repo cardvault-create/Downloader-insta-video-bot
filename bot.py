@@ -847,78 +847,45 @@ async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, u
             await delete_sticker()
             
 async def extract_and_send_audio_direct(query, context, url, audio_name):
-    search_msg = await query.message.reply_text("🔎")
-    await asyncio.sleep(3)
-    try: await search_msg.delete()
-    except: pass
-    status_msg = await query.message.reply_text("💽 𝗘𝘅𝘁𝗿𝗮𝗰𝘁𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼. ˚◞♡ ◟˚ .", parse_mode="Markdown")
-    
-    # Wait for semaphore (max 2 parallel)
-    async with download_semaphore:
+    msg = await query.message.reply_text("💽 𝗘𝘅𝘁𝗿𝗮𝗰𝘁𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼...", parse_mode="Markdown")
+    try:
+        loop = asyncio.get_event_loop()
         try:
-            # Unique folder for THIS audio request
-            import uuid
-            audio_uid = str(uuid.uuid4())[:8]
-            audio_dir = os.path.join("downloads", f"audio_{audio_uid}")
-            os.makedirs(audio_dir, exist_ok=True)
-    
-            # Temp change DOWNLOAD_DIR for this download
-            global DOWNLOAD_DIR
-            original_dir = DOWNLOAD_DIR
-            DOWNLOAD_DIR = audio_dir
-
-            import concurrent.futures
-            result = None
-            for attempt in range(2):
-                try:
-                    with concurrent.futures.ThreadPoolExecutor() as executor:
-                        future = executor.submit(InstaDownloader.download_media, url)
-                        result = future.result(timeout=90)
-                    if result.get("success"):
-                        break
-                except concurrent.futures.TimeoutError:
-                    time.sleep(2)
-                    continue
-                except Exception:
-                    time.sleep(2)
-                    continue
-
-            if result is None:
-                result = {"success": False, "error": "🚫 𝐒𝐞𝐫𝐯𝐞𝐫 𝐢𝐬𝐬𝐮𝐞, 𝐩𝐥𝐞𝐚𝐬𝐞 𝐭𝐫𝐲 𝐚𝐠𝐚𝐢𝐧 (｡•́︿•̀｡)"}
-
-            DOWNLOAD_DIR = original_dir
-            
-            if not result.get("success"): 
-                await status_msg.edit_text("❌ 𝗙𝗮𝗶𝗹𝗲𝗱", parse_mode="Markdown")
-                return
-            vp = result["file_path"]
-            ar = InstaDownloader.extract_audio(vp, audio_name)
-            if ar.get("success"):
-                await status_msg.edit_text("🎻 𝗦𝗲𝗻𝗱𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼♡ ⋆｡°✩", parse_mode="Markdown")
-                try:
-                    await context.bot.send_chat_action(chat_id=query.message.chat_id, action='upload_audio')
-                    with open(ar["file_path"], 'rb') as f:
-                        await query.message.reply_audio(audio=f, title=audio_name, performer="✩⋆｡°𝗕𝘆 ➪ 𓆩#ＫＡＲＴＩＫ𓆪 ♡", caption=CAPTION, parse_mode="Markdown", reply_to_message_id=query.message.message_id)
-                except Exception as e:
-                    await status_msg.edit_text(f"❌ Send Error: {str(e)[:50]}", parse_mode="Markdown")
-                    InstaDownloader.cleanup(vp)
-                    try: os.remove(ar["file_path"])
-                    except: pass
-                    return
-                await asyncio.sleep(2)
-                await status_msg.delete()
-                try: os.remove(ar["file_path"])
-                except: pass
-            else: 
-                await status_msg.edit_text(f"❌ {ar.get('error')}", parse_mode="Markdown")
-            InstaDownloader.cleanup(vp)
-        except Exception as e: 
-            try: await status_msg.edit_text(f"❌ {str(e)[:80]}", parse_mode="Markdown")
+            result = await asyncio.wait_for(loop.run_in_executor(None, InstaDownloader.download_media, url), timeout=70)
+        except asyncio.TimeoutError:
+            os.system('pkill -9 yt-dlp 2>/dev/null')
+            await msg.edit_text("❌ 𝐓𝐢𝐦𝐞𝐨𝐮𝐭", parse_mode="Markdown")
+            return
+        if not result or not result.get("success"):
+            await msg.edit_text("❌ 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱 𝗙𝗮𝗶𝗹𝗲𝗱", parse_mode="Markdown")
+            return
+        vp = result.get("file_path")
+        if not vp or not os.path.exists(vp):
+            await msg.edit_text("❌ 𝗩𝗶𝗱𝗲𝗼 𝗡𝗼𝘁 𝗙𝗼𝘂𝗻𝗱", parse_mode="Markdown")
+            return
+        await msg.edit_text("🎻 𝗘𝘅𝘁𝗿𝗮𝗰𝘁𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼...", parse_mode="Markdown")
+        ar = InstaDownloader.extract_audio(vp, audio_name)
+        if ar.get("success"):
+            await msg.edit_text("🎻 𝗦𝗲𝗻𝗱𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼...", parse_mode="Markdown")
+            try:
+                await context.bot.send_chat_action(chat_id=query.message.chat_id, action='upload_audio')
+                with open(ar["file_path"], 'rb') as f:
+                    await query.message.reply_audio(audio=f, title=audio_name, performer="✩⋆｡°𝗕𝘆 ➪ 𓆩#ＫＡＲＴＩＫ𓆪 ♡", caption=CAPTION, parse_mode="Markdown", reply_to_message_id=query.message.message_id)
+                await msg.delete()
+            except Exception as e:
+                await msg.edit_text(f"❌ Send: {str(e)[:50]}", parse_mode="Markdown")
+            try: os.remove(ar["file_path"])
             except: pass
+        else:
+            await msg.edit_text(f"❌ {ar.get('error', 'Failed')}", parse_mode="Markdown")
+        InstaDownloader.cleanup(vp)
+    except Exception as e:
+        try: await msg.edit_text(f"❌ Error: {str(e)[:80]}", parse_mode="Markdown")
+        except: pass
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query; await query.answer()
-    
+    query = update.callback_query
+    await query.answer()
     if query.data.startswith("aud_"):
         shortcode = query.data[4:]
         video_url = f"https://www.instagram.com/reel/{shortcode}/"
