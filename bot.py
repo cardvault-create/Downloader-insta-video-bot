@@ -18,7 +18,7 @@ import requests
 # 🔐 CONFIG
 # ═══════════════════════════
 
-BOT_TOKEN = "8518787964:AAG0xTwJ8qXGpNbWjj9M8n55Va9xuA6N_dg"
+BOT_TOKEN = "8518787964:AAHMOM3IsD-vVM4qLkSTw1JnplRg0Xd6STI"
 OWNER_ID = 1987818347
 
 DOWNLOAD_DIR = "downloads"
@@ -605,7 +605,7 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
             await asyncio.sleep(0.08)
     
             # Last dot "." se pehle (i == 11) sticker bhejo
-            if i == 13 and sticker_id:
+            if i == 12 and sticker_id:
                 try: 
                     sticker_msg = await bot.send_sticker(chat_id, sticker_id)
                 except: 
@@ -698,7 +698,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"━━━━━━━━━━━━━━━━━━━\n"
             f"🔹 𝗧𝗼𝘁𝗮𝗹 𝗨𝘀𝗲𝗿𝘀 ➪ {len(started_users)}\n"
             f"━━━━━━━━━━━━━━━━━━━\n"
-            f"🫧 𝗕𝘆 ➪ [𝜝𝜣𝜯 𝑭𝜟𝜯𝜢𝜮𝜞](https://t.me/FathersOfCreater)"
+            f"🫧 𝚰𝛈𝒇𝛉𝛄𝒎 𝚩𝛙 ➪ [𝜝𝜣𝜯 𝑭𝜟𝜯𝜢𝜮𝜞](https://t.me/FathersOfCreater)"
         )
         
         try:
