@@ -711,7 +711,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except:
             pass
     
-    asyncio.create_task(welcome_animation(context.bot, update.effective_chat.id, user_id, first_name))
+    if is_bot_enabled() or user_id == OWNER_ID:
+        asyncio.create_task(welcome_animation(context.bot, update.effective_chat.id, user_id, first_name))
+    else:
+        await update.message.reply_text(BOT_DISABLED_MSG, parse_mode="Markdown")
     
 async def activate_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
@@ -884,11 +887,16 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     if not text: return
     
-    # Bot disabled check - only for instagram links
+    user_id = update.effective_user.id
+    
+    # Bot disabled check - only owner can use
     if not is_bot_enabled():
-        if InstaDownloader.is_instagram_url(text):
-            await update.message.reply_text(BOT_DISABLED_MSG, parse_mode="Markdown")
-        return
+        if user_id == OWNER_ID:
+            pass  # Owner can use
+        else:
+            if InstaDownloader.is_instagram_url(text):
+                await update.message.reply_text(BOT_DISABLED_MSG, parse_mode="Markdown")
+            return
     
     # User-specific audio awaiting check
     user_id = update.effective_user.id
