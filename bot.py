@@ -603,14 +603,7 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
 
         for i in range(len(words)):
             await asyncio.sleep(0.08)
-    
-            # Last dot "." se pehle (i == 11) sticker bhejo
-            if i == 13 and sticker_id:
-                try: 
-                    sticker_msg = await bot.send_sticker(chat_id, sticker_id)
-                except: 
-                    pass
-    
+
             try: 
                 await welcome_msg.edit_text(
                     f"**{starting_emojis[i%len(starting_emojis)]} " + "".join(words[:i+1]) + "**", 
@@ -618,6 +611,15 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
                 )
             except: 
                 break
+
+        # Starting khatam - turant sticker bhejo
+        await welcome_msg.delete()
+
+        if sticker_id:
+            try: 
+                sticker_msg = await bot.send_sticker(chat_id, sticker_id)
+            except: 
+                pass
 
         await welcome_msg.delete()
         
