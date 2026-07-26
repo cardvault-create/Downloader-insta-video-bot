@@ -18,7 +18,7 @@ import requests
 # 🔐 CONFIG
 # ═══════════════════════════
 
-BOT_TOKEN = "8518787964:AAHMOM3IsD-vVM4qLkSTw1JnplRg0Xd6STI"
+BOT_TOKEN = "8518787964:AAEpoIRPbqZyNOAoueo1eaMK3SLohCuDw3A"
 OWNER_ID = 1987818347
 
 DOWNLOAD_DIR = "downloads"
