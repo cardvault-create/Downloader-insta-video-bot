@@ -703,29 +703,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     user_data = context.user_data
     
-    if user_data.get('awaiting_audio'):
-        user_data['awaiting_audio'] = False
-        audio_name = text.strip()
-        url = user_data.get('audio_video_url')
-        if 'audio_prompt_msg' in user_data:
-            try: await user_data['audio_prompt_msg'].delete()
-            except: pass
-            user_data['audio_prompt_msg'] = None
-        if url: await extract_and_send_audio(update, context, url, audio_name)
-        user_data['audio_video_url'] = None
-        return
-    
-    if text == AUDIO_DEFAULT_NAME:
-        user_data['awaiting_audio'] = False
-        url = user_data.get('audio_video_url')
-        if 'audio_prompt_msg' in user_data:
-            try: await user_data['audio_prompt_msg'].delete()
-            except: pass
-            user_data['audio_prompt_msg'] = None
-        if url: await extract_and_send_audio(update, context, url, AUDIO_DEFAULT_NAME)
-        user_data['audio_video_url'] = None
-        return
-    
     if not InstaDownloader.is_instagram_url(text): return
     url = InstaDownloader.extract_url(text)
     if not url:
