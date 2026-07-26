@@ -605,7 +605,7 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
             await asyncio.sleep(0.08)
     
             # Last dot "." se pehle (i == 11) sticker bhejo
-            if i == 12 and sticker_id:
+            if i == 13 and sticker_id:
                 try: 
                     sticker_msg = await bot.send_sticker(chat_id, sticker_id)
                 except: 
