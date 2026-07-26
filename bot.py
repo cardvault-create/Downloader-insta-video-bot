@@ -605,7 +605,7 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
             await asyncio.sleep(0.08)
     
             # Last dot "." se pehle (i == 11) sticker bhejo
-            if i == 12 and sticker_id:
+            if i == 13 and sticker_id:
                 try: 
                     sticker_msg = await bot.send_sticker(chat_id, sticker_id)
                 except: 
@@ -653,11 +653,12 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
 # ═══════════════════════════
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_bot_enabled(): return
-    if update.effective_chat.type != 'private': return
-    
     user = update.effective_user
     user_id = user.id
+    
+    if not is_bot_enabled() and user_id != OWNER_ID: return
+    if update.effective_chat.type != 'private': return
+    
     first_name = user.first_name or "No Name"
     username = user.username or "No Username"
     
@@ -675,9 +676,20 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             user_link = f"[{first_name}](tg://user?id={user_id})"
         
+        # Owner ka real name with username link
+        try:
+            owner_info = await context.bot.get_chat(OWNER_ID)
+            owner_name = owner_info.first_name or "Owner"
+            if owner_info.username:
+                owner_link = f"[{owner_name}](https://t.me/{owner_info.username})"
+            else:
+                owner_link = f"[{owner_name}](tg://user?id={OWNER_ID})"
+        except:
+            owner_link = "[Owner](https://t.me/FathersOfCreater)"
+        
         # Send notification to owner with video
         owner_msg = (
-            f"👋🏻 ʜᴇʟʟᴏ {user_link} ♡ ⋆｡°✩\n"
+            f"👋🏻 ʜᴇʟʟᴏ {owner_link} ♡ ⋆｡°✩\n"
             f"━━━━━━━━━━━━━━━━━━━\n"
             f"🗞️ 𝗡𝗲𝘄 𝗨𝘀𝗲𝗿 𝗝𝗼𝗶𝗻𝗲𝗱\n"
             f"🎻 𝗡𝗮𝗺𝗲 ➪ {user_link}\n"
