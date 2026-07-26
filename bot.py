@@ -889,140 +889,112 @@ async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, u
     
     sticker_id = get_random_sticker(); sticker_msg = None
     if sticker_id:
-        try: 
-            sticker_msg = await context.bot.send_sticker(chat_id, sticker_id)
-        except: 
-            sticker_msg = None
+        try: sticker_msg = await context.bot.send_sticker(chat_id, sticker_id)
+        except: sticker_msg = None
     
     msg = await update.message.reply_text("⏳ 𝗣𝗿𝗼𝗰𝗲𝘀𝘀𝗶𝗻𝗴...", parse_mode="Markdown")
     
-    # Wait for semaphore with LONGER timeout (60 sec)
-    acquired = False
-    try:
-        await asyncio.wait_for(download_semaphore.acquire(), timeout=60)
-        acquired = True
-    except asyncio.TimeoutError:
-        await msg.edit_text("❌ 𝗦𝗲𝗿𝘃𝗲𝗿 𝗕𝘂𝘀𝘆, 𝗧𝗿𝘆 𝗔𝗴𝗮𝗶𝗻 (˃̣̣̥᷄⌓˂̣̣̥᷅)", parse_mode="Markdown")
-        if sticker_msg:
-            try: await sticker_msg.delete()
-            except: pass
-        return
+    async with download_semaphore:
+        try:
+            is_reel = '/reel/' in url or '/tv/' in url
+            await msg.edit_text("📥 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗩𝗶𝗱𝗲𝗼..." if is_reel else "📥 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗣𝗵𝗼𝘁𝗼...", parse_mode="Markdown")
+            task_dir = os.path.join("downloads", f"task_{unique_id}")
+            os.makedirs(task_dir, exist_ok=True)
     
-    try:
-        is_reel = '/reel/' in url or '/tv/' in url
-        await msg.edit_text("📥 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗩𝗶𝗱𝗲𝗼..." if is_reel else "📥 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗣𝗵𝗼𝘁𝗼...", parse_mode="Markdown")
-        task_dir = os.path.join("downloads", f"task_{unique_id}")
-        os.makedirs(task_dir, exist_ok=True)
+            global DOWNLOAD_DIR
+            original_dir = DOWNLOAD_DIR
+            DOWNLOAD_DIR = task_dir
 
-        global DOWNLOAD_DIR
-        original_dir = DOWNLOAD_DIR
-        DOWNLOAD_DIR = task_dir
+            import concurrent.futures
+            result = None
+            for attempt in range(3):
+                try:
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        future = executor.submit(InstaDownloader.download_media, url)
+                        result = future.result(timeout=180)
+                    if result and result.get("success"):
+                        break
+                except concurrent.futures.TimeoutError:
+                    await asyncio.sleep(2)
+                    continue
+                except Exception:
+                    await asyncio.sleep(2)
+                    continue
 
-        import concurrent.futures
-        result = None
-        
-        # 3 attempts with 180 sec timeout each
-        for attempt in range(3):
-            try:
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    future = executor.submit(InstaDownloader.download_media, url)
-                    result = future.result(timeout=180)
-                if result and result.get("success"):
-                    break
-            except concurrent.futures.TimeoutError:
-                logging.warning(f"Attempt {attempt+1} timed out")
-                if attempt < 2:
-                    await msg.edit_text(f"🔄 𝗥𝗲𝘁𝗿𝘆 {attempt+1}/3...", parse_mode="Markdown")
-                await asyncio.sleep(2)
-                continue
-            except Exception as e:
-                logging.error(f"Attempt {attempt+1} error: {e}")
-                await asyncio.sleep(2)
-                continue
-
-        if result is None or not result.get("success"):
             DOWNLOAD_DIR = original_dir
-            await msg.edit_text("❌ 𝗙𝗮𝗶𝗹𝗲𝗱！ 🚫 𝐒𝐞𝐫𝐯𝐞𝐫 𝐁𝐮𝐬𝐲 (˃̣̣̥᷄⌓˂̣̣̥᷅)", parse_mode="Markdown")
+            
+            if result is None or not result.get("success"):
+                await msg.edit_text("❌ 𝗙𝗮𝗶𝗹𝗲𝗱！ 🚫 𝐒𝐞𝐫𝐯𝐞𝐫 𝐁𝐮𝐬𝐲 (˃̣̣̥᷄⌓˂̣̣̥᷅)", parse_mode="Markdown")
+                if sticker_msg:
+                    try: await sticker_msg.delete()
+                    except: pass
+                return
+            
+            if result.get("is_multiple"):
+                photo_paths = result.get("file_paths", [])
+                total = len(photo_paths)
+                save_photo_cache(cache_key, photo_paths)
+                await msg.edit_text(f"🪂 𝗨𝗽𝗹𝗼𝗮𝗱𝗶𝗻𝗴 {total} 𝗣𝗵𝗼𝘁𝗼𝘀...", parse_mode="Markdown")
+    
+                for i, path in enumerate(photo_paths):
+                    if os.path.exists(path):
+                        with open(path, 'rb') as f:
+                            if i == 0:
+                                await update.message.reply_photo(photo=f, caption=f"📸 {i+1}/{total}\n\n{CAPTION}", parse_mode="Markdown", reply_to_message_id=update.message.message_id)
+                            else:
+                                await update.message.reply_photo(photo=f, caption=f"📸 {i+1}/{total}", reply_to_message_id=update.message.message_id)
+                        await asyncio.sleep(0.5)
+    
+                await msg.delete()
+                if sticker_msg:
+                    try: await sticker_msg.delete()
+                    except: pass
+                return
+            
+            fp = result["file_path"]
+            if not os.path.exists(fp) or os.path.getsize(fp) < 1000:
+                await msg.edit_text("❌ 𝗙𝗶𝗹𝗲 𝗡𝗼𝘁 𝗙𝗼𝘂𝗻𝗱", parse_mode="Markdown")
+                if sticker_msg:
+                    try: await sticker_msg.delete()
+                    except: pass
+                return
+            
+            size_mb = os.path.getsize(fp) / (1024 * 1024)
+            if size_mb > 50:
+                await msg.edit_text(f"❌ >𝟱𝟬𝗠𝗕 ({size_mb:.1f}MB)", parse_mode="Markdown")
+                InstaDownloader.cleanup(fp)
+                if sticker_msg:
+                    try: await sticker_msg.delete()
+                    except: pass
+                return
+            
+            is_video = result.get("is_video", False) or fp.endswith(('.mp4', '.mov', '.webm'))
+            
+            if is_video:
+                await msg.edit_text("🪂 𝗨𝗽𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗩𝗶𝗱𝗲𝗼 . ˚◞♡ ◟˚ .", parse_mode="Markdown")
+                keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(AUDIO_BUTTON_TEXT, callback_data=f"aud_{shortcode}")]])
+                await context.bot.send_chat_action(chat_id=chat_id, action='upload_video')
+                with open(fp, 'rb') as f:
+                   await update.message.reply_video(video=f, caption=CAPTION, parse_mode="Markdown", reply_markup=keyboard, supports_streaming=True, reply_to_message_id=update.message.message_id)
+            else:
+                await msg.edit_text("🪂 𝗨𝗽𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗣𝗵𝗼𝘁𝗼♡ ⋆｡°✩", parse_mode="Markdown")
+                with open(fp, 'rb') as f:
+                    await update.message.reply_photo(photo=f, caption=CAPTION, parse_mode="Markdown", reply_to_message_id=update.message.message_id)
+            
+            await msg.delete(); InstaDownloader.cleanup(fp)
             if sticker_msg:
-                try:
-                    await asyncio.sleep(2)
-                    await sticker_msg.delete()
+                await asyncio.sleep(3)
+                try: await sticker_msg.delete()
                 except: pass
-            return
-
-        DOWNLOAD_DIR = original_dir
-        
-        if result.get("is_multiple"):
-            photo_paths = result.get("file_paths", [])
-            total = len(photo_paths)
-            save_photo_cache(cache_key, photo_paths)
-            await msg.edit_text(f"🪂 𝗨𝗽𝗹𝗼𝗮𝗱𝗶𝗻𝗴 {total} 𝗣𝗵𝗼𝘁𝗼𝘀...", parse_mode="Markdown")
-
-            for i, path in enumerate(photo_paths):
-                if os.path.exists(path):
-                    with open(path, 'rb') as f:
-                        if i == 0:
-                            await update.message.reply_photo(photo=f, caption=f"📸 {i+1}/{total}\n\n{CAPTION}", parse_mode="Markdown", reply_to_message_id=update.message.message_id)
-                        else:
-                            await update.message.reply_photo(photo=f, caption=f"📸 {i+1}/{total}", reply_to_message_id=update.message.message_id)
-                    await asyncio.sleep(0.5)
-
-            await msg.delete()
-            if sticker_msg:
-                try:
-                    await asyncio.sleep(2)
-                    await context.bot.delete_message(chat_id=chat_id, message_id=sticker_msg.message_id)
-                except: pass
-            return
-        
-        fp = result["file_path"]
-        if not os.path.exists(fp) or os.path.getsize(fp) < 1000:
-            await msg.edit_text("❌ 𝗙𝗶𝗹𝗲 𝗡𝗼𝘁 𝗙𝗼𝘂𝗻𝗱", parse_mode="Markdown")
+                
+        except Exception as e:
+            logging.error(f"Process error: {e}")
+            try: await msg.edit_text(f"❌ 𝗘𝗿𝗿𝗼𝗿： {str(e)[:80]}", parse_mode="Markdown")
+            except: pass
+            # ERROR PE STICKER DELETE - GUARANTEED
             if sticker_msg:
                 try: await sticker_msg.delete()
                 except: pass
-            return
-        
-        size_mb = os.path.getsize(fp) / (1024 * 1024)
-        if size_mb > 50:
-            await msg.edit_text(f"❌ >𝟱𝟬𝗠𝗕 ({size_mb:.1f}MB)", parse_mode="Markdown")
-            InstaDownloader.cleanup(fp)
-            if sticker_msg:
-                try: await sticker_msg.delete()
-                except: pass
-            return
-        
-        is_video = result.get("is_video", False) or fp.endswith(('.mp4', '.mov', '.webm'))
-        
-        if is_video:
-            await msg.edit_text("🪂 𝗨𝗽𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗩𝗶𝗱𝗲𝗼 . ˚◞♡ ◟˚ .", parse_mode="Markdown")
-            keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(AUDIO_BUTTON_TEXT, callback_data=f"aud_{shortcode}")]])
-            await context.bot.send_chat_action(chat_id=chat_id, action='upload_video')
-            with open(fp, 'rb') as f:
-               await update.message.reply_video(video=f, caption=CAPTION, parse_mode="Markdown", reply_markup=keyboard, supports_streaming=True, reply_to_message_id=update.message.message_id)
-        else:
-            await msg.edit_text("🪂 𝗨𝗽𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗣𝗵𝗼𝘁𝗼♡ ⋆｡°✩", parse_mode="Markdown")
-            with open(fp, 'rb') as f:
-                await update.message.reply_photo(photo=f, caption=CAPTION, parse_mode="Markdown", reply_to_message_id=update.message.message_id)
-        
-        await msg.delete(); InstaDownloader.cleanup(fp)
-        
-        if sticker_msg:
-            await asyncio.sleep(3)
-            try:
-                await context.bot.delete_message(chat_id=chat_id, message_id=sticker_msg.message_id)
-            except: pass
-        
-    except Exception as e:
-        logging.error(f"Process error: {e}")
-        try: await msg.edit_text(f"❌ 𝗘𝗿𝗿𝗼𝗿： {str(e)[:80]}", parse_mode="Markdown")
-        except: pass
-        if sticker_msg:
-            try: await sticker_msg.delete()
-            except: pass
-    finally:
-        if acquired:
-            download_semaphore.release()
             
 async def extract_and_send_audio_direct(query, context, url, audio_name):
     search_msg = await query.message.reply_text("🔎")
