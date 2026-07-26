@@ -1107,6 +1107,62 @@ async def extract_and_send_audio_direct(query, context, url, audio_name):
             try: await status_msg.edit_text(f"❌ {str(e)[:80]}", parse_mode="Markdown")
             except: pass
 
+# ═══════════════ MESSAGE HANDLER ═══════════════
+
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_type = update.effective_chat.type
+    if chat_type in ['group', 'supergroup'] and not is_group_activated(update.effective_chat.id): return
+    
+    text = update.message.text
+    if not text: return
+    
+    user_id = update.effective_user.id
+    
+    # Bot disabled check - only owner can use
+    if not is_bot_enabled():
+        if user_id == OWNER_ID:
+            pass  # Owner can use
+        else:
+            if InstaDownloader.is_instagram_url(text):
+                await update.message.reply_text(BOT_DISABLED_MSG, parse_mode="Markdown")
+            return
+    
+    # User-specific audio awaiting check
+    user_data = context.user_data
+    
+    if user_data.get('awaiting_audio'):
+        user_data['awaiting_audio'] = False
+        audio_name = text.strip()
+        url = user_data.get('audio_video_url')
+        if 'audio_prompt_msg' in user_data:
+            try: await user_data['audio_prompt_msg'].delete()
+            except: pass
+            user_data['audio_prompt_msg'] = None
+        if url: await extract_and_send_audio_direct(update, context, url, audio_name)
+        user_data['audio_video_url'] = None
+        return
+    
+    if text == AUDIO_DEFAULT_NAME:
+        user_data['awaiting_audio'] = False
+        url = user_data.get('audio_video_url')
+        if 'audio_prompt_msg' in user_data:
+            try: await user_data['audio_prompt_msg'].delete()
+            except: pass
+            user_data['audio_prompt_msg'] = None
+        if url: await extract_and_send_audio_direct(update, context, url, AUDIO_DEFAULT_NAME)
+        user_data['audio_video_url'] = None
+        return
+    
+    if not InstaDownloader.is_instagram_url(text): return
+    url = InstaDownloader.extract_url(text)
+    if not url:
+        await update.message.reply_text("❌ 𝗜𝗻𝘃𝗮𝗹𝗶𝗱 𝗨𝗥𝗟", parse_mode="Markdown")
+        return
+
+    # Process immediately
+    asyncio.create_task(process_download(update, context, url))
+    return
+
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query; await query.answer()
     
