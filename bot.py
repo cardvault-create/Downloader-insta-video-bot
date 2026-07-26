@@ -18,7 +18,7 @@ import requests
 # 🔐 CONFIG
 # ═══════════════════════════
 
-BOT_TOKEN = "8518787964:AAEpoIRPbqZyNOAoueo1eaMK3SLohCuDw3A"
+BOT_TOKEN = "8518787964:AAHdWIiFAh1SMNDSB8v5KhYKRJElgkfPl_c"
 OWNER_ID = 1987818347
 
 DOWNLOAD_DIR = "downloads"
@@ -253,7 +253,7 @@ class InstaDownloader:
     
         return {"success": False, "error": "🚫 𝐒𝐞𝐫𝐯𝐞𝐫 𝐁𝐮𝐬𝐲, 𝐓𝐫𝐲 𝐀𝐠𝐚𝐢𝐧 (˃̣̣̥᷄⌓˂̣̣̥᷅)"}
     
-# ═══════════════ PHOTO METHODS ═══════════════
+    # ═══════════════ PHOTO METHODS ═══════════════
     
     @staticmethod
     def _download_photo(shortcode, url):
@@ -603,14 +603,7 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
 
         for i in range(len(words)):
             await asyncio.sleep(0.08)
-    
-            # Last dot "." se pehle (i == 11) sticker bhejo
-            if i == 12 and sticker_id:
-                try: 
-                    sticker_msg = await bot.send_sticker(chat_id, sticker_id)
-                except: 
-                    pass
-    
+
             try: 
                 await welcome_msg.edit_text(
                     f"**{starting_emojis[i%len(starting_emojis)]} " + "".join(words[:i+1]) + "**", 
@@ -619,7 +612,14 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
             except: 
                 break
 
+        # Starting khatam - turant sticker bhejo
         await welcome_msg.delete()
+
+        if sticker_id:
+            try: 
+                sticker_msg = await bot.send_sticker(chat_id, sticker_id)
+            except: 
+                pass
         
         await asyncio.sleep(3)
         
