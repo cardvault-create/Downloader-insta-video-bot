@@ -173,295 +173,97 @@ class InstaDownloader:
     @staticmethod
     def download_media(url):
         shortcode = InstaDownloader.get_shortcode(url)
-        if not shortcode: return {"success": False, "error": "Invalid"}
+        if not shortcode:
+            return {"success": False, "error": "Invalid"}
         is_reel = '/reel/' in url or '/tv/' in url
-        if is_reel: return InstaDownloader._download_video(shortcode)
-        else: return InstaDownloader._download_photo(shortcode, url)
+        for f in os.listdir(DOWNLOAD_DIR):
+            if shortcode in f:
+                try: os.remove(os.path.join(DOWNLOAD_DIR, f))
+                except: pass
+        if is_reel:
+            return InstaDownloader._download_video_fixed(shortcode)
+        else:
+            return InstaDownloader._download_photo_fixed(shortcode)
     
     @staticmethod
-    def _download_video(shortcode):
-        """FAST DOWNLOAD - ALWAYS WITH AUDIO"""
+    def _download_video_fixed(shortcode):
         url = f'https://www.instagram.com/reel/{shortcode}/'
-    
-        ydl_opts = {
-            'quiet': True,
-            'no_warnings': True,
-            'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
-            'format': 'bv*+ba/b',
-            'merge_output_format': 'mp4',
-            'socket_timeout': 60,
-            'extractor_retries': 5,
-            'retries': 10,
-            'fragment_retries': 10,
-            'force_overwrites': True,
-            'ignoreerrors': True,
-            'no_color': True,
-            'http_headers': {
-                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.9',
-                'Referer': 'https://www.instagram.com/',
-            }
-        }
-    
+        output_path = os.path.join(DOWNLOAD_DIR, f'{shortcode}.mp4')
+        cmd = [
+            'yt-dlp', url, '-o', output_path,
+            '-f', 'bv*+ba/b', '--merge-output-format', 'mp4',
+            '--socket-timeout', '20', '--retries', '2',
+            '--no-warnings', '--no-color', '--force-overwrites',
+            '--user-agent', 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15'
+        ]
         if os.path.exists('cookies.txt'):
-            ydl_opts['cookiefile'] = 'cookies.txt'
-    
-        if shutil.which('ffmpeg'):
-            ydl_opts['ffmpeg_location'] = shutil.which('ffmpeg')
-    
+            cmd.extend(['--cookies', 'cookies.txt'])
         try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([url])
-        except:
-            pass
-    
-        time.sleep(2)
-    
-        for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
-            if f.endswith(('.mp4', '.mkv', '.webm')):
-                fp = os.path.join(DOWNLOAD_DIR, f)
-                if os.path.exists(fp) and os.path.getsize(fp) > 50000:
-                    return {"success": True, "file_path": fp, "is_video": True}
-    
-        if 'cookiefile' in ydl_opts:
-            del ydl_opts['cookiefile']
-            try:
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    ydl.download([url])
-            except:
-                pass
-            time.sleep(2)
-            for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
-                if f.endswith(('.mp4', '.mkv', '.webm')):
-                    fp = os.path.join(DOWNLOAD_DIR, f)
-                    if os.path.exists(fp) and os.path.getsize(fp) > 50000:
-                        return {"success": True, "file_path": fp, "is_video": True}
-    
-        ydl_opts['format'] = 'best[ext=mp4]/best'
+            subprocess.run(cmd, capture_output=True, timeout=40)
+        except subprocess.TimeoutExpired:
+            os.system('pkill -9 yt-dlp 2>/dev/null')
+        except: pass
+        if os.path.exists(output_path) and os.path.getsize(output_path) > 50000:
+            return {"success": True, "file_path": output_path, "is_video": True}
+        cmd[4] = 'best[ext=mp4]/best'
         try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([url])
-        except:
-            pass
-        time.sleep(2)
-        for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
-            if f.endswith(('.mp4', '.mkv', '.webm')):
-                fp = os.path.join(DOWNLOAD_DIR, f)
-                if os.path.exists(fp) and os.path.getsize(fp) > 50000:
-                    return {"success": True, "file_path": fp, "is_video": True}
-    
+            subprocess.run(cmd, capture_output=True, timeout=30)
+        except subprocess.TimeoutExpired:
+            os.system('pkill -9 yt-dlp 2>/dev/null')
+        except: pass
+        if os.path.exists(output_path) and os.path.getsize(output_path) > 50000:
+            return {"success": True, "file_path": output_path, "is_video": True}
         return {"success": False, "error": "🚫 𝐒𝐞𝐫𝐯𝐞𝐫 𝐁𝐮𝐬𝐲, 𝐓𝐫𝐲 𝐀𝐠𝐚𝐢𝐧 (˃̣̣̥᷄⌓˂̣̣̥᷅)"}
     
-    # ═══════════════ PHOTO METHODS ═══════════════
-    
     @staticmethod
-    def _download_photo(shortcode, url):
-        """PHOTOS - 5 methods"""
-        result = InstaDownloader._method_scrape_multi(shortcode, url)
-        if result.get("success"): return result
-        for method in [InstaDownloader._method_oembed, InstaDownloader._method_ytdlp, InstaDownloader._method_scrape_single, InstaDownloader._method_cdn]:
-            result = method(shortcode)
-            if result.get("success"): return result
-        return {"success": False, "error": "🚫 𝐒𝐞𝐫𝐯𝐞𝐫 𝐢𝐬𝐬𝐮𝐞, 𝐩𝐥𝐞𝐚𝐬𝐞 𝐭𝐫𝐲 𝐚𝐠𝐚𝐢𝐧 (˃̣̣̥᷄⌓˂̣̣̥᷅)"}
-    
-    @staticmethod
-    def _method_scrape_multi(shortcode, url):
-        """Multiple photos from carousel posts"""
-        try:
-            session = requests.Session()
-            session.headers.update({'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15'})
-            resp = session.get(url, timeout=15)
-            if resp.status_code != 200: return {"success": False}
-            html = resp.text
-            image_urls = []
-            
-            nd = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', html, re.DOTALL)
-            if nd:
-                try:
-                    data = json.loads(nd.group(1))
-                    data_str = json.dumps(data)
-                    
-                    carousel_matches = re.findall(r'"edge_sidecar_to_children"[^}]*"edges":\s*\[(.*?)\]', data_str, re.DOTALL)
-                    if carousel_matches:
-                        for carousel in carousel_matches:
-                            display_urls = re.findall(r'"display_url":"([^"]+)"', carousel)
-                            for du in display_urls:
-                                cleaned = du.replace('\\u0026', '&')
-                                if cleaned not in image_urls and '.mp4' not in cleaned:
-                                    image_urls.append(cleaned)
-                    
-                    if not image_urls:
-                        display_urls = re.findall(r'"display_url":"([^"]+)"', data_str)
-                        for du in display_urls:
-                            cleaned = du.replace('\\u0026', '&')
-                            if cleaned not in image_urls and '.mp4' not in cleaned:
-                                image_urls.append(cleaned)
-                except: pass
-            
-            if not image_urls:
-                urls_found = re.findall(r'"display_url":"([^"]+)"', html)
-                image_urls = [u.replace('\\u0026', '&') for u in urls_found if '.mp4' not in u]
-            
-            if not image_urls:
-                og = re.findall(r'<meta\s+property="og:image"\s+content="([^"]+)"', html)
-                image_urls = list(set(og))
-            
-            seen = set()
-            unique_urls = []
-            for u in image_urls:
-                if u not in seen:
-                    seen.add(u)
-                    unique_urls.append(u)
-            image_urls = unique_urls
-            
-            if not image_urls:
-                return {"success": False}
-            
-            downloaded = []
-            for i, img_url in enumerate(image_urls[:10]):
-                try:
-                    fp = os.path.join(DOWNLOAD_DIR, f"multi_{shortcode}_{i+1}.jpg")
-                    r = session.get(img_url, headers={'User-Agent': 'Mozilla/5.0'}, stream=True, timeout=30)
-                    if r.status_code == 200:
-                        with open(fp, 'wb') as f:
-                            for chunk in r.iter_content(8192):
-                                f.write(chunk)
-                        if os.path.getsize(fp) > 1000:
-                            downloaded.append(fp)
-                except: continue
-            
-            if downloaded:
-                return {
-                    "success": True,
-                    "file_path": downloaded[0],
-                    "file_paths": downloaded,
-                    "is_video": False,
-                    "is_multiple": len(downloaded) > 1,
-                    "total": len(downloaded)
-                }
-            return {"success": False}
-        except: return {"success": False}
-    
-    @staticmethod
-    def _method_oembed(shortcode):
-        """Instagram Official oEmbed API"""
-        try:
-            post_url = f"https://www.instagram.com/p/{shortcode}/"
-            api_url = f"https://api.instagram.com/oembed?url={urllib.parse.quote(post_url)}&maxwidth=1080"
-            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Accept': 'application/json'}
-            resp = requests.get(api_url, headers=headers, timeout=15)
-            if resp.status_code != 200: return {"success": False}
-            data = resp.json()
-            thumbnail_url = data.get('thumbnail_url', '')
-            embed_html = data.get('html', '')
-            image_urls = []
-            if thumbnail_url:
-                hd_url = re.sub(r'/s\d+x\d+/', '/', thumbnail_url).split('?')[0]
-                image_urls.append(hd_url)
-                image_urls.append(thumbnail_url)
-            if embed_html:
-                img_matches = re.findall(r'<img[^>]+src="([^"]+)"', embed_html)
-                for img_url in img_matches:
-                    if img_url not in image_urls: image_urls.append(img_url)
-            if not image_urls: return {"success": False}
-            downloaded = []
-            for img_url in image_urls:
-                try:
-                    if img_url.startswith('//'): img_url = 'https:' + img_url
-                    if '.mp4' in img_url or '.mov' in img_url: continue
-                    ext = 'jpg'
-                    if '.png' in img_url: ext = 'png'
-                    elif '.webp' in img_url: ext = 'webp'
-                    fp = os.path.join(DOWNLOAD_DIR, f"{shortcode}.{ext}")
-                    img_headers = {'User-Agent': 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36', 'Accept': 'image/*', 'Referer': 'https://www.instagram.com/'}
-                    r = requests.get(img_url, headers=img_headers, stream=True, timeout=30)
-                    if r.status_code == 200:
-                        with open(fp, 'wb') as f:
-                            for chunk in r.iter_content(8192): f.write(chunk)
-                        if os.path.getsize(fp) > 1000: downloaded.append(fp)
-                        break
-                except: continue
-            if downloaded: return {"success": True, "file_path": downloaded[0], "is_video": False}
-            return {"success": False}
-        except: return {"success": False}
-    
-    @staticmethod
-    def _method_ytdlp(shortcode):
-        """yt-dlp for photos"""
-        try:
-            url = f"https://www.instagram.com/p/{shortcode}/"
-            ydl_opts = {'quiet': True, 'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'), 'format': 'best', 'retries': 3}
-            if os.path.exists('cookies.txt'): ydl_opts['cookiefile'] = 'cookies.txt'
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.extract_info(url, download=True)
-                time.sleep(0.3)
-                for f in os.listdir(DOWNLOAD_DIR):
-                    if shortcode in f and not f.endswith(('.mp4','.mov','.webm')):
-                        fp = os.path.join(DOWNLOAD_DIR, f)
-                        if os.path.getsize(fp) > 1000: return {"success": True, "file_path": fp, "is_video": False}
-        except: pass
-        return {"success": False}
-    
-    @staticmethod
-    def _method_scrape_single(shortcode):
-        """Direct page scrape for single photo"""
-        try:
-            session = requests.Session()
-            session.headers.update({'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15'})
-            resp = session.get(f"https://www.instagram.com/p/{shortcode}/", timeout=10)
-            if resp.status_code != 200: return {"success": False}
-            image_urls = re.findall(r'"display_url":"([^"]+)"', resp.text)
-            if not image_urls:
-                og = re.findall(r'<meta\s+property="og:image"\s+content="([^"]+)"', resp.text)
-                image_urls = list(set(og))
-            for img_url in image_urls[:3]:
-                try:
-                    if '.mp4' in img_url: continue
+    def _download_photo_fixed(shortcode):
+        cdn_urls = [
+            f"https://www.instagram.com/p/{shortcode}/media/?size=l",
+            f"https://www.instagram.com/p/{shortcode}/media/",
+        ]
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
+            'Accept': 'image/*', 'Referer': 'https://www.instagram.com/'
+        }
+        for cdn_url in cdn_urls:
+            try:
+                r = requests.get(cdn_url, headers=headers, timeout=10, stream=True)
+                if r.status_code == 200:
                     fp = os.path.join(DOWNLOAD_DIR, f"{shortcode}.jpg")
-                    r = session.get(img_url, headers={'User-Agent': 'Mozilla/5.0'}, stream=True, timeout=20)
-                    if r.status_code == 200:
-                        with open(fp, 'wb') as f:
-                            for chunk in r.iter_content(8192): f.write(chunk)
-                        if os.path.getsize(fp) > 1000: return {"success": True, "file_path": fp, "is_video": False}
-                except: continue
-            return {"success": False}
-        except: return {"success": False}
-    
-    @staticmethod
-    def _method_cdn(shortcode):
-        """Direct Instagram CDN"""
+                    with open(fp, 'wb') as f:
+                        for chunk in r.iter_content(8192): f.write(chunk)
+                    if os.path.getsize(fp) > 5000:
+                        return {"success": True, "file_path": fp, "is_video": False}
+            except: continue
         try:
-            cdn_urls = [
-                f"https://www.instagram.com/p/{shortcode}/media/?size=l",
-                f"https://i.instagram.com/{shortcode}.jpg",
-            ]
-            for cdn_url in cdn_urls:
-                try:
-                    headers = {'User-Agent': 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36', 'Accept': 'image/*', 'Referer': 'https://www.instagram.com/'}
-                    r = requests.get(cdn_url, headers=headers, stream=True, timeout=30)
-                    if r.status_code == 200 and 'image' in r.headers.get('content-type', ''):
+            url = f'https://www.instagram.com/p/{shortcode}/'
+            r = requests.get(url, headers=headers, timeout=10)
+            if r.status_code == 200:
+                og = re.search(r'<meta\s+property="og:image"\s+content="([^"]+)"', r.text)
+                if og:
+                    img_r = requests.get(og.group(1), headers=headers, timeout=10, stream=True)
+                    if img_r.status_code == 200:
                         fp = os.path.join(DOWNLOAD_DIR, f"{shortcode}.jpg")
                         with open(fp, 'wb') as f:
-                            for chunk in r.iter_content(8192): f.write(chunk)
-                        if os.path.getsize(fp) > 1000: return {"success": True, "file_path": fp, "is_video": False}
-                except: continue
+                            for chunk in img_r.iter_content(8192): f.write(chunk)
+                        if os.path.getsize(fp) > 5000:
+                            return {"success": True, "file_path": fp, "is_video": False}
         except: pass
-        return {"success": False}
+        return {"success": False, "error": "🚫 𝐒𝐞𝐫𝐯𝐞𝐫 𝐢𝐬𝐬𝐮𝐞, 𝐩𝐥𝐞𝐚𝐬𝐞 𝐭𝐫𝐲 𝐚𝐠𝐚𝐢𝐧 (˃̣̣̥᷄⌓˂̣̣̥᷅)"}
     
     @staticmethod
     def extract_audio(video_path, custom_name=None):
         try:
             if custom_name and custom_name.lower() != "skip":
                 safe = re.sub(r'[^\w\s-]', '', custom_name).strip()[:50] or "Audio"
-                # Audio file VIDEO file ke SAME folder mein banao
                 ap = os.path.join(os.path.dirname(video_path), f"{safe}.mp3")
             else:
                 ap = os.path.join(os.path.dirname(video_path), f"{os.path.splitext(os.path.basename(video_path))[0]}.mp3")
             if not shutil.which('ffmpeg'): return {"success": False, "error": "FFmpeg not found"}
-            subprocess.run(['ffmpeg', '-i', video_path, '-vn', '-acodec', 'libmp3lame', '-ab', '192k', '-y', ap], capture_output=True, timeout=300)
+            subprocess.run(['ffmpeg', '-i', video_path, '-vn', '-acodec', 'libmp3lame', '-ab', '192k', '-y', ap], capture_output=True, timeout=120)
             if os.path.exists(ap) and os.path.getsize(ap) > 1000: return {"success": True, "file_path": ap}
             return {"success": False, "error": "Audio extraction failed"}
+        except subprocess.TimeoutExpired: return {"success": False, "error": "Audio timeout"}
         except Exception as e: return {"success": False, "error": str(e)[:50]}
     
     @staticmethod
@@ -469,7 +271,6 @@ class InstaDownloader:
         try:
             if fp and os.path.exists(fp): os.remove(fp)
         except: pass
-
 # ═══════════════════════════
 # 📝 TEXT TEMPLATES
 # ═══════════════════════════
@@ -949,6 +750,11 @@ async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, u
     
     msg = await update.message.reply_text("⏳ 𝗣𝗿𝗼𝗰𝗲𝘀𝘀𝗶𝗻𝗴...", parse_mode="Markdown")
     
+    async def delete_sticker():
+        if sticker_msg:
+            try: await sticker_msg.delete()
+            except: pass
+    
     # Wait for semaphore (max 2 parallel)
     async with download_semaphore:
         try:
@@ -985,9 +791,7 @@ async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, u
             
             if not result.get("success"):
                 await msg.edit_text(f"❌ 𝗙𝗮𝗶𝗹𝗲𝗱！ {result.get('error', '')}", parse_mode="Markdown")
-                if sticker_msg:
-                    try: await sticker_msg.delete()
-                    except: pass
+                await delete_sticker()
                 return
             
             if result.get("is_multiple"):
@@ -1018,14 +822,14 @@ async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, u
             fp = result["file_path"]
             if not os.path.exists(fp) or os.path.getsize(fp) < 1000:
                 await msg.edit_text("❌ 𝗙𝗶𝗹𝗲 𝗡𝗼𝘁 𝗙𝗼𝘂𝗻𝗱", parse_mode="Markdown")
-                if sticker_msg: await sticker_msg.delete()
+                await delete_sticker()
                 return
             
             size_mb = os.path.getsize(fp) / (1024 * 1024)
             if size_mb > 45:
                 await msg.edit_text(f"❌ >𝟱𝟬𝗠𝗕 ({size_mb:.1f}MB)", parse_mode="Markdown")
                 InstaDownloader.cleanup(fp)
-                if sticker_msg: await sticker_msg.delete()
+                await delete_sticker()
                 return
             
             is_video = result.get("is_video", False) or fp.endswith(('.mp4', '.mov', '.webm'))
@@ -1033,13 +837,25 @@ async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, u
             if is_video:
                 await msg.edit_text("🪂 𝗨𝗽𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗩𝗶𝗱𝗲𝗼 . ˚◞♡ ◟˚ .", parse_mode="Markdown")
                 keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(AUDIO_BUTTON_TEXT, callback_data=f"aud_{shortcode}")]])
-                await context.bot.send_chat_action(chat_id=chat_id, action='upload_video')
-                with open(fp, 'rb') as f:
-                   await update.message.reply_video(video=f, caption=CAPTION, parse_mode="Markdown", reply_markup=keyboard, supports_streaming=True, reply_to_message_id=update.message.message_id)
+                try:
+                    await context.bot.send_chat_action(chat_id=chat_id, action='upload_video')
+                    with open(fp, 'rb') as f:
+                        await update.message.reply_video(video=f, caption=CAPTION, parse_mode="Markdown", reply_markup=keyboard, supports_streaming=True, reply_to_message_id=update.message.message_id)
+                except Exception as e:
+                    await msg.edit_text(f"❌ Upload: {str(e)[:50]}", parse_mode="Markdown")
+                    await delete_sticker()
+                    InstaDownloader.cleanup(fp)
+                    return
             else:
                 await msg.edit_text("🪂 𝗨𝗽𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗣𝗵𝗼𝘁𝗼♡ ⋆｡°✩", parse_mode="Markdown")
-                with open(fp, 'rb') as f:
-                    await update.message.reply_photo(photo=f, caption=CAPTION, parse_mode="Markdown", reply_to_message_id=update.message.message_id)
+                try:
+                    with open(fp, 'rb') as f:
+                        await update.message.reply_photo(photo=f, caption=CAPTION, parse_mode="Markdown", reply_to_message_id=update.message.message_id)
+                except Exception as e:
+                    await msg.edit_text(f"❌ Upload: {str(e)[:50]}", parse_mode="Markdown")
+                    await delete_sticker()
+                    InstaDownloader.cleanup(fp)
+                    return
             
             await msg.delete(); InstaDownloader.cleanup(fp)
             if sticker_msg:
@@ -1049,8 +865,9 @@ async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, u
                 except:
                     pass
         except Exception as e:
-            try: await msg.edit_text(f"❌ 𝗘𝗿𝗿𝗼𝗿： {str(e)[:100]}", parse_mode="Markdown")
+            try: await msg.edit_text(f"❌ 𝗘𝗿𝗿𝗼𝗿 ： {str(e)[:100]}", parse_mode="Markdown")
             except: pass
+            await delete_sticker()
             
 async def extract_and_send_audio_direct(query, context, url, audio_name):
     search_msg = await query.message.reply_text("🔎")
@@ -1101,9 +918,16 @@ async def extract_and_send_audio_direct(query, context, url, audio_name):
             ar = InstaDownloader.extract_audio(vp, audio_name)
             if ar.get("success"):
                 await status_msg.edit_text("🎻 𝗦𝗲𝗻𝗱𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼♡ ⋆｡°✩", parse_mode="Markdown")
-                await context.bot.send_chat_action(chat_id=query.message.chat_id, action='upload_audio')
-                with open(ar["file_path"], 'rb') as f:
-                    await query.message.reply_audio(audio=f, title=audio_name, performer="✩⋆｡°𝗕𝘆 ➪ 𓆩#ＫＡＲＴＩＫ𓆪 ♡", caption=CAPTION, parse_mode="Markdown", reply_to_message_id=query.message.message_id)
+                try:
+                    await context.bot.send_chat_action(chat_id=query.message.chat_id, action='upload_audio')
+                    with open(ar["file_path"], 'rb') as f:
+                        await query.message.reply_audio(audio=f, title=audio_name, performer="✩⋆｡°𝗕𝘆 ➪ 𓆩#ＫＡＲＴＩＫ𓆪 ♡", caption=CAPTION, parse_mode="Markdown", reply_to_message_id=query.message.message_id)
+                except Exception as e:
+                    await status_msg.edit_text(f"❌ Send Error: {str(e)[:50]}", parse_mode="Markdown")
+                    InstaDownloader.cleanup(vp)
+                    try: os.remove(ar["file_path"])
+                    except: pass
+                    return
                 await asyncio.sleep(2)
                 await status_msg.delete()
                 try: os.remove(ar["file_path"])
@@ -1121,17 +945,14 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if query.data.startswith("aud_"):
         shortcode = query.data[4:]
         video_url = f"https://www.instagram.com/reel/{shortcode}/"
-        context.user_data['audio_video_url'] = video_url
         await query.edit_message_reply_markup(reply_markup=None)
         asyncio.create_task(extract_and_send_audio_direct(query, context, video_url, AUDIO_DEFAULT_NAME))
         return
     elif query.data == "def_audio":
         await query.message.delete()
-        context.user_data['awaiting_audio'] = False; context.user_data['audio_prompt_msg'] = None
         url = context.user_data.get('audio_video_url') or context.user_data.get('current_url')
         if url: 
             asyncio.create_task(extract_and_send_audio_direct(query, context, url, AUDIO_DEFAULT_NAME))
-        context.user_data['audio_video_url'] = None
         return
     elif query.data.startswith("nxp_"):
         parts = query.data[4:].rsplit("_", 1); cache_key = parts[0]; current_idx = int(parts[1]); next_idx = current_idx + 1
