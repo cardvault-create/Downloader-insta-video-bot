@@ -1327,8 +1327,14 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if emoji_id:
             s, t = add_emoji_db(emoji_id)
             if s:
+                # ✅ Pehle added message with premium emojis
                 await query.message.reply_text(
-                    f'<tg-emoji emoji-id="{emoji_id}">🌟</tg-emoji>\n\n✅ 𝗘𝗠𝗢𝗝𝗜 𝗔𝗗𝗗𝗘𝗗 ༼{t}༽',
+                    f'<tg-emoji emoji-id="6291571388590419">✅</tg-emoji> 𝗘𝗠𝗢𝗝𝗜 𝗔𝗗𝗗𝗘𝗗 ༼{t}༽ <tg-emoji emoji-id="6127410617482484040">✅</tg-emoji>',
+                    parse_mode="HTML"
+                )
+                # ✅ Fir added emoji bhejo
+                await query.message.reply_text(
+                    f'<tg-emoji emoji-id="{emoji_id}">🌟</tg-emoji>',
                     parse_mode="HTML"
                 )
             else:
