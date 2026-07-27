@@ -1306,13 +1306,13 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query; await query.answer()
 
     if query.data == "owner_add_emoji":
-    await query.answer()
-    context.user_data['awaiting_emoji_id'] = True
-    await query.message.reply_text(
-        f'<tg-emoji emoji-id="5352918496642604333">📝</tg-emoji> <b>Ｓｅｎｄ Ｐｒｅｍｉｕｍ Ｅｍｏｊｉ Ｉ＇ｄ ：</b>',
-        parse_mode="HTML"
-    )
-    return
+        await query.answer()
+        context.user_data['awaiting_emoji_id'] = True
+        await query.message.reply_text(
+            f'<tg-emoji emoji-id="5352918496642604333">📝</tg-emoji> <b>Ｓｅｎｄ Ｐｒｅｍｉｕｍ Ｅｍｏｊｉ Ｉ＇ｄ ：</b>',
+            parse_mode="HTML"
+        )
+        return
 
     if query.data == "owner_add_this":
         await query.answer()
