@@ -636,7 +636,7 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
     try:
         user_mention = f'<a href="tg://user?id={user_id}">{first_name}</a>'
         
-        emoji_id = get_random_peach_emoji()
+        emoji_id = get_random_emoji()
         emoji_msg = None
         if emoji_id:
             try: 
