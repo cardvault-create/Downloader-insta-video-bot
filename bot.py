@@ -1328,26 +1328,21 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if emoji_id:
             # ADD EMOJI TO DB
             success, total = add_emoji_db(emoji_id)
-        
-            # DELETE BUTTON MESSAGE
-            try:
-                await query.message.delete()
-            except:
-                pass
-
+    
             if success:
-                # BHEJO CONFIRMATION - same jaise /addemoji command karta hai
-                await query.message.reply_text(
-                    f'<tg-emoji emoji-id="6291571388590419">✅</tg-emoji> 𝗘𝗠𝗢𝗝𝗜 𝗔𝗗𝗗𝗘𝗗 ༼{total}༽ <tg-emoji emoji-id="6127410617482484040">✅</tg-emoji>',
+                # EDIT KARO - button hatao, confirmation dikhao
+                await query.edit_message_text(
+                    text=f'<tg-emoji emoji-id="6291571388590419">✅</tg-emoji> 𝗘𝗠𝗢𝗝𝗜 𝗔𝗗𝗗𝗘𝗗 ༼{total}༽ <tg-emoji emoji-id="6127410617482484040">✅</tg-emoji>',
                     parse_mode="HTML"
                 )
+                # NAYA MESSAGE MEIN EMOJI BHEJO
                 await query.message.reply_text(
-                    f'<tg-emoji emoji-id="{emoji_id}">🌟</tg-emoji>',
+                    text=f'<tg-emoji emoji-id="{emoji_id}">🌟</tg-emoji>',
                     parse_mode="HTML"
                 )
             else:
-                await query.message.reply_text(
-                    f'<tg-emoji emoji-id="5929358014627713883">❌</tg-emoji> <b>𝗔𝗹𝗿𝗲𝗮𝗱𝘆 𝗘𝘅𝗶𝘀𝘁𝘀</b>',
+                await query.edit_message_text(
+                    text=f'<tg-emoji emoji-id="5929358014627713883">❌</tg-emoji> <b>𝗔𝗹𝗿𝗲𝗮𝗱𝘆 𝗘𝘅𝗶𝘀𝘁𝘀</b>',
                     parse_mode="HTML"
                 )
         else:
