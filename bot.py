@@ -1310,11 +1310,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query; await query.answer()
+    query = update.callback_query
+    await query.answer()
+    user_data = context.user_data
 
     if query.data == "owner_add_emoji":
-        await query.answer()
-        context.user_data['awaiting_emoji_id'] = True
+        user_data['awaiting_emoji_id'] = True
         await query.message.reply_text(
             f'<tg-emoji emoji-id="5352918496642604333">📝</tg-emoji> <b>𝙎𝙚𝙣𝙙 𝙋𝙧𝙚𝙢𝙞𝙪𝙢 𝙀𝙢𝙤𝙟𝙞 𝙄𝙙 ：</b>',
             parse_mode="HTML"
@@ -1322,67 +1323,87 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if query.data == "owner_add_this":
-        await query.answer()
-        emoji_id = context.user_data.get('pending_emoji_id')
-        if emoji_id:
-            s, t = add_emoji_db(emoji_id)
-            chat_id = query.message.chat_id
-        
-            # Delete "Add This" message
-            try: await query.message.delete()
-            except: pass
-        
-            if s:
-                # Pehle added message
-                await context.bot.send_message(
-                    chat_id=chat_id,
-                    text=f'<tg-emoji emoji-id="6291571388590419">✅</tg-emoji> 𝗘𝗠𝗢𝗝𝗜 𝗔𝗗𝗗𝗘𝗗 ༼{t}༽ <tg-emoji emoji-id="6127410617482484040">✅</tg-emoji>',
-                    parse_mode="HTML"
-                )
-                # Fir added emoji
-                await context.bot.send_message(
-                    chat_id=chat_id,
-                    text=f'<tg-emoji emoji-id="{emoji_id}">🌟</tg-emoji>',
-                    parse_mode="HTML"
-                )
-            else:
-                await context.bot.send_message(
-                    chat_id=chat_id,
-                    text=f'<tg-emoji emoji-id="5929358014627713883">❌</tg-emoji> <b>𝗔𝗹𝗿𝗲𝗮𝗱𝘆 𝗘𝘅𝗶𝘀𝘁𝘀</b>',
-                    parse_mode="HTML"
-                )
-    
-        context.user_data['pending_emoji_id'] = None
-        context.user_data['awaiting_emoji_id'] = True
+        emoji_id = user_data.get('pending_emoji_id')
+        if not emoji_id:
+            await query.answer("No emoji ID found!", show_alert=True)
+            return
+
+        s, t = add_emoji_db(emoji_id)
+        chat_id = query.message.chat_id
+
+        # Delete "Add This" message
+        try:
+            await query.message.delete()
+        except:
+            pass
+
+        if s:
+            # Added message
+            msg1 = await context.bot.send_message(
+                chat_id=chat_id,
+                text=f'<tg-emoji emoji-id="6291571388590419">✅</tg-emoji> 𝗘𝗠𝗢𝗝𝗜 𝗔𝗗𝗗𝗘𝗗 ༼{t}༽ <tg-emoji emoji-id="6127410617482484040">✅</tg-emoji>',
+                parse_mode="HTML"
+            )
+            print(f"Added msg sent: {msg1.message_id}")  # Debug
+            # Emoji message
+            msg2 = await context.bot.send_message(
+                chat_id=chat_id,
+                text=f'<tg-emoji emoji-id="{emoji_id}">🌟</tg-emoji>',
+                parse_mode="HTML"
+            )
+            print(f"Emoji msg sent: {msg2.message_id}")  # Debug
+        else:
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=f'<tg-emoji emoji-id="5929358014627713883">❌</tg-emoji> <b>𝗔𝗹𝗿𝗲𝗮𝗱𝘆 𝗘𝘅𝗶𝘀𝘁𝘀</b>',
+                parse_mode="HTML"
+            )
+
+        user_data['pending_emoji_id'] = None
+        user_data['awaiting_emoji_id'] = True
         return
-    
+
     if query.data.startswith("aud_"):
         shortcode = query.data[4:]
         video_url = f"https://www.instagram.com/reel/{shortcode}/"
-        context.user_data['audio_video_url'] = video_url
+        user_data['audio_video_url'] = video_url
         await query.edit_message_reply_markup(reply_markup=None)
         asyncio.create_task(extract_and_send_audio_direct(query, context, video_url, AUDIO_DEFAULT_NAME))
         return
     elif query.data == "def_audio":
         await query.message.delete()
-        context.user_data['awaiting_audio'] = False; context.user_data['audio_prompt_msg'] = None
-        url = context.user_data.get('audio_video_url') or context.user_data.get('current_url')
-        if url: 
+        user_data['awaiting_audio'] = False
+        user_data['audio_prompt_msg'] = None
+        url = user_data.get('audio_video_url') or user_data.get('current_url')
+        if url:
             asyncio.create_task(extract_and_send_audio_direct(query, context, url, AUDIO_DEFAULT_NAME))
-        context.user_data['audio_video_url'] = None
+        user_data['audio_video_url'] = None
         return
     elif query.data.startswith("nxp_"):
-        parts = query.data[4:].rsplit("_", 1); cache_key = parts[0]; current_idx = int(parts[1]); next_idx = current_idx + 1
+        parts = query.data[4:].rsplit("_", 1)
+        cache_key = parts[0]
+        current_idx = int(parts[1])
+        next_idx = current_idx + 1
         photo_paths = get_photo_cache(cache_key)
         if photo_paths and next_idx < len(photo_paths) and os.path.exists(photo_paths[next_idx]):
             await query.edit_message_reply_markup(reply_markup=None)
             keyboard = None
             if next_idx + 1 < len(photo_paths):
-                keyboard = InlineKeyboardMarkup([
-                    [InlineKeyboardButton(f"➪ 𝗡𝗲𝘅𝘁 𝗣𝗵𝗼𝘁𝗼 ➤ ({next_idx + 2}/{len(photo_paths)})", callback_data=f"nxp_{cache_key}_{next_idx}", style=get_random_style(), icon_custom_emoji_id=get_random_emoji_id())]
-                ])
+                keyboard = InlineKeyboardMarkup([[
+                    InlineKeyboardButton(
+                        f"➪ 𝗡𝗲𝘅𝘁 𝗣𝗵𝗼𝘁𝗼 ➤ ({next_idx + 2}/{len(photo_paths)})",
+                        callback_data=f"nxp_{cache_key}_{next_idx}",
+                        style=get_random_style(),
+                        icon_custom_emoji_id=get_random_emoji_id()
+                    )
+                ]])
             with open(photo_paths[next_idx], 'rb') as f:
-                await query.message.reply_photo(photo=f, caption=f"📸 𝗣𝗵𝗼𝘁𝗼 {next_idx + 1}/{len(photo_paths)}**\n\n{CAPTION}", parse_mode="Markdown", reply_markup=keyboard)
+                await query.message.reply_photo(
+                    photo=f,
+                    caption=f"📸 𝗣𝗵𝗼𝘁𝗼 {next_idx + 1}/{len(photo_paths)}\n\n{CAPTION}",
+                    parse_mode="Markdown",
+                    reply_markup=keyboard
+                )
         else:
             await query.answer("No more photos!", show_alert=True)
             
