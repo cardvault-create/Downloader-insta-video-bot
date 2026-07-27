@@ -827,21 +827,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if is_bot_enabled() or user_id == OWNER_ID:
         asyncio.create_task(welcome_animation(context.bot, update.effective_chat.id, user_id, first_name))
-        # Owner ke liye Add Emoji button
-        if user_id == OWNER_ID:
-            add_emoji_btn = InlineKeyboardMarkup([
-                [InlineKeyboardButton(
-                    "𝐀𝐝𝐝 𝐄𝐦𝐨𝐣𝐢",
-                    callback_data="owner_add_emoji",
-                    style=get_random_style(),
-                    icon_custom_emoji_id="5352555352862765789"
-                )]
-            ])
-            await update.message.reply_text(
-                "👑 <b>Owner Panel</b>",
-                reply_markup=add_emoji_btn,
-                parse_mode="HTML"
-            )
     else:
         await update.message.reply_text(BOT_DISABLED_MSG, parse_mode="Markdown")
     
@@ -858,6 +843,28 @@ async def settings_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
     await update.message.reply_text(SETTINGS_TEXT, parse_mode="Markdown", disable_web_page_preview=True)
 
+async def ego_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != OWNER_ID: 
+        await update.message.reply_text(
+            f'<tg-emoji emoji-id="5353060840448727534">❌</tg-emoji> 𝘼𝙘𝙘𝙚𝙨𝙨 𝘿𝙚𝙣𝙞𝙚𝙙！',
+            parse_mode="HTML"
+        )
+        return
+    
+    add_emoji_btn = InlineKeyboardMarkup([
+        [InlineKeyboardButton(
+            "𝐀𝐝𝐝 𝐄𝐦𝐨𝐣𝐢",
+            callback_data="owner_add_emoji",
+            style=get_random_style(),
+            icon_custom_emoji_id="5352555352862765789"
+        )]
+    ])
+    await update.message.reply_text(
+        f'<tg-emoji emoji-id="5352540225987943305">👑</tg-emoji> <b>𓆩#ＫＡＲＴＩＫ𓆪</b>',
+        reply_markup=add_emoji_btn,
+        parse_mode="HTML"
+    )
+    
 async def bot_added_to_group(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
     bot_user = await context.bot.get_me()
@@ -1373,6 +1380,7 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("activate", activate_cmd))
     app.add_handler(CommandHandler("settings", settings_cmd))
+    app.add_handler(CommandHandler("ego", ego_cmd))
     app.add_handler(CommandHandler("disable", disable_cmd))
     app.add_handler(CommandHandler("enable", enable_cmd))
     app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, bot_added_to_group))
