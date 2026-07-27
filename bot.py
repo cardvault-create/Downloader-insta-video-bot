@@ -1328,22 +1328,33 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if emoji_id:
             # ADD EMOJI TO DB
             success, total = add_emoji_db(emoji_id)
-    
-            if success:
-                # EDIT KARO - button hatao, confirmation dikhao
-                await query.edit_message_text(
-                    text=f'<tg-emoji emoji-id="6291571388590419">✅</tg-emoji> 𝗘𝗠𝗢𝗝𝗜 𝗔𝗗𝗗𝗘𝗗 ༼{total}༽ <tg-emoji emoji-id="6127410617482484040">✅</tg-emoji>',
-                    parse_mode="HTML"
-                )
-                # NAYA MESSAGE MEIN EMOJI BHEJO
-                await query.message.reply_text(
-                    text=f'<tg-emoji emoji-id="{emoji_id}">🌟</tg-emoji>',
-                    parse_mode="HTML"
-                )
-            else:
-                await query.edit_message_text(
-                    text=f'<tg-emoji emoji-id="5929358014627713883">❌</tg-emoji> <b>𝗔𝗹𝗿𝗲𝗮𝗱𝘆 𝗘𝘅𝗶𝘀𝘁𝘀</b>',
-                    parse_mode="HTML"
+        
+            print(f"DEBUG: emoji_id={emoji_id}, success={success}, total={total}")
+        
+            try:
+                if success:
+                    # EDIT KARO
+                    await query.edit_message_text(
+                        text=f"✅ EMOJI ADDED #{total}",
+                    )
+                    print("DEBUG: edit done")
+                
+                    # REPLY KARO - BINA emoji ke pehle test
+                    await query.message.reply_text(
+                        text=f"OK ID: {emoji_id[:10]}...",
+                    )
+                    print("DEBUG: reply done")
+                else:
+                    await query.edit_message_text(
+                        text=f"❌ ALREADY EXISTS (Total: {total})",
+                    )
+                    print("DEBUG: already exists")
+            except Exception as e:
+                print(f"DEBUG ERROR: {e}")
+                # Fallback - agar edit fail ho to naya message bhejo
+                await context.bot.send_message(
+                    chat_id=update.effective_chat.id,
+                    text=f"ERROR: {e}"
                 )
         else:
             await query.answer("No ID found!", show_alert=True)
