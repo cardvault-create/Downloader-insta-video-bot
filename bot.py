@@ -1326,35 +1326,28 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         emoji_id = user_data.get('pending_emoji_id')
 
         if emoji_id:
-            # CHAT_ID PEHLE SAVE KARO - query.message se
-            original_chat_id = query.message.chat_id
-    
-            # ADD EMOJI TO DB PEHLE
+            # ADD EMOJI TO DB
             success, total = add_emoji_db(emoji_id)
-    
-            # FIR DELETE KARO
+        
+            # DELETE BUTTON MESSAGE
             try:
                 await query.message.delete()
-            except Exception as e:
-                print(f"Delete error: {e}")
-    
+            except:
+                pass
+
             if success:
-                # Send confirmation
-                await context.bot.send_message(
-                    chat_id=original_chat_id,
-                    text=f'<tg-emoji emoji-id="6291571388590419">✅</tg-emoji> 𝗘𝗠𝗢𝗝𝗜 𝗔𝗗𝗗𝗘𝗗 ༼{total}༽ <tg-emoji emoji-id="6127410617482484040">✅</tg-emoji>',
+                # BHEJO CONFIRMATION - same jaise /addemoji command karta hai
+                await query.message.reply_text(
+                    f'<tg-emoji emoji-id="6291571388590419">✅</tg-emoji> 𝗘𝗠𝗢𝗝𝗜 𝗔𝗗𝗗𝗘𝗗 ༼{total}༽ <tg-emoji emoji-id="6127410617482484040">✅</tg-emoji>',
                     parse_mode="HTML"
                 )
-                # Send the added emoji
-                await context.bot.send_message(
-                    chat_id=original_chat_id,
-                    text=f'<tg-emoji emoji-id="{emoji_id}">🌟</tg-emoji>',
+                await query.message.reply_text(
+                    f'<tg-emoji emoji-id="{emoji_id}">🌟</tg-emoji>',
                     parse_mode="HTML"
                 )
             else:
-                await context.bot.send_message(
-                    chat_id=original_chat_id,
-                    text=f'<tg-emoji emoji-id="5929358014627713883">❌</tg-emoji> <b>𝗔𝗹𝗿𝗲𝗮𝗱𝘆 𝗘𝘅𝗶𝘀𝘁𝘀</b>',
+                await query.message.reply_text(
+                    f'<tg-emoji emoji-id="5929358014627713883">❌</tg-emoji> <b>𝗔𝗹𝗿𝗲𝗮𝗱𝘆 𝗘𝘅𝗶𝘀𝘁𝘀</b>',
                     parse_mode="HTML"
                 )
         else:
@@ -1363,7 +1356,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_data['pending_emoji_id'] = None
         user_data['awaiting_emoji_id'] = True
         return
-
+    
     if query.data.startswith("aud_"):
         shortcode = query.data[4:]
         video_url = f"https://www.instagram.com/reel/{shortcode}/"
