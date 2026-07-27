@@ -639,17 +639,18 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
     try:
         user_mention = f'<a href="tg://user?id={user_id}">{first_name}</a>'
         
-        # Pehle stickers DB se sticker bhejo (agar hai toh)
-        sticker_id = get_random_sticker()
+        # Random choose - sticker ya custom emoji
         emoji_msg = None
-        if sticker_id:
-            try: 
-                emoji_msg = await bot.send_sticker(chat_id, sticker_id)
-            except: 
-                pass
-
-        # Agar stickers DB mein kuch nahi, toh emoji DB se custom emoji bhejo
+        if random.choice([True, False]):
+            # Sticker DB se
+            sticker_id = get_random_sticker()
+            if sticker_id:
+                try: 
+                    emoji_msg = await bot.send_sticker(chat_id, sticker_id)
+                except: 
+                    pass
         if not emoji_msg:
+            # Emoji DB se
             emoji_id = get_random_emoji()
             if emoji_id:
                 try:
@@ -712,8 +713,13 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
         ]
         words = ["𝙨", "𝙩", "α", "я", "†", "ι", "и", "g", ".", ".", ".", ".", "."]
 
-        sticker_id = get_random_sticker()
-        sticker_msg = None
+        # Random sticker ya emoji
+        sticker_id = None
+        emoji_id = None
+        if random.choice([True, False]):
+            sticker_id = get_random_sticker()
+        else:
+            emoji_id = get_random_emoji()
 
         for i in range(len(words)):
             await asyncio.sleep(0.08)
@@ -733,6 +739,15 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
             try: 
                 sticker_msg = await bot.send_sticker(chat_id, sticker_id)
             except: 
+                pass
+        elif emoji_id:
+            try:
+                sticker_msg = await bot.send_message(
+                    chat_id,
+                    f'<tg-emoji emoji-id="{emoji_id}">🌟</tg-emoji>',
+                    parse_mode="HTML"
+                )
+            except:
                 pass
         
         await asyncio.sleep(3)
