@@ -634,7 +634,7 @@ SETTINGS_TEXT = (
 
 async def welcome_animation(bot, chat_id, user_id, first_name):
     try:
-        user_mention = f"[{first_name}](tg://user?id={user_id})"
+        user_mention = f'<a href="tg://user?id={user_id}">{first_name}</a>'
         
         emoji_id = get_random_peach_emoji()
         emoji_msg = None
@@ -703,7 +703,7 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
 
             try: 
                 await welcome_msg.edit_text(
-                    f"**{starting_emojis[i%len(starting_emojis)]} " + "".join(words[:i+1]) + "**", 
+                    f"<b>{starting_emojis[i%len(starting_emojis)]} " + "".join(words[:i+1]) + "</b>",  
                     parse_mode="HTML"
                 )
             except: 
