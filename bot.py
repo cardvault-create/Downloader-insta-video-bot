@@ -907,7 +907,11 @@ async def add_emoji_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         emoji_id = parts[1].strip()
         if emoji_id.isdigit() and len(emoji_id) >= 15:
             s, t = add_emoji_db(emoji_id)
-            await update.message.reply_text(f"✅ 𝗘𝗠𝗢𝗝𝗜 𝗜𝗗 𝗔𝗗𝗗𝗘𝗗 ༼{t}༽" if s else "❌ 𝗔𝗹𝗿𝗲𝗮𝗱𝘆 𝗘𝘅𝗶𝘀𝘁𝘀")
+            if s:
+                await update.message.reply_text(f"✅ 𝗘𝗠𝗢𝗝𝗜 𝗜𝗗 𝗔𝗗𝗗𝗘𝗗 ༼{t}༽")
+                await update.message.reply_text(f'<tg-emoji emoji-id="{emoji_id}">🌟</tg-emoji>', parse_mode="HTML")
+            else:
+                await update.message.reply_text("❌ 𝗔𝗹𝗿𝗲𝗮𝗱𝘆 𝗘𝘅𝗶𝘀𝘁𝘀")
             return
         else:
             await update.message.reply_text("❌ 𝗜𝗻𝘃𝗮𝗹𝗶𝗱 𝗘𝗺𝗼𝗷𝗶 𝗜𝗗!\n\nUse: `/addemoji <emoji_id>` ya sticker pe reply karo")
