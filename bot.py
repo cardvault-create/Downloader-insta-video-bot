@@ -1270,6 +1270,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(
                 f'<tg-emoji emoji-id="5929358014627713883">❌</tg-emoji> <b>𝐈𝐧𝐯𝐚𝐥𝐢𝐝 𝐈𝐃！𝐒𝐞𝐧𝐝 𝐚𝐠𝐚𝐢𝐧 ：</b>',
                 parse_mode="HTML"
+                return
             )
     
     # User-specific audio awaiting check
