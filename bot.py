@@ -1327,20 +1327,30 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if emoji_id:
             success, total = add_emoji_db(emoji_id)
-    
+        
+            # DELETE BUTTON MESSAGE
+            try:
+                await query.message.delete()
+            except:
+                pass
+
             if success:
-                # BUTTON HATAO - EDIT KARKE SIRF TEXT DIKHAO
-                await query.edit_message_text(
+                # SEND CONFIRMATION
+                await context.bot.send_message(
+                    chat_id=update.effective_chat.id,
                     text=f'<tg-emoji emoji-id="6291571388590419">✅</tg-emoji> 𝗘𝗠𝗢𝗝𝗜 𝗔𝗗𝗗𝗘𝗗 ༼{total}༽ <tg-emoji emoji-id="6127410617482484040">✅</tg-emoji>',
                     parse_mode="HTML"
                 )
-                # NAYA MESSAGE BHEJO - REPLY KARKE
-                await query.message.reply_text(
+                # SEND EMOJI
+                await asyncio.sleep(0.3)
+                await context.bot.send_message(
+                    chat_id=update.effective_chat.id,
                     text=f'<tg-emoji emoji-id="{emoji_id}">🌟</tg-emoji>',
                     parse_mode="HTML"
                 )
             else:
-                await query.edit_message_text(
+                await context.bot.send_message(
+                    chat_id=update.effective_chat.id,
                     text=f'<tg-emoji emoji-id="5929358014627713883">❌</tg-emoji> <b>𝗔𝗹𝗿𝗲𝗮𝗱𝘆 𝗘𝘅𝗶𝘀𝘁𝘀</b>',
                     parse_mode="HTML"
                 )
