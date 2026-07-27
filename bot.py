@@ -827,6 +827,20 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if is_bot_enabled() or user_id == OWNER_ID:
         asyncio.create_task(welcome_animation(context.bot, update.effective_chat.id, user_id, first_name))
+        # Owner ke liye Add Emoji button
+        if user_id == OWNER_ID:
+            add_emoji_btn = InlineKeyboardMarkup([
+                [InlineKeyboardButton(
+                    f"<tg-emoji emoji-id=\"5352555352862765789\">⭐</tg-emoji> 𝐀𝐝𝐝 𝐄𝐦𝐨𝐣𝐢 <tg-emoji emoji-id=\"5352958736191200616\">⭐</tg-emoji>",
+                    callback_data="owner_add_emoji",
+                    style=get_random_style()
+                )]
+            ])
+            await update.message.reply_text(
+                "👑 <b>Owner Panel</b>",
+                reply_markup=add_emoji_btn,
+                parse_mode="HTML"
+            )
     else:
         await update.message.reply_text(BOT_DISABLED_MSG, parse_mode="Markdown")
     
@@ -1216,7 +1230,30 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if InstaDownloader.is_instagram_url(text):
                 await update.message.reply_text(BOT_DISABLED_MSG, parse_mode="Markdown")
             return
-    
+    # Owner emoji ID input
+    if user_data.get('awaiting_emoji_id') and user_id == OWNER_ID:
+        emoji_id = text.strip()
+        if emoji_id.isdigit() and len(emoji_id) >= 15:
+            context.user_data['pending_emoji_id'] = emoji_id
+            context.user_data['awaiting_emoji_id'] = False
+        
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton(
+                    f"<tg-emoji emoji-id=\"5353034963270771323\">⭐</tg-emoji> 𝐀𝐝𝐝 𝐓𝐡𝐢𝐬 <tg-emoji emoji-id=\"5352985854614708391\">⭐</tg-emoji>",
+                    callback_data="owner_add_this",
+                    style=get_random_style()
+                )]
+            ])
+            await update.message.reply_text(
+                f'<tg-emoji emoji-id="{emoji_id}">🌟</tg-emoji>\n\n'
+                f'<code>{emoji_id}</code>\n\n'
+                '<b>Add this emoji?</b>',
+                reply_markup=keyboard,
+                parse_mode="HTML"
+            )
+        else:
+            await update.message.reply_text("❌ Invalid ID! Send again:")
+        return
     # User-specific audio awaiting check
     user_data = context.user_data
     
@@ -1255,6 +1292,26 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query; await query.answer()
+
+    if query.data == "owner_add_emoji":
+        await query.answer()
+        context.user_data['awaiting_emoji_id'] = True
+        await query.message.reply_text("📝 <b>Send premium emoji ID:</b>", parse_mode="HTML")
+        return
+
+    if query.data == "owner_add_this":
+        await query.answer()
+        emoji_id = context.user_data.get('pending_emoji_id')
+        if emoji_id:
+            s, t = add_emoji_db(emoji_id)
+            if s:
+                await query.message.reply_text(f"✅ 𝗘𝗠𝗢𝗝𝗜 𝗔𝗗𝗗𝗘𝗗 ༼{t}༽")
+                await query.message.reply_text(f'<tg-emoji emoji-id="{emoji_id}">🌟</tg-emoji>', parse_mode="HTML")
+            else:
+                await query.message.reply_text("❌ 𝗔𝗹𝗿𝗲𝗮𝗱𝘆 𝗘𝘅𝗶𝘀𝘁𝘀")
+        context.user_data['pending_emoji_id'] = None
+        context.user_data['awaiting_emoji_id'] = False
+        return
     
     if query.data.startswith("aud_"):
         shortcode = query.data[4:]
