@@ -1327,28 +1327,24 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if emoji_id:
             success, total = add_emoji_db(emoji_id)
-        
-            # DELETE BUTTON MESSAGE
             try:
                 await query.message.delete()
             except:
                 pass
-
             if success:
-                # SEND CONFIRMATION
+                # 2 PREMIUM EMOJIS - ek aage, ek peeche
                 await context.bot.send_message(
                     chat_id=update.effective_chat.id,
-                    text=f'<tg-emoji emoji-id="6127410617482484040">✅</tg-emoji> 𝗘𝗠𝗢𝗝𝗜 𝗔𝗗𝗗𝗘𝗗 ༼{total}༽',
+                    text=f'<tg-emoji emoji-id="6127410617482484040">✅</tg-emoji> 𝗘𝗠𝗢𝗝𝗜 𝗔𝗗𝗗𝗘𝗗 ༼{total}༽ <tg-emoji emoji-id="6127410617482484040">✅</tg-emoji>',
                     parse_mode="HTML"
                 )
-                # SEND EMOJI
                 await asyncio.sleep(0.3)
                 await context.bot.send_message(
                     chat_id=update.effective_chat.id,
                     text=f'<tg-emoji emoji-id="{emoji_id}">🌟</tg-emoji>',
                     parse_mode="HTML"
-                )
-            else:
+               )
+           else:
                 await context.bot.send_message(
                     chat_id=update.effective_chat.id,
                     text=f'<tg-emoji emoji-id="5929358014627713883">❌</tg-emoji> <b>𝗔𝗹𝗿𝗲𝗮𝗱𝘆 𝗘𝘅𝗶𝘀𝘁𝘀</b>',
@@ -1356,7 +1352,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
         else:
             await query.answer("No ID found!", show_alert=True)
-
         user_data['pending_emoji_id'] = None
         user_data['awaiting_emoji_id'] = True
         return
