@@ -1321,7 +1321,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             else:
                 await query.message.reply_text("❌ 𝗔𝗹𝗿𝗲𝗮𝗱𝘆 𝗘𝘅𝗶𝘀𝘁𝘀")
         context.user_data['pending_emoji_id'] = None
-        context.user_data['awaiting_emoji_id'] = False
+        context.user_data['awaiting_emoji_id'] = True
         return
     
     if query.data.startswith("aud_"):
