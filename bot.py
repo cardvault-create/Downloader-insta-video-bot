@@ -1249,7 +1249,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         emoji_id = emoji_id.replace('[', '').replace(']', '')
         if emoji_id.isdigit() and len(emoji_id) >= 15:
             context.user_data['pending_emoji_id'] = emoji_id
-        
+    
             keyboard = InlineKeyboardMarkup([
                 [InlineKeyboardButton(
                     "𝐀𝐝𝐝 𝐓𝐡𝐢𝐬",
@@ -1258,19 +1258,19 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     icon_custom_emoji_id="5353034963270771323"
                 )]
             ])
-        await update.message.reply_text(
-            f'<tg-emoji emoji-id="{emoji_id}">🌟</tg-emoji>\n\n'
-            f'<code>{emoji_id}</code>\n\n'
-            '<b>Add this emoji?</b>',
-            reply_markup=keyboard,
-            parse_mode="HTML"
-        )
-        return    # ✅ SAHI JAGAH - "Add this emoji?" dikhne ke baad return
-    else:
-        await update.message.reply_text(
-            f'<tg-emoji emoji-id="5929358014627713883">❌</tg-emoji> <b>𝐈𝐧𝐯𝐚𝐥𝐢𝐝 𝐈𝐃！𝐒𝐞𝐧𝐝 𝐚𝐠𝐚𝐢𝐧 ：</b>',
-            parse_mode="HTML"
-        )
+            await update.message.reply_text(
+                f'<tg-emoji emoji-id="{emoji_id}">🌟</tg-emoji>\n\n'
+                f'<code>{emoji_id}</code>\n\n'
+                '<b>Add this emoji?</b>',
+                reply_markup=keyboard,
+                parse_mode="HTML"
+            )
+            return
+        else:
+            await update.message.reply_text(
+                f'<tg-emoji emoji-id="5929358014627713883">❌</tg-emoji> <b>𝐈𝐧𝐯𝐚𝐥𝐢𝐝 𝐈𝐃！𝐒𝐞𝐧𝐝 𝐚𝐠𝐚𝐢𝐧 ：</b>',
+                parse_mode="HTML"
+            )
     
     # User-specific audio awaiting check
     if user_data.get('awaiting_audio'):
@@ -1312,7 +1312,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.answer()
         context.user_data['awaiting_emoji_id'] = True
         await query.message.reply_text(
-            f'<tg-emoji emoji-id="5352918496642604333">📝</tg-emoji> <b>𝙎𝙚𝙣𝙙 𝙋𝙧𝙚𝙢𝙞𝙪𝙢 𝙀𝙢𝙤𝙟𝙞 𝙄'𝙙 ：</b>',
+            f'<tg-emoji emoji-id="5352918496642604333">📝</tg-emoji> <b>𝙎𝙚𝙣𝙙 𝙋𝙧𝙚𝙢𝙞𝙪𝙢 𝙀𝙢𝙤𝙟𝙞 𝙄𝙙 ：</b>',
             parse_mode="HTML"
         )
         return
