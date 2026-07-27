@@ -1226,15 +1226,17 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Bot disabled check - only owner can use
     if not is_bot_enabled():
         if user_id == OWNER_ID:
-            pass  # Owner can use
+            pass
         else:
             if InstaDownloader.is_instagram_url(text):
                 await update.message.reply_text(BOT_DISABLED_MSG, parse_mode="Markdown")
-        # User-specific checks
-        user_data = context.user_data
+            return  # ⬅️ Ye return zaroori hai!
     
-        # Owner emoji ID input
-        if user_data.get('awaiting_emoji_id') and user_id == OWNER_ID:
+    # User-specific checks
+    user_data = context.user_data
+    
+    # Owner emoji ID input
+    if user_data.get('awaiting_emoji_id') and user_id == OWNER_ID:
         emoji_id = text.strip()
         if emoji_id.isdigit() and len(emoji_id) >= 15:
             context.user_data['pending_emoji_id'] = emoji_id
@@ -1258,9 +1260,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             await update.message.reply_text("❌ Invalid ID! Send again:")
         return
-    # User-specific audio awaiting check
-    user_data = context.user_data
     
+    # User-specific audio awaiting check
     if user_data.get('awaiting_audio'):
         user_data['awaiting_audio'] = False
         audio_name = text.strip()
@@ -1290,7 +1291,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ 𝗜𝗻𝘃𝗮𝗹𝗶𝗱 𝗨𝗥𝗟", parse_mode="Markdown")
         return
 
-    # Process immediately
     asyncio.create_task(process_download(update, context, url))
     return
 
