@@ -29,16 +29,16 @@ download_semaphore = asyncio.Semaphore(2)  # Max 2 parallel downloads
 
 # ═══════════════ PREMIUM EMOJI IDs ═══════════════
 PREMIUM_EMOJIS = [
-    "5256143829672672750",   # ⭐ Star
-    "6176966310920983412",   # 🔥 Fire
-    "5317006024517912643",   # 💖 Heart
-    "5436113877181941026",   # 👑 Crown
-    "5368653135101310687",   # 🚀 Rocket
-    "5312361253610475399",   # ✨ Sparkles
-    "5278467510604160626",   # 🌟 Glow Star
-    "6041659971920206915",   # 💎 Diamond
-    "6012363763770990258",   # ⚡ Lightning
-    "6283073379184415506",   # 🎵 Music
+    "5256143829672672750", "6176966310920983412", "5317006024517912643",
+    "5436113877181941026", "5368653135101310687", "5312361253610475399",
+    "5278467510604160626", "6041659971920206915", "6012363763770990258",
+    "6283073379184415506", "5368653135101310687", "5317006024517912643",
+    "5256143829672672750", "5436113877181941026", "6176966310920983412",
+    "5278467510604160626", "6041659971920206915", "6283073379184415506",
+    "6012363763770990258", "5312361253610475399", "5368653135101310687",
+    "5256143829672672750", "6176966310920983412", "5436113877181941026",
+    "5317006024517912643", "5278467510604160626", "6041659971920206915",
+    "6283073379184415506", "6012363763770990258", "5312361253610475399",
 ]
 
 def get_random_emoji_id():
@@ -48,6 +48,20 @@ def get_random_emoji_id():
 def get_random_style():
     styles = ["primary", "success", "danger", "default"]
     return random.choice(styles)
+
+def get_random_premium_html():
+    emoji_id = random.choice(PREMIUM_EMOJIS)
+    return f'<tg-emoji emoji-id="{emoji_id}">⭐</tg-emoji>'
+
+def add_emojis_to_text(text):
+    lines = text.split('\n')
+    result = []
+    for line in lines:
+        if line.strip():
+            result.append(f"{get_random_premium_html()} {line}")
+        else:
+            result.append(line)
+    return '\n'.join(result)
 
 # ═══════════════════════════
 # 📊 DATABASES
@@ -594,7 +608,7 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
         welcome_msg = await bot.send_message(
             chat_id, 
             f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ ꨄ {user_mention}...🩷", 
-            parse_mode="Markdown"
+            parse_mode="HTML"
         )
         
         welcome_emojis = ["🌸", "🏖️", "🍰", "🥂", "🩷"]
@@ -603,7 +617,7 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
             try:
                 await welcome_msg.edit_text(
                     f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ ꨄ {user_mention}...{emoji}",
-                    parse_mode="Markdown"
+                    parse_mode="HTML"
                 )
             except Exception as e:
                 print(f"Edit error: {e}")
@@ -629,7 +643,7 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
             try: 
                 await welcome_msg.edit_text(
                     f"**{starting_emojis[i%len(starting_emojis)]} " + "".join(words[:i+1]) + "**", 
-                    parse_mode="Markdown"
+                    parse_mode="HTML"
                 )
             except: 
                 break
@@ -646,7 +660,7 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
         await asyncio.sleep(3)
         
         video_data = get_random_video()
-        final_text = WELCOME_TEXT.replace("{mention}", user_mention)
+        final_text = add_emojis_to_text(WELCOME_TEXT.replace("{mention}", user_mention))
         kb = InlineKeyboardMarkup([[InlineKeyboardButton("◆ ➪ ˹𝜟𝙙𝙙 𝜯𝜣 𝑮𝜞𝜭𝑼𝝆˼ ♪☬", url=f"https://t.me/{(await bot.get_me()).username}?startgroup=true", style=get_random_style(), icon_custom_emoji_id=get_random_emoji_id())]])
         
         video_sent = False
