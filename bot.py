@@ -1338,7 +1338,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 # SEND CONFIRMATION
                 await context.bot.send_message(
                     chat_id=update.effective_chat.id,
-                    text=f'<tg-emoji emoji-id="6291571388590419">✅</tg-emoji> 𝗘𝗠𝗢𝗝𝗜 𝗔𝗗𝗗𝗘𝗗 ༼{total}༽ <tg-emoji emoji-id="6127410617482484040">✅</tg-emoji>',
+                    text=f'<tg-emoji emoji-id="6127410617482484040">✅</tg-emoji> 𝗘𝗠𝗢𝗝𝗜 𝗔𝗗𝗗𝗘𝗗 ༼{total}༽',
                     parse_mode="HTML"
                 )
                 # SEND EMOJI
