@@ -1245,11 +1245,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Owner emoji ID input
     if user_data.get('awaiting_emoji_id') and user_id == OWNER_ID:
         emoji_id = text.strip()
-        # [ID] format se extract karo
         emoji_id = emoji_id.replace('[', '').replace(']', '')
         if emoji_id.isdigit() and len(emoji_id) >= 15:
             context.user_data['pending_emoji_id'] = emoji_id
-    
+
             keyboard = InlineKeyboardMarkup([
                 [InlineKeyboardButton(
                     "𝐀𝐝𝐝 𝐓𝐡𝐢𝐬",
@@ -1267,11 +1266,16 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
         else:
-            await update.message.reply_text(
-                f'<tg-emoji emoji-id="5929358014627713883">❌</tg-emoji> <b>𝐈𝐧𝐯𝐚𝐥𝐢𝐝 𝐈𝐃！𝐒𝐞𝐧𝐝 𝐚𝐠𝐚𝐢𝐧 ：</b>',
-                parse_mode="HTML"                
-            )
-            return
+            # ✅ INSTAGRAM LINK CHECK KARO
+            if InstaDownloader.is_instagram_url(text):
+                user_data['awaiting_emoji_id'] = False  # ← emoji mode band
+                # niche process hoga
+            else:
+                await update.message.reply_text(
+                    f'<tg-emoji emoji-id="5929358014627713883">❌</tg-emoji> <b>𝐈𝐧𝐯𝐚𝐥𝐢𝐝 𝐈𝐃！𝐒𝐞𝐧𝐝 𝐚𝐠𝐚𝐢𝐧 ：</b>',
+                    parse_mode="HTML"                
+                )
+                return
     
     # User-specific audio awaiting check
     if user_data.get('awaiting_audio'):
