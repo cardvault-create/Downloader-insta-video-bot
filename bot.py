@@ -727,13 +727,13 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
         video_sent = False
         try:
             if video_data and os.path.exists(video_data["path"]):
-                await bot.send_video(chat_id, video_data["path"], caption=final_text, parse_mode="Markdown", reply_markup=kb)
+                await bot.send_video(chat_id, video_data["path"], caption=final_text, parse_mode="HTML", reply_markup=kb)
                 video_sent = True
         except:
             pass
         
         if not video_sent:
-            await bot.send_message(chat_id, final_text, parse_mode="Markdown", reply_markup=kb)
+            await bot.send_message(chat_id, final_text, parse_mode="HTML", reply_markup=kb)
         
         if sticker_msg:
             await asyncio.sleep(4)
