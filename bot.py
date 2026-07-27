@@ -1317,7 +1317,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if query.data == "owner_add_emoji":
         user_data['awaiting_emoji_id'] = True
         await query.message.reply_text(
-            f'<tg-emoji emoji-id="5352918496642604333">📝</tg-emoji> <b>𝙎𝙚𝙣𝙙 𝙋𝙧𝙚𝙢𝙞𝙪𝙢 𝙀𝙢𝙤𝙟𝙞 𝙄𝙙 ：</b>',
+            f'<tg-emoji emoji-id="6170160969600212116">📝</tg-emoji> <b>𝙎𝙚𝙣𝙙 𝙋𝙧𝙚𝙢𝙞𝙪𝙢 𝙀𝙢𝙤𝙟𝙞 𝙄𝙙 ：</b> <tg-emoji emoji-id="6172671064452111943">📝</tg-emoji>',
             parse_mode="HTML"
         )
         return
@@ -1334,7 +1334,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if success:
                 await context.bot.send_message(
                     chat_id=update.effective_chat.id,
-                    text=f'<tg-emoji emoji-id="6127410617482484040">✅</tg-emoji> 𝗘𝗠𝗢𝗝𝗜 𝗔𝗗𝗗𝗘𝗗 ༼{total}༽ <tg-emoji emoji-id="6127410617482484040">✅</tg-emoji>',
+                    text=f'<tg-emoji emoji-id="6226399941388928924">✅</tg-emoji> 𝗘𝗠𝗢𝗝𝗜 𝗔𝗗𝗗𝗘𝗗 ༼{total}༽ <tg-emoji emoji-id="6127410617482484040">✅</tg-emoji>',
                     parse_mode="HTML"
                 )
                 await asyncio.sleep(0.3)
