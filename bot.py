@@ -1324,41 +1324,38 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if query.data == "owner_add_this":
         emoji_id = user_data.get('pending_emoji_id')
-        if not emoji_id:
-            await query.answer("No emoji ID found!", show_alert=True)
-            return
-
-        s, t = add_emoji_db(emoji_id)
-        chat_id = query.message.chat_id
-
-        # Delete "Add This" message
-        try:
-            await query.message.delete()
-        except:
-            pass
-
-        if s:
-            # Added message
-            msg1 = await context.bot.send_message(
-                chat_id=chat_id,
-                text=f'<tg-emoji emoji-id="6291571388590419">✅</tg-emoji> 𝗘𝗠𝗢𝗝𝗜 𝗔𝗗𝗗𝗘𝗗 ༼{t}༽ <tg-emoji emoji-id="6127410617482484040">✅</tg-emoji>',
-                parse_mode="HTML"
-            )
-            print(f"Added msg sent: {msg1.message_id}")  # Debug
-            # Emoji message
-            msg2 = await context.bot.send_message(
-                chat_id=chat_id,
-                text=f'<tg-emoji emoji-id="{emoji_id}">🌟</tg-emoji>',
-                parse_mode="HTML"
-            )
-            print(f"Emoji msg sent: {msg2.message_id}")  # Debug
+        
+        if emoji_id:
+            # DELETE PEHLE - message reference safe rahega
+            original_chat_id = update.effective_chat.id
+            
+            try:
+                await query.message.delete()
+            except Exception as e:
+                print(f"Delete error: {e}")
+            
+            # ADD EMOJI TO DB
+            success, total = add_emoji_db(emoji_id)
+            
+            if success:
+                # Bhejo confirmation - use update.effective_chat.id
+                await context.bot.send_message(
+                    chat_id=original_chat_id,
+                    text=f"✅ EMOJI ADDED #{total}",
+                )
+                await context.bot.send_message(
+                    chat_id=original_chat_id,
+                    text=f'<tg-emoji emoji-id="{emoji_id}">🌟</tg-emoji>',
+                    parse_mode="HTML"
+                )
+            else:
+                await context.bot.send_message(
+                    chat_id=original_chat_id,
+                    text=f"❌ Already Exists (Total: {total})",
+                )
         else:
-            await context.bot.send_message(
-                chat_id=chat_id,
-                text=f'<tg-emoji emoji-id="5929358014627713883">❌</tg-emoji> <b>𝗔𝗹𝗿𝗲𝗮𝗱𝘆 𝗘𝘅𝗶𝘀𝘁𝘀</b>',
-                parse_mode="HTML"
-            )
-
+            await query.answer("No ID found!", show_alert=True)
+        
         user_data['pending_emoji_id'] = None
         user_data['awaiting_emoji_id'] = True
         return
