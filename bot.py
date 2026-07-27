@@ -1336,7 +1336,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if query.data == "owner_add_emoji":
         user_data['awaiting_emoji_id'] = True
         await query.message.reply_text(
-            f'<tg-emoji emoji-id="6170160969600212116">📝</tg-emoji> <b>𝙎𝙚𝙣𝙙 𝙋𝙧𝙚𝙢𝙞𝙪𝙢 𝙀𝙢𝙤𝙟𝙞 𝙄𝙙 ：</b> <tg-emoji emoji-id="6172671064452111943">📝</tg-emoji>',
+            f'<tg-emoji emoji-id="6170160969600212116">📝</tg-emoji> <b>𝙎𝙚𝙣𝙙 𝙋𝙧𝙚𝙢𝙞𝙪𝙢 𝙀𝙢𝙤𝙟𝙞 𝙄𝙙 </b> <tg-emoji emoji-id="6172671064452111943">📝</tg-emoji>',
             parse_mode="HTML"
         )
         return
