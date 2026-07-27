@@ -154,13 +154,6 @@ def add_emoji_db(eid):
         jsave(EMOJI_DB, data)
         return True, len(data["emojis"])
     return False, len(data["emojis"])
-        
-        # PREMIUM_EMOJIS list mein bhi add karo
-        if eid not in PREMIUM_EMOJIS:
-            PREMIUM_EMOJIS.append(eid)
-        
-        return True, len(data["emojis"])
-    return False, len(data["emojis"])
 def remove_emoji_db(idx):
     data = jload(EMOJI_DB, {"emojis": []})
     if 0 <= idx < len(data["emojis"]): data["emojis"].pop(idx); jsave(EMOJI_DB, data); return True, len(data["emojis"])
