@@ -1321,17 +1321,16 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             s, t = add_emoji_db(emoji_id)
             if s:
                 await query.message.reply_text(f"✅ 𝗘𝗠𝗢𝗝𝗜 𝗔𝗗𝗗𝗘𝗗 ༼{t}༽")
-                await query.message.reply_text(f'<tg-emoji emoji-id="{emoji_id}">🌟</tg-emoji>', parse_mode="HTML")
             else:
                 await query.message.reply_text("❌ 𝗔𝗹𝗿𝗲𝗮𝗱𝘆 𝗘𝘅𝗶𝘀𝘁𝘀")
-        
+    
         context.user_data['pending_emoji_id'] = None
-        context.user_data['awaiting_emoji_id'] = False
-        
-        # 🎨 Delete old message & send new button with RANDOM color
+    
+        # 🎨 Delete old "Add This" message
         try: await query.message.delete()
         except: pass
-        
+    
+        # ✅ /ego WALA MESSAGE WAPAS BHEJO - new emoji add karne ke liye
         new_kb = InlineKeyboardMarkup([
             [InlineKeyboardButton(
                 "𝐀𝐝𝐝 𝐄𝐦𝐨𝐣𝐢",
