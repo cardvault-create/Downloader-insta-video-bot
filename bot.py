@@ -1139,18 +1139,19 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['audio_video_url'] = None
         return
     elif query.data.startswith("nxp_"):
-        parts = query.data[4:].rsplit("_", 1); cache_key = parts[0]; current_idx = int(parts[1]); next_idx = current_idx + 1
-        photo_paths = get_photo_cache(cache_key)
-        if photo_paths and next_idx < len(photo_paths) and os.path.exists(photo_paths[next_idx]):
-            await query.edit_message_reply_markup(reply_markup=None)
-            keyboard = None
-            if next_idx + 1 < len(photo_paths):
-                keyboard = InlineKeyboardMarkup([
-                    [InlineKeyboardButton(f"➪ 𝗡𝗲𝘅𝘁 𝗣𝗵𝗼𝘁𝗼 ➤ ({next_idx + 2}/{len(photo_paths)})", callback_data=f"nxp_{cache_key}_{next_idx}", style=get_random_style())]]
-            with open(photo_paths[next_idx], 'rb') as f:
-                await query.message.reply_photo(photo=f, caption=f"📸 𝗣𝗵𝗼𝘁𝗼 {next_idx + 1}/{len(photo_paths)}**\n\n{CAPTION}", parse_mode="Markdown", reply_markup=keyboard)
-        else:
-            await query.answer("No more photos!", show_alert=True)
+    parts = query.data[4:].rsplit("_", 1); cache_key = parts[0]; current_idx = int(parts[1]); next_idx = current_idx + 1
+    photo_paths = get_photo_cache(cache_key)
+    if photo_paths and next_idx < len(photo_paths) and os.path.exists(photo_paths[next_idx]):
+        await query.edit_message_reply_markup(reply_markup=None)
+        keyboard = None
+        if next_idx + 1 < len(photo_paths):
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton(f"➪ 𝗡𝗲𝘅𝘁 𝗣𝗵𝗼𝘁𝗼 ➤ ({next_idx + 2}/{len(photo_paths)})", callback_data=f"nxp_{cache_key}_{next_idx}", style=get_random_style())]
+            ])
+        with open(photo_paths[next_idx], 'rb') as f:
+            await query.message.reply_photo(photo=f, caption=f"📸 𝗣𝗵𝗼𝘁𝗼 {next_idx + 1}/{len(photo_paths)}**\n\n{CAPTION}", parse_mode="Markdown", reply_markup=keyboard)
+    else:
+        await query.answer("No more photos!", show_alert=True)
             
 # ═══════════════════════════
 # 🚀 MAIN
