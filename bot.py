@@ -831,9 +831,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if user_id == OWNER_ID:
             add_emoji_btn = InlineKeyboardMarkup([
                 [InlineKeyboardButton(
-                    f"<tg-emoji emoji-id=\"5352555352862765789\">⭐</tg-emoji> 𝐀𝐝𝐝 𝐄𝐦𝐨𝐣𝐢 <tg-emoji emoji-id=\"5352958736191200616\">⭐</tg-emoji>",
+                    "𝐀𝐝𝐝 𝐄𝐦𝐨𝐣𝐢",
                     callback_data="owner_add_emoji",
-                    style=get_random_style()
+                    style=get_random_style(),
+                    icon_custom_emoji_id="5352555352862765789"
                 )]
             ])
             await update.message.reply_text(
@@ -1229,9 +1230,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             if InstaDownloader.is_instagram_url(text):
                 await update.message.reply_text(BOT_DISABLED_MSG, parse_mode="Markdown")
-            return
-    # Owner emoji ID input
-    if user_data.get('awaiting_emoji_id') and user_id == OWNER_ID:
+        # User-specific checks
+        user_data = context.user_data
+    
+        # Owner emoji ID input
+        if user_data.get('awaiting_emoji_id') and user_id == OWNER_ID:
         emoji_id = text.strip()
         if emoji_id.isdigit() and len(emoji_id) >= 15:
             context.user_data['pending_emoji_id'] = emoji_id
@@ -1239,9 +1242,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
             keyboard = InlineKeyboardMarkup([
                 [InlineKeyboardButton(
-                    f"<tg-emoji emoji-id=\"5353034963270771323\">⭐</tg-emoji> 𝐀𝐝𝐝 𝐓𝐡𝐢𝐬 <tg-emoji emoji-id=\"5352985854614708391\">⭐</tg-emoji>",
+                    "𝐀𝐝𝐝 𝐓𝐡𝐢𝐬",
                     callback_data="owner_add_this",
-                    style=get_random_style()
+                    style=get_random_style(),
+                    icon_custom_emoji_id="5353034963270771323"
                 )]
             ])
             await update.message.reply_text(
