@@ -558,7 +558,7 @@ CAPTION = (
 )
 
 WELCOME_TEXT = """ʜᴇʏ, {mention} . ˚◞♡ ◟˚ .
-ɪ'ᴍ [˹𝚰𝖓𝖘𝖙𝖆𝖌𝖗𝖆𝖒 ✘ 𝚫𝐨𝐰𝐧𝐥𝐨𝐚𝐝𝐞𝐫˼ ♪](https://t.me/Instagram_LinkToVideo_Bot),
+ɪ'ᴍ <a href="https://t.me/Instagram_LinkToVideo_Bot">˹𝚰𝖓𝖘𝖙𝖆𝖌𝖗𝖆𝖒 ✘ 𝚫𝐨𝐰𝐧𝐥𝐨𝐚𝐝𝐞𝐫˼ ♪</a>,
 
 ┏━━━━━━━━━━━━━━━━━⧫
 ┠ ◆ ˹ɪ ʜᴀᴠᴇ sᴘᴇᴄɪᴀʟ ғᴇᴀᴛᴜʀᴇs˼
@@ -578,7 +578,7 @@ WELCOME_TEXT = """ʜᴇʏ, {mention} . ˚◞♡ ◟˚ .
 ⧫━━━━━✦◆ ◇ ◆ ◇ ◆ ◇✦━━━━━⧫
 ๏ ˹ᴄʟɪᴄᴋ ᴏɴ ᴛʜᴇ ᴀᴅᴅ ᴛᴏ ɢʀᴏᴜᴘ ʙᴜᴛᴛᴏɴ ʙᴇʟᴏᴡ ᴛᴏ ᴀᴅᴅ ᴛʜɪs ʙᴏᴛ ɪɴ ʏᴏᴜʀ ɢʀᴏᴜᴘ ᴀɴᴅ ᴇɴᴊᴏʏ ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ᴛʜᴇʀᴇ ᴛᴏᴏ˼
 
-🫧 ˹ᴅᴇᴠᴇʟᴏᴩᴇʀ˼ 🪽 ➪ [𝜝𝜣𝜯 𝑭𝜟𝜯𝜢𝜮𝜞](https://t.me/FathersOfCreater) ✔︎"""
+🫧 ˹ᴅᴇᴠᴇʟᴏᴩᴇʀ˼ 🪽 ➪ <a href="https://t.me/FathersOfCreater">𝜝𝜣𝜯 𝑭𝜟𝜯𝜢𝜮𝜞</a> ✔︎
 
 GROUP_WELCOME = """👋🏻 ʜᴇʟʟᴏ {chat_title} ♡ ⋆｡°✩
 
