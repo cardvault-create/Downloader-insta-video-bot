@@ -1300,8 +1300,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not InstaDownloader.is_instagram_url(text): return
     url = InstaDownloader.extract_url(text)
     if not url:
-        await update.message.reply_text("❌ 𝗜𝗻𝘃𝗮𝗹𝗶𝗱 𝗨𝗥𝗟", parse_mode="Markdown")
-        return
+        await update.message.reply_text(
+            f'<tg-emoji emoji-id="5929358014627713883">❌</tg-emoji> <b>𝗜𝗻𝘃𝗮𝗹𝗶𝗱 𝗨𝗥𝗟</b>',
+            parse_mode="HTML"
+        )
+        return  # ✅ YEH REHNE DO
 
     asyncio.create_task(process_download(update, context, url))
     return
@@ -1324,30 +1327,22 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if emoji_id:
             s, t = add_emoji_db(emoji_id)
             if s:
-                await query.message.reply_text(f"✅ 𝗘𝗠𝗢𝗝𝗜 𝗔𝗗𝗗𝗘𝗗 ༼{t}༽")
+                await query.message.reply_text(
+                    f'<tg-emoji emoji-id="{emoji_id}">🌟</tg-emoji>\n\n✅ 𝗘𝗠𝗢𝗝𝗜 𝗔𝗗𝗗𝗘𝗗 ༼{t}༽',
+                    parse_mode="HTML"
+                )
             else:
-                await query.message.reply_text("❌ 𝗔𝗹𝗿𝗲𝗮𝗱𝘆 𝗘𝘅𝗶𝘀𝘁𝘀")
+                await query.message.reply_text(
+                    f'<tg-emoji emoji-id="5929358014627713883">❌</tg-emoji> <b>𝗔𝗹𝗿𝗲𝗮𝗱𝘆 𝗘𝘅𝗶𝘀𝘁𝘀</b>',
+                    parse_mode="HTML"
+                )
     
         context.user_data['pending_emoji_id'] = None
+        context.user_data['awaiting_emoji_id'] = True
     
-        # 🎨 Delete old "Add This" message
         try: await query.message.delete()
         except: pass
     
-        # ✅ /ego WALA MESSAGE WAPAS BHEJO - new emoji add karne ke liye
-        new_kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton(
-                "𝐀𝐝𝐝 𝐄𝐦𝐨𝐣𝐢",
-                callback_data="owner_add_emoji",
-                style=get_random_style(),
-                icon_custom_emoji_id="5352555352862765789"
-            )]
-        ])
-        await query.message.reply_text(
-            f'<tg-emoji emoji-id="5352540225987943305">👑</tg-emoji> <b>𓆩#ＫＡＲＴＩＫ𓆪</b>',
-            reply_markup=new_kb,
-            parse_mode="HTML"
-        )
         return
     
     if query.data.startswith("aud_"):
