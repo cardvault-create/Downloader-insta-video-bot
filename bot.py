@@ -877,11 +877,31 @@ async def enable_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def add_emoji_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
-    if not update.message.reply_to_message or not update.message.reply_to_message.sticker:
-        await update.message.reply_text("⎘ 𝗥𝗲𝗽𝗹𝘆 𝘁𝗼 𝗲𝗺𝗼𝗷𝗶"); return
-    s, t = add_emoji_db(update.message.reply_to_message.sticker.file_id)
-    await update.message.reply_text(f"✅ 𝗔𝗗𝗗𝗘𝗗 ༼{t}༽" if s else "❌ 𝗘𝘅𝗶𝘀𝘁𝘀")
-
+    
+    # Pehle check karo - reply to sticker?
+    if update.message.reply_to_message and update.message.reply_to_message.sticker:
+        s, t = add_emoji_db(update.message.reply_to_message.sticker.file_id)
+        await update.message.reply_text(f"✅ 𝗔𝗗𝗗𝗘𝗗 ༼{t}༽" if s else "❌ 𝗘𝘅𝗶𝘀𝘁𝘀")
+        return
+    
+    # Command ke saath emoji ID di hai?
+    parts = update.message.text.split()
+    if len(parts) >= 2:
+        emoji_id = parts[1].strip()
+        if emoji_id.isdigit() and len(emoji_id) >= 15:
+            s, t = add_emoji_db(emoji_id)
+            await update.message.reply_text(f"✅ 𝗘𝗠𝗢𝗝𝗜 𝗜𝗗 𝗔𝗗𝗗𝗘𝗗 ༼{t}༽" if s else "❌ 𝗔𝗹𝗿𝗲𝗮𝗱𝘆 𝗘𝘅𝗶𝘀𝘁𝘀")
+            return
+        else:
+            await update.message.reply_text("❌ 𝗜𝗻𝘃𝗮𝗹𝗶𝗱 𝗘𝗺𝗼𝗷𝗶 𝗜𝗗!\n\nUse: `/addemoji <emoji_id>` ya sticker pe reply karo")
+            return
+    
+    # Kuch nahi diya
+    await update.message.reply_text(
+        "📝 𝗨𝘀𝗮𝗴𝗲:\n"
+        "1. `/addemoji <emoji_id>` - 𝚺𝒎𝛉𝒋𝒊 𝚰𝐃 𝒔𝛆 𝛂𝛅𝛅 𝛋𝛂𝛄𝛉\n"
+        "2. 𝐒𝛕𝒊𝛓𝛋𝛆𝛄 𝛒𝛆 𝛄𝛆𝛒𝛊𝛙 𝛋𝛂𝛄𝛋𝛆 `/addemoji` - 𝘚𝘵𝘪𝘤𝘬𝘦𝘳 𝘢𝘥𝘥 𝘬𝘢𝘳𝘰"
+    )
 async def remove_emoji_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
     try:
