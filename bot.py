@@ -69,7 +69,7 @@ def get_random_emoji_id():
 
 # ═══════════════ RANDOM BUTTON COLOUR ═══════════════
 def get_random_style():
-    styles = ["primary", "success", "danger", "default"]
+    styles = ["primary", "success", "danger"]
     return random.choice(styles)
 
 def get_random_peach_emoji():
