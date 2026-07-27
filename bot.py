@@ -1326,20 +1326,20 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         emoji_id = context.user_data.get('pending_emoji_id')
         if emoji_id:
             s, t = add_emoji_db(emoji_id)
-            chat_id = query.message.chat_id  # ✅ Chat ID pehle save karo
+            chat_id = query.message.chat_id
         
-            # 🎨 Delete "Add This" message
+            # Delete "Add This" message
             try: await query.message.delete()
             except: pass
         
             if s:
-                # ✅ Pehle added message
+                # Pehle added message
                 await context.bot.send_message(
                     chat_id=chat_id,
                     text=f'<tg-emoji emoji-id="6291571388590419">✅</tg-emoji> 𝗘𝗠𝗢𝗝𝗜 𝗔𝗗𝗗𝗘𝗗 ༼{t}༽ <tg-emoji emoji-id="6127410617482484040">✅</tg-emoji>',
                     parse_mode="HTML"
                 )
-                # ✅ Fir added emoji
+                # Fir added emoji
                 await context.bot.send_message(
                     chat_id=chat_id,
                     text=f'<tg-emoji emoji-id="{emoji_id}">🌟</tg-emoji>',
