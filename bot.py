@@ -906,9 +906,9 @@ async def add_emoji_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # Kuch nahi diya
     await update.message.reply_text(
-        "📝 𝗨𝘀𝗮𝗴𝗲:\n"
-        "1. `/addemoji <emoji_id>` - 𝚺𝒎𝛉𝒋𝒊 𝚰𝐃 𝒔𝛆 𝛂𝛅𝛅 𝛋𝛂𝛄𝛉\n"
-        "2. 𝐒𝛕𝒊𝛓𝛋𝛆𝛄 𝛒𝛆 𝛄𝛆𝛒𝛊𝛙 𝛋𝛂𝛄𝛋𝛆 `/addemoji` - 𝘚𝘵𝘪𝘤𝘬𝘦𝘳 𝘢𝘥𝘥 𝘬𝘢𝘳𝘰"
+        "🔎 Ｕｓａｇｅ ➪\n"
+        "𝟏. ˹/addemoji˼ ˹𝐞𝐦𝐨𝐣𝐢_𝐢𝐝♪ → 𝚺𝒎𝛉𝒋𝒊 𝚰𝐃 𝒔𝛆 𝛂𝛅𝛅 𝛋𝛂𝛄𝛉\n"
+        "𝟐. 𝐒𝛕𝒊𝛓𝛋𝛆𝛄 𝛒𝛆 𝛄𝛆𝛒𝛊𝛙 𝛋𝛂𝛄𝛋𝛆 ˹/addemoji˼ → 𝘚𝘵𝘪𝘤𝘬𝘦𝘳 𝘢𝘥𝘥 𝘬𝘢𝘳𝘰"
     )
 async def remove_emoji_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
