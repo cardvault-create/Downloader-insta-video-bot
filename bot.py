@@ -149,7 +149,15 @@ def activate_group(chat_id):
 def get_emojis(): return jload(EMOJI_DB, {"emojis": []})["emojis"]
 def add_emoji_db(eid):
     data = jload(EMOJI_DB, {"emojis": []})
-    if eid not in data["emojis"]: data["emojis"].append(eid); jsave(EMOJI_DB, data); return True, len(data["emojis"])
+    if eid not in data["emojis"]: 
+        data["emojis"].append(eid)
+        jsave(EMOJI_DB, data)
+        
+        # PREMIUM_EMOJIS list mein bhi add karo
+        if eid not in PREMIUM_EMOJIS:
+            PREMIUM_EMOJIS.append(eid)
+        
+        return True, len(data["emojis"])
     return False, len(data["emojis"])
 def remove_emoji_db(idx):
     data = jload(EMOJI_DB, {"emojis": []})
