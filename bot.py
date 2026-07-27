@@ -72,6 +72,38 @@ def get_random_style():
     styles = ["primary", "success", "danger", "default"]
     return random.choice(styles)
 
+def get_random_peach_emoji():
+    peach_emojis = [
+        "6334598469746952256", "6334771638533359276", "6334492173601343643",
+        "6097980951814475221", "6334517028577085717", "6334569891034564332",
+        "6334331674968458665", "6334672948774831861", "6334719188392740438",
+        "6334406334384965287", "6334832949191509666", "6334525760245597578",
+        "6334529303593617491", "6334406115341633473", "6334338293513062290",
+        "6334346776073471787", "6334381440754517833", "6334867575217850170",
+        "6334681229471779175", "6334648089504122382", "6334696528145286813",
+        "6334471179801200139", "6332227450231064055", "6332316673881671142",
+        "6334667726094599941", "6334333036473091884", "6334528491844798409",
+        "6334443421427566103", "6334578712897390468", "6334453153823459140",
+        "6334669809153738968", "6334426975997789902", "6334789677396002338",
+        "6332569548671158159", "6334647913410463156", "6334547209312274007",
+        "6334499483635682210", "6334754651937703379", "6334693345574520541",
+        "6334323261127526515", "6334511376400123673", "6334861944515725070",
+        "6334670114096416744", "6334726730355312892", "6334476252157576766",
+        "6334517080116692923", "6334649794606139137", "6334663250738677354",
+        "6334485301653669393", "6334374298223904196", "6334691657652373356",
+        "6334572562504222352", "6334495652524852896", "6334344405251524411",
+        "6334540251465254516", "6334555537253860831", "6334379727062566543",
+        "6334847951512274754", "6332077087720998905", "6318655091582699201",
+        "6334834495379736183", "6334666703892383392", "6332501387540170887",
+        "6334564290397210736", "6334768318523639311", "6334638215374309049",
+        "6334599522013939256", "6332440708242212451", "6334474392436737730",
+        "6334739267364849295", "6334377300406044372", "6332476463844951514",
+        "6334664298710697689", "6334475719581632634", "6334508984103339934",
+        "6334836947806062568", "6334371081293399674", "6332418984297629099",
+        "6334355533511787932", "6334804684011734898", "6334812853039531693",
+    ]
+    return random.choice(peach_emojis)
+
 # ═══════════════════════════
 # 📊 DATABASES
 # ═══════════════════════════
@@ -604,7 +636,7 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
     try:
         user_mention = f"[{first_name}](tg://user?id={user_id})"
         
-        emoji_id = get_random_emoji()
+        emoji_id = get_random_peach_emoji()
         emoji_msg = None
         if emoji_id:
             try: 
@@ -617,16 +649,22 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
         welcome_msg = await bot.send_message(
             chat_id, 
             f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ ꨄ {user_mention}...🩷", 
-            parse_mode="Markdown"
+            parse_mode="HTML"
         )
         
-        welcome_emojis = ["🌸", "🏖️", "🍰", "🥂", "🩷"]
+        welcome_emojis = [
+            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
+            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
+            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
+            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
+            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
+        ]
         for emoji in welcome_emojis:
             await asyncio.sleep(0.6)
             try:
                 await welcome_msg.edit_text(
                     f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ ꨄ {user_mention}...{emoji}",
-                    parse_mode="Markdown"
+                    parse_mode="HTML"
                 )
             except Exception as e:
                 print(f"Edit error: {e}")
@@ -640,7 +678,21 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
         
         await asyncio.sleep(0.2)
         
-        starting_emojis = ["🚀", "🌠", "🪶", "🍓", "🤖", "🥡", "🍷", "🍭", "🍨", "🧭", "🫧", "🍫", "🛸"]
+        starting_emojis = [
+            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
+            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
+            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
+            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
+            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
+            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
+            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
+            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
+            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
+            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
+            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
+            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
+            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
+        ]
         words = ["𝙨", "𝙩", "α", "я", "†", "ι", "и", "g", ".", ".", ".", ".", "."]
 
         sticker_id = get_random_sticker()
@@ -652,7 +704,7 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
             try: 
                 await welcome_msg.edit_text(
                     f"**{starting_emojis[i%len(starting_emojis)]} " + "".join(words[:i+1]) + "**", 
-                    parse_mode="Markdown"
+                    parse_mode="HTML"
                 )
             except: 
                 break
