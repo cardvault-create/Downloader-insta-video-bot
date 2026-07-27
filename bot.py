@@ -1249,7 +1249,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         emoji_id = emoji_id.replace('[', '').replace(']', '')
         if emoji_id.isdigit() and len(emoji_id) >= 15:
             context.user_data['pending_emoji_id'] = emoji_id
-            context.user_data['awaiting_emoji_id'] = False
         
             keyboard = InlineKeyboardMarkup([
                 [InlineKeyboardButton(
