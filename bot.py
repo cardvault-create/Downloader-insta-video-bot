@@ -1326,13 +1326,18 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         emoji_id = context.user_data.get('pending_emoji_id')
         if emoji_id:
             s, t = add_emoji_db(emoji_id)
+        
+            # 🎨 Delete "Add This" message PEHLE
+            try: await query.message.delete()
+            except: pass
+        
             if s:
-                # ✅ Pehle added message with premium emojis
+                # ✅ Pehle added message
                 await query.message.reply_text(
                     f'<tg-emoji emoji-id="6291571388590419">✅</tg-emoji> 𝗘𝗠𝗢𝗝𝗜 𝗔𝗗𝗗𝗘𝗗 ༼{t}༽ <tg-emoji emoji-id="6127410617482484040">✅</tg-emoji>',
                     parse_mode="HTML"
                 )
-                # ✅ Fir added emoji bhejo
+                # ✅ Fir added emoji
                 await query.message.reply_text(
                     f'<tg-emoji emoji-id="{emoji_id}">🌟</tg-emoji>',
                     parse_mode="HTML"
@@ -1345,10 +1350,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
         context.user_data['pending_emoji_id'] = None
         context.user_data['awaiting_emoji_id'] = True
-    
-        try: await query.message.delete()
-        except: pass
-    
         return
     
     if query.data.startswith("aud_"):
