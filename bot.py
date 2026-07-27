@@ -1324,25 +1324,28 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if query.data == "owner_add_this":
         emoji_id = user_data.get('pending_emoji_id')
-    
+
         if emoji_id:
-            original_chat_id = update.effective_chat.id
-        
+            # CHAT_ID PEHLE SAVE KARO - query.message se
+            original_chat_id = query.message.chat_id
+    
+            # ADD EMOJI TO DB PEHLE
+            success, total = add_emoji_db(emoji_id)
+    
+            # FIR DELETE KARO
             try:
                 await query.message.delete()
             except Exception as e:
                 print(f"Delete error: {e}")
-        
-            success, total = add_emoji_db(emoji_id)
-        
+    
             if success:
-                # ✅ Pehle added message with premium emojis
+                # Send confirmation
                 await context.bot.send_message(
                     chat_id=original_chat_id,
                     text=f'<tg-emoji emoji-id="6291571388590419">✅</tg-emoji> 𝗘𝗠𝗢𝗝𝗜 𝗔𝗗𝗗𝗘𝗗 ༼{total}༽ <tg-emoji emoji-id="6127410617482484040">✅</tg-emoji>',
                     parse_mode="HTML"
                 )
-                # ✅ Fir added emoji
+                # Send the added emoji
                 await context.bot.send_message(
                     chat_id=original_chat_id,
                     text=f'<tg-emoji emoji-id="{emoji_id}">🌟</tg-emoji>',
@@ -1356,7 +1359,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
         else:
             await query.answer("No ID found!", show_alert=True)
-    
+
         user_data['pending_emoji_id'] = None
         user_data['awaiting_emoji_id'] = True
         return
