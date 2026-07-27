@@ -152,6 +152,8 @@ def add_emoji_db(eid):
     if eid not in data["emojis"]: 
         data["emojis"].append(eid)
         jsave(EMOJI_DB, data)
+        return True, len(data["emojis"])
+    return False, len(data["emojis"])
         
         # PREMIUM_EMOJIS list mein bhi add karo
         if eid not in PREMIUM_EMOJIS:
