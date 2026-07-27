@@ -1306,10 +1306,13 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query; await query.answer()
 
     if query.data == "owner_add_emoji":
-        await query.answer()
-        context.user_data['awaiting_emoji_id'] = True
-        await query.message.reply_text("📝 <b>Send premium emoji ID:</b>", parse_mode="HTML")
-        return
+    await query.answer()
+    context.user_data['awaiting_emoji_id'] = True
+    await query.message.reply_text(
+        f'<tg-emoji emoji-id="5352918496642604333">📝</tg-emoji> <b>Ｓｅｎｄ Ｐｒｅｍｉｕｍ Ｅｍｏｊｉ Ｉ＇ｄ ：</b>',
+        parse_mode="HTML"
+    )
+    return
 
     if query.data == "owner_add_this":
         await query.answer()
@@ -1321,8 +1324,27 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await query.message.reply_text(f'<tg-emoji emoji-id="{emoji_id}">🌟</tg-emoji>', parse_mode="HTML")
             else:
                 await query.message.reply_text("❌ 𝗔𝗹𝗿𝗲𝗮𝗱𝘆 𝗘𝘅𝗶𝘀𝘁𝘀")
+        
         context.user_data['pending_emoji_id'] = None
-        context.user_data['awaiting_emoji_id'] = True
+        context.user_data['awaiting_emoji_id'] = False
+        
+        # 🎨 Delete old message & send new button with RANDOM color
+        try: await query.message.delete()
+        except: pass
+        
+        new_kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton(
+                "𝐀𝐝𝐝 𝐄𝐦𝐨𝐣𝐢",
+                callback_data="owner_add_emoji",
+                style=get_random_style(),
+                icon_custom_emoji_id="5352555352862765789"
+            )]
+        ])
+        await query.message.reply_text(
+            f'<tg-emoji emoji-id="5352540225987943305">👑</tg-emoji> <b>𓆩#ＫＡＲＴＩＫ𓆪</b>',
+            reply_markup=new_kb,
+            parse_mode="HTML"
+        )
         return
     
     if query.data.startswith("aud_"):
