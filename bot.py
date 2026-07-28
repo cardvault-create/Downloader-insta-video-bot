@@ -581,28 +581,29 @@ CAPTION = (
     "༼◉𝐂𝛄𝛆𝛂𝛕𝛆𝛄◉༽ 🪽 ➪ [𝜝𝜣𝜯 𝑭𝜟𝜯𝜢𝜮𝜞](https://t.me/FathersOfCreater)"
 )
 
-WELCOME_TEXT = """ʜᴇʏ, {mention} . ˚◞♡ ◟˚ .
-ɪ'ᴍ <a href="https://t.me/Instagram_LinkToVideo_Bot">˹𝚰𝖓𝖘𝖙𝖆𝖌𝖗𝖆𝖒 ✘ 𝚫𝐨𝐰𝐧𝐥𝐨𝐚𝐝𝐞𝐫˼ ♪</a>,
+WELCOME_TEXT = f"""ʜᴇʏ, {{mention}} . ˚◞<tg-emoji emoji-id="5460831783337599621">🌟</tg-emoji> ◟˚ .
+ɪ'ᴍ <a href="https://t.me/Instagram_LinkToVideo_Bot">˹𝚰𝖓𝖘𝖙𝖆𝖌𝖗𝖆𝖒 ✘ 𝚫𝐨𝐰𝐧𝐥𝐨𝐚𝐝𝐞𝐫˼ ♪</a>, <tg-emoji emoji-id="5224334236726600040">🌟</tg-emoji>
 
 ┏━━━━━━━━━━━━━━━━━⧫
-┠ ◆ ˹ɪ ʜᴀᴠᴇ sᴘᴇᴄɪᴀʟ ғᴇᴀᴛᴜʀᴇs˼
-┠ ◆ ˹ᴀʟʟ-ɪɴ-ᴏɴᴇ ʙᴏᴛ˼
+┠ <tg-emoji emoji-id="5327760901799956030">🌟</tg-emoji><tg-emoji emoji-id="5328241392676260170">🌟</tg-emoji> ˹ɪ ʜᴀᴠᴇ sᴘᴇᴄɪᴀʟ ғᴇᴀᴛᴜʀᴇs˼
+┠ <tg-emoji emoji-id="5983582264502523326">🌟</tg-emoji> ˹ᴀʟʟ-ɪɴ-ᴏɴᴇ ʙᴏᴛ˼
 ┗━━━━━━━━━━━━━━━━━⧫
 ┏━━━━━━━━━━━━━━━━━⧫
-┠ ◆ ˹ʏᴏᴜ ᴄᴀɴ ᴅᴏᴡɴʟᴏᴀᴅ ɪɴsᴛᴀɢʀᴀᴍ ʀᴇᴇʟs˼
-┠ ◆ ˹ʏᴏᴜ ᴄᴀɴ ᴅᴏᴡɴʟᴏᴀᴅ ɪɴsᴛᴀɢʀᴀᴍ ᴘʜᴏᴛᴏs˼
-┠ ◆ ˹ʏᴏᴜ ᴄᴀɴ ᴇxᴛʀᴀᴄᴛ ᴀᴜᴅɪᴏ ғʀᴏᴍ ᴠɪᴅᴇᴏs˼
-┠ ◆ ˹ʜᴅ ᴠɪᴅᴇᴏ + ᴏʀɪɢɪɴᴀʟ ᴀᴜᴅɪᴏ sᴜᴘᴘᴏʀᴛ˼
-┠ ◆ ˹ᴍᴜʟᴛɪᴘʟᴇ ᴘʜᴏᴛᴏ ᴅᴏᴡɴʟᴏᴀᴅ sᴜᴘᴘᴏʀᴛ˼
-┠ ◆ ˹ɢʀᴏᴜᴘ sᴜᴘᴘᴏʀᴛ ᴀᴠᴀɪʟᴀʙʟᴇ˼
+┠ <tg-emoji emoji-id="6032730511573521800">🌟</tg-emoji> ˹ʏᴏᴜ ᴄᴀɴ ᴅᴏᴡɴʟᴏᴀᴅ ɪɴsᴛᴀɢʀᴀᴍ ʀᴇᴇʟs˼
+┠ <tg-emoji emoji-id="5345783679790639018">🌟</tg-emoji> ˹ʏᴏᴜ ᴄᴀɴ ᴅᴏᴡɴʟᴏᴀᴅ ɪɴsᴛᴀɢʀᴀᴍ ᴘʜᴏᴛᴏs˼
+┠ <tg-emoji emoji-id="4918382043827537873">🌟</tg-emoji> ˹ʏᴏᴜ ᴄᴀɴ ᴇxᴛʀᴀᴄᴛ ᴀᴜᴅɪᴏ ғʀᴏᴍ ᴠɪᴅᴇᴏs˼
+┠ <tg-emoji emoji-id="5269416373833972738">🌟</tg-emoji><tg-emoji emoji-id="5400144011409251972">🌟</tg-emoji> ˹ʜᴅ ᴠɪᴅᴇᴏ + ᴏʀɪɢɪɴᴀʟ ᴀᴜᴅɪᴏ sᴜᴘᴘᴏʀᴛ˼
+┠ <tg-emoji emoji-id="5319175438268913255">🌟</tg-emoji> ˹ᴍᴜʟᴛɪᴘʟᴇ ᴘʜᴏᴛᴏ ᴅᴏᴡɴʟᴏᴀᴅ sᴜᴘᴘᴏʀᴛ˼
+┠ <tg-emoji emoji-id="5841494459904168607">🌟</tg-emoji> ˹ɢʀᴏᴜᴘ sᴜᴘᴘᴏʀᴛ ᴀᴠᴀɪʟᴀʙʟᴇ˼
 ┗━━━━━━━━━━━━━━━━━⧫
 
-⚡ ˹ᴸⁱⁿᵏ ᴮʰᵉʲᵒ → ⱽⁱᵈᵉᵒ ᴾᵃᵒ → ᴰᵒʷⁿˡᵒᵃᵈ ⱽⁱᵈᵉᵒ ᴬᵘᵈⁱᵒ → ♡ ᴮᵘᵗᵗᵒⁿ ᴰᵃᵇᵃᵒ ♡ → ᴬᵘᵈⁱᵒ ᴾᵃᵒ˼✧ ⋆˚ · . 　 🌙 　 . · ˚⋆
+<tg-emoji emoji-id="5801170880272797821">🌟</tg-emoji> ˹ᴸⁱⁿᵏ ᴮʰᵉʲᵒ → ⱽⁱᵈᵉᵒ ᴾᵃᵒ → ᴰᵒʷⁿˡᵒᵃᵈ ⱽⁱᵈᵉᵒ ᴬᵘᵈⁱᵒ → <tg-emoji emoji-id="5339433596413304050">🌟</tg-emoji><tg-emoji emoji-id="5339432312218081255">🌟</tg-emoji> ᴮᵘᵗᵗᵒⁿ ᴰᵃᵇᵃᵒ <tg-emoji emoji-id="5805545944413900887">🌟</tg-emoji> 
+→ ᴬᵘᵈⁱᵒ ᴾᵃᵒ˼<tg-emoji emoji-id="4976878570686120597">🌟</tg-emoji>⋆˚ · .<tg-emoji emoji-id="5891005743380828183">🌟</tg-emoji>. · ˚⋆
 
-⧫━━━━━✦◆ ◇ ◆ ◇ ◆ ◇✦━━━━━⧫
-๏ ˹ᴄʟɪᴄᴋ ᴏɴ ᴛʜᴇ ᴀᴅᴅ ᴛᴏ ɢʀᴏᴜᴘ ʙᴜᴛᴛᴏɴ ʙᴇʟᴏᴡ ᴛᴏ ᴀᴅᴅ ᴛʜɪs ʙᴏᴛ ɪɴ ʏᴏᴜʀ ɢʀᴏᴜᴘ ᴀɴᴅ ᴇɴᴊᴏʏ ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ᴛʜᴇʀᴇ ᴛᴏᴏ˼
+<tg-emoji emoji-id="5233365393308928165">🌟</tg-emoji><tg-emoji emoji-id="5233415751800475615">🌟</tg-emoji><tg-emoji emoji-id="5233334533968905917">🌟</tg-emoji><tg-emoji emoji-id="5233223341560578191">🌟</tg-emoji><tg-emoji emoji-id="5233217440275514440">🌟</tg-emoji><tg-emoji emoji-id="5233615300276012638">🌟</tg-emoji><tg-emoji emoji-id="5233660942893466534">🌟</tg-emoji><tg-emoji emoji-id="5233532686580075326">🌟</tg-emoji>
+<tg-emoji emoji-id="6127672662027146442">🌟</tg-emoji> ˹ᴄʟɪᴄᴋ ᴏɴ ᴛʜᴇ ᴀᴅᴅ ᴛᴏ ɢʀᴏᴜᴘ ʙᴜᴛᴛᴏɴ ʙᴇʟᴏᴡ ᴛᴏ ᴀᴅᴅ ᴛʜɪs ʙᴏᴛ ɪɴ ʏᴏᴜʀ ɢʀᴏᴜᴘ ᴀɴᴅ ᴇɴᴊᴏʏ ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ᴛʜᴇʀᴇ ᴛᴏᴏ˼ <tg-emoji emoji-id="5237707944547592720">🌟</tg-emoji>
 
-🫧 ˹ᴅᴇᴠᴇʟᴏᴩᴇʀ˼ 🪽 ➪ <a href="https://t.me/FathersOfCreater">𝜝𝜣𝜯 𝑭𝜟𝜯𝜢𝜮𝜞</a> ✔︎"""
+<tg-emoji emoji-id="5825690573687754521">🌟</tg-emoji> ˹ᴅᴇᴠᴇʟᴏᴩᴇʀ˼ <tg-emoji emoji-id="5814637011495031358">🪽</tg-emoji> ➪ <a href="https://t.me/FathersOfCreater">𝜝𝜣𝜯 𝑭𝜟𝜯𝜢𝜮𝜞</a> <tg-emoji emoji-id="5825889735616238150">🌟</tg-emoji>"""
 
 GROUP_WELCOME = """👋🏻 ʜᴇʟʟᴏ {chat_title} ♡ ⋆｡°✩
 
