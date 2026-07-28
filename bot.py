@@ -702,7 +702,7 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
         )
 
         # 13 emojis loop
-        for i in range(13):
+        for i in range(1,13):
             await asyncio.sleep(0.6)
             try:
                 love_id = LOVE_EMOJIS[i]
