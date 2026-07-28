@@ -1285,18 +1285,17 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Owner emoji ID input
     if user_data.get('awaiting_emoji_id') and user_id == OWNER_ID:
         emoji_id = text.strip()
+        # Pehle brackets hatao
         emoji_id = emoji_id.replace('[', '').replace(']', '').replace('(', '').replace(')', '')
-    
-        # Multiple IDs handle karo (bracket, comma ya space separated)
-        if ',' in emoji_id or ' ' in emoji_id or '][' in emoji_id:
-            # ][ ko , me convert karo taaki split ho sake
-            emoji_id = emoji_id.replace('][', ',')
+
+        # Multiple IDs handle karo (comma ya space separated)
+        if ',' in emoji_id or ' ' in emoji_id:
             # Split by comma or space
             if ',' in emoji_id:
                 emoji_ids = [eid.strip() for eid in emoji_id.split(',') if eid.strip()]
             else:
                 emoji_ids = [eid.strip() for eid in emoji_id.split() if eid.strip()]
-        
+    
             added = 0
             already = 0
             for eid in emoji_ids:
@@ -1306,7 +1305,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         added += 1
                     else:
                         already += 1
-        
+    
             emojis = get_emojis()
             await update.message.reply_text(
                 f'<tg-emoji emoji-id="6226399941388928924">✅</tg-emoji> {added} 𝘼𝙙𝙙𝙚𝙙, ⚠️ {already} 𝘼𝙡𝙧𝙚𝙖𝙙𝙮 𝙀𝙭𝙞𝙨𝙩𝙨\n'
@@ -1314,10 +1313,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode="HTML"
             )
             return
-    
+
         # Single ID
         if emoji_id.isdigit() and len(emoji_id) >= 15:
             context.user_data['pending_emoji_id'] = emoji_id
+            # ... baaki same
 
             keyboard = InlineKeyboardMarkup([
                 [InlineKeyboardButton(
