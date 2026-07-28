@@ -676,9 +676,11 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
         await asyncio.sleep(1)
         
         random_love = random.choice(LOVE_EMOJIS)
+        welcome_emoji_id = get_random_emoji()
+        welcome_emoji = f'<tg-emoji emoji-id="{welcome_emoji_id}">🩷</tg-emoji>' if welcome_emoji_id else '🩷'
         welcome_msg = await bot.send_message(
             chat_id, 
-            f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ <tg-emoji emoji-id=\"{random_love}\">❤️</tg-emoji> {user_mention}...🩷", 
+            f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ <tg-emoji emoji-id=\"{random_love}\">❤️</tg-emoji> {user_mention}...{welcome_emoji}", 
             parse_mode="HTML"
         )
         
@@ -688,6 +690,14 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
             f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
             f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
             f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
+            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
+            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
+            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
+            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
+            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
+            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
+            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
+            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',               
         ]
         for emoji in welcome_emojis:
             await asyncio.sleep(0.6)
