@@ -196,10 +196,16 @@ def get_random_video():
     global last_video_index
     vids = get_video_list()
     if not vids: return None
-    if len(vids) > 1:
-        available = [v for v in vids if v["id"] != last_video_index]
-        if available: chosen = random.choice(available); last_video_index = chosen["id"]; return chosen
-    chosen = random.choice(vids); last_video_index = chosen["id"]; return chosen
+    if len(vids) == 1:
+        # सिर्फ 1 video - हर बार वही दो
+        return vids[0]
+    # ज्यादा videos - last वाली छोड़कर random दो
+    available = [v for v in vids if v["id"] != last_video_index]
+    if not available:
+        available = vids
+    chosen = random.choice(available)
+    last_video_index = chosen["id"]
+    return chosen
 def delete_video_db(vid):
     vids = get_video_list()
     for i, v in enumerate(vids):
