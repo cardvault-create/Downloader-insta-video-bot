@@ -660,7 +660,6 @@ SETTINGS_TEXT = f"""<tg-emoji emoji-id="5327760901799956030">⚙️</tg-emoji> �
 
 ⧫━━━━━✦◆ ◇ ◆ ◇ ◆ ◇✦━━━━━⧫
 <tg-emoji emoji-id="5825690573687754521">🌟</tg-emoji> ˹𝗗𝗲𝘃𝗲𝗹𝗼𝗽𝗲𝗿˼ <tg-emoji emoji-id="5814637011495031358">🪽</tg-emoji> ➪ [𝜝𝜣𝜯 𝑭𝜟𝜯𝜢𝜮𝜞](https://t.me/FathersOfCreater)"""
-)
 
 async def welcome_animation(bot, chat_id, user_id, first_name):
     try:
