@@ -649,10 +649,11 @@ def get_random_audio_default_emoji():
     return random.choice(AUDIO_DEFAULT_EMOJIS)
 
 AUDIO_NAME_PROMPT = (
-    "➪ 𝙊𝙠𝙖𝙮, 𝙂𝙖𝙫𝙚 𝙈𝙚 𝘼𝙪𝙙𝙞𝙤 𝙉𝙖𝙢𝙚?\n\n"
-    "𝐄𝐱𝐚𝐦𝐩𝐥𝐞 : 𝐌𝐲 𝐌𝐮𝐬𝐢𝐜 🎶\n"
-    " ˹ησ ι∂єα вє¢αυѕє уσυ gαу˼ ♪\n\n"
-    "𝐘𝐨𝐮 𝐇𝐚𝐯𝐞 𝐍𝐨 𝐈𝐝𝐞𝐚 𝐓𝐡𝐚𝐧 𝐂𝐥𝐢𝐜𝐤 𝐓𝐡𝐢𝐬 𝐁𝐮𝐭𝐭𝐨𝐧 ⤵️"
+    "<tg-emoji emoji-id=\"5411081618074914372\">🌟</tg-emoji><tg-emoji emoji-id=\"6050914707320083722\">🌟</tg-emoji><tg-emoji emoji-id=\"5764630982145610731\">🌟</tg-emoji><tg-emoji emoji-id=\"5764887915679191809\">🌟</tg-emoji><tg-emoji emoji-id=\"5764841332463900746\">🌟</tg-emoji><tg-emoji emoji-id=\"5764651288750987888\">🌟</tg-emoji><tg-emoji emoji-id=\"5765035898777376683\">🌟</tg-emoji><tg-emoji emoji-id=\"5765028352519837021\">🌟</tg-emoji><tg-emoji emoji-id=\"5765001367240316190\">🌟</tg-emoji><tg-emoji emoji-id=\"5764960925828257912\">🌟</tg-emoji><tg-emoji emoji-id=\"5411145510008409639\">🌟</tg-emoji>\n"
+    "<tg-emoji emoji-id=\"5978900887588834499\">🌟</tg-emoji> 𝙊𝙠𝙖𝙮，𝙂𝙖𝙫𝙚 𝙈𝙚 𝘼𝙪𝙙𝙞𝙤 𝙉𝙖𝙢𝙚<tg-emoji emoji-id=\"5314504236132747481\">🌟</tg-emoji>\n\n"
+    "<tg-emoji emoji-id=\"5857233612373495568\">🌟</tg-emoji> 𝐄𝐱𝐚𝐦𝐩𝐥𝐞 ：𝐌𝐲 𝐌𝐮𝐬𝐢𝐜 <tg-emoji emoji-id=\"5859300243262148377\">🌟</tg-emoji>\n"
+    "<tg-emoji emoji-id=\"6035338166607550430\">🌟</tg-emoji> ˹ησ ι∂єα вє¢αυѕє уσυ gαу˼ ♪ <tg-emoji emoji-id=\"6032754146778551433\">🌟</tg-emoji>\n\n"
+    "𝐘𝐨𝐮 𝐇𝐚𝐯𝐞 𝐍𝐨 𝐈𝐝𝐞𝐚 𝐓𝐡𝐚𝐧 𝐂𝐥𝐢𝐜𝐤 𝐓𝐡𝐢𝐬 𝐁𝐮𝐭𝐭𝐨𝐧 <tg-emoji emoji-id=\"6278196164646932941\">🌟</tg-emoji>"
 )
 
 SETTINGS_TEXT = f"""<tg-emoji emoji-id="5327760901799956030">⚙️</tg-emoji> 𝗖𝗢𝗠𝗠𝗔𝗡𝗗𝗦 ：
