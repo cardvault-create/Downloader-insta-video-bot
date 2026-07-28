@@ -689,7 +689,9 @@ custom_id = CUSTOM_EMOJIS[0]  # CUSTOM_EMOJIS list pehle define karo
             parse_mode="HTML"
         )
         
-        # CUSTOM_EMOJIS - piche wale ke liye
+        await asyncio.sleep(1)
+
+        # Pehle CUSTOM_EMOJIS define karo
         CUSTOM_EMOJIS = [
             "6102783446805912845",
             "6100403729981249405", 
@@ -705,6 +707,15 @@ custom_id = CUSTOM_EMOJIS[0]  # CUSTOM_EMOJIS list pehle define karo
             "6242511531947329664",
             "6239745830706743108",
         ]
+
+        # Ab welcome_msg banao
+        love_id = LOVE_EMOJIS[0]
+        custom_id = CUSTOM_EMOJIS[0]
+        welcome_msg = await bot.send_message(
+            chat_id, 
+            f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ <tg-emoji emoji-id=\"{love_id}\">❤️</tg-emoji> {user_mention}...<tg-emoji emoji-id=\"{custom_id}\">🩷</tg-emoji>", 
+            parse_mode="HTML"
+        )
 
         # 13 emojis loop
         for i in range(13):
