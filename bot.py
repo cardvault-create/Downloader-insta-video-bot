@@ -785,7 +785,7 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
         
         video_data = get_random_video()
         final_text = WELCOME_TEXT.replace("{mention}", user_mention)
-        kb = InlineKeyboardMarkup([[InlineKeyboardButton("◆ ➪ ˹𝜟𝙙𝙙 𝜯𝜣 𝑮𝜞𝜭𝑼𝝆˼ ♪☬", url=f"https://t.me/{(await bot.get_me()).username}?startgroup=true", style=get_random_style(), icon_custom_emoji_id=get_random_emoji_id())]])
+        kb = InlineKeyboardMarkup([[InlineKeyboardButton("◆ ➪ ˹𝜟𝙙𝙙 𝜯𝜣 𝑮𝜞𝜭𝑼𝝆˼ ♪☬", url=f"https://t.me/{context.bot.username}?startgroup=true", style=get_random_style(), icon_custom_emoji_id=get_random_emoji_id())]])
         
         video_sent = False
         try:
