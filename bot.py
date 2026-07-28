@@ -727,7 +727,7 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
 
         # 12 edits
         for i in range(1, 13):
-            await asyncio.sleep(0.6)
+            await asyncio.sleep(0.4)
             try:
                 love_id = LOVE_EMOJIS[i]
                 custom_id = CUSTOM_EMOJIS[i]
@@ -754,7 +754,7 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
         words = ["𝙨", "𝙩", "α", "я", "†", "ι", "и", "g", ".", ".", ".", ".", "."]
 
         for i in range(len(words)):
-            await asyncio.sleep(0.08)
+            await asyncio.sleep(0.06)
 
             try: 
                 await welcome_msg.edit_text(
