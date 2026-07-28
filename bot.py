@@ -1196,11 +1196,11 @@ async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, u
                 keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(AUDIO_BUTTON_TEXT, callback_data=f"aud_{shortcode}", style=get_random_style(), icon_custom_emoji_id=get_random_emoji_id())]])
                 await context.bot.send_chat_action(chat_id=chat_id, action='upload_video')
                 with open(fp, 'rb') as f:
-                   await update.message.reply_video(video=f, caption=CAPTION, parse_mode="Markdown", reply_markup=keyboard, supports_streaming=True, reply_to_message_id=update.message.message_id)
+                    await update.message.reply_video(video=f, caption=CAPTION, parse_mode="HTML", reply_markup=keyboard, supports_streaming=True, reply_to_message_id=update.message.message_id)
             else:
                 await msg.edit_text("🪂 𝗨𝗽𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗣𝗵𝗼𝘁𝗼♡ ⋆｡°✩", parse_mode="Markdown")
                 with open(fp, 'rb') as f:
-                    await update.message.reply_photo(photo=f, caption=CAPTION, parse_mode="Markdown", reply_to_message_id=update.message.message_id)
+                    await update.message.reply_photo(photo=f, caption=CAPTION, parse_mode="HTML", reply_to_message_id=update.message.message_id)
             
             await msg.delete(); InstaDownloader.cleanup(fp)
             if sticker_msg:
