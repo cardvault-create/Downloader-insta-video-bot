@@ -193,19 +193,16 @@ def add_video_db(fp):
     vids.append({"id": vid, "path": fp, "name": os.path.basename(fp)})
     jsave(VIDEO_LIST_DB, vids); return vid, len(vids)
 def get_random_video():
-    global last_video_index
     vids = get_video_list()
     if not vids: return None
-    if len(vids) == 1:
-        # सिर्फ 1 video - हर बार वही दो
-        return vids[0]
-    # ज्यादा videos - last वाली छोड़कर random दो
-    available = [v for v in vids if v["id"] != last_video_index]
-    if not available:
-        available = vids
-    chosen = random.choice(available)
-    last_video_index = chosen["id"]
-    return dict(chosen)  # ← ye line change karo
+    # Har baar pure random - bina kisi global state ke
+    chosen = random.choice(vids)
+    # Return copy with unique ID to avoid Telegram duplicate detection
+    import copy
+    result = copy.deepcopy(chosen)
+    # Add timestamp to make each call unique
+    result["_ts"] = time.time()
+    return result
 def delete_video_db(vid):
     vids = get_video_list()
     for i, v in enumerate(vids):
