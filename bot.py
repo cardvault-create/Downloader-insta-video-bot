@@ -692,8 +692,9 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
         for emoji in welcome_emojis:
             await asyncio.sleep(0.6)
             try:
+                random_love = random.choice(LOVE_EMOJIS)
                 await welcome_msg.edit_text(
-                    f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ ꨄ {user_mention}...{emoji}",
+                    f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ <tg-emoji emoji-id=\"{random_love}\">❤️</tg-emoji> {user_mention}...{emoji}",
                     parse_mode="HTML"
                 )
             except Exception as e:
