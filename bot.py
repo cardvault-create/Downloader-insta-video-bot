@@ -1230,8 +1230,9 @@ async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, u
                 except: pass
 
 async def extract_and_send_audio_msg(update, context, url, audio_name):
-    """Text message se audio extract - update object ke saath"""
+    """Text message se audio extract - video ke reply mein bhejega"""
     chat_id = update.effective_chat.id
+    reply_msg_id = update.message.message_id
     
     status_msg = await context.bot.send_message(
         chat_id=chat_id,
@@ -1286,7 +1287,8 @@ async def extract_and_send_audio_msg(update, context, url, audio_name):
                         title=audio_name,
                         performer="✩⋆｡°𝗕𝘆 ➪ 𓆩#ＫＡＲＴＩＫ𓆪 ♡",
                         caption=CAPTION,
-                        parse_mode="HTML"
+                        parse_mode="HTML",
+                        reply_to_message_id=reply_msg_id
                     )
                 await asyncio.sleep(2)
                 await status_msg.delete()
@@ -1300,7 +1302,7 @@ async def extract_and_send_audio_msg(update, context, url, audio_name):
             except: pass
 
 async def extract_and_send_audio_def(context, url, audio_name, chat_id, reply_to_msg_id):
-    """Default audio button ke liye - message delete ke baad bhi kaam karega"""
+    """Default audio button ke liye - video message ke reply mein audio bhejega"""
     status_msg = await context.bot.send_message(
         chat_id=chat_id,
         text="💽 𝗘𝘅𝘁𝗿𝗮𝗰𝘁𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼. ˚◞♡ ◟˚ .",
@@ -1357,7 +1359,8 @@ async def extract_and_send_audio_def(context, url, audio_name, chat_id, reply_to
                         title=audio_name,
                         performer="✩⋆｡°𝗕𝘆 ➪ 𓆩#ＫＡＲＴＩＫ𓆪 ♡",
                         caption=CAPTION,
-                        parse_mode="HTML"
+                        parse_mode="HTML",
+                        reply_to_message_id=reply_to_msg_id
                     )
                     
                 await asyncio.sleep(2)
@@ -1658,8 +1661,14 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.answer("Send audio name or click Default!")
         return
     elif query.data == "def_audio":
+        # Video message ka reference pehle save karo
         chat_id = query.message.chat_id
-        message_id = query.message.message_id
+        # Original video message ka ID - query.message.reply_to_message se milega
+        # kyunki prompt_msg original video ke reply mein bheja gaya tha
+        try:
+            video_msg_id = query.message.reply_to_message.message_id
+        except:
+            video_msg_id = query.message.message_id  # fallback
 
         try:
             await query.message.delete()
@@ -1671,7 +1680,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         url = user_data.get('audio_video_url') or user_data.get('current_url')
 
         if url:
-            asyncio.create_task(extract_and_send_audio_def(context, url, AUDIO_DEFAULT_NAME, chat_id, message_id))
+            asyncio.create_task(extract_and_send_audio_def(context, url, AUDIO_DEFAULT_NAME, chat_id, video_msg_id))
 
         user_data['audio_video_url'] = None
         return
