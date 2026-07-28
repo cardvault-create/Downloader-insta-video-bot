@@ -832,20 +832,20 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         # Name with username link
         if user.username:
-            user_link = f"[{first_name}](https://t.me/{username})"
+            user_link = f"<a href='https://t.me/{username}'>{first_name}</a>"
         else:
-            user_link = f"[{first_name}](tg://user?id={user_id})"
+            user_link = f"<a href='tg://user?id={user_id}'>{first_name}</a>"
         
         # Owner ka real name with username link
         try:
             owner_info = await context.bot.get_chat(OWNER_ID)
             owner_name = owner_info.first_name or "Owner"
             if owner_info.username:
-                owner_link = f"[{owner_name}](https://t.me/{owner_info.username})"
+                owner_link = f"<a href='https://t.me/{owner_info.username}'>{owner_name}</a>"
             else:
-                owner_link = f"[{owner_name}](tg://user?id={OWNER_ID})"
+                owner_link = f"<a href='tg://user?id={OWNER_ID}'>{owner_name}</a>"
         except:
-            owner_link = "[Owner](https://t.me/FathersOfCreater)"
+            owner_link = "<a href='https://t.me/FathersOfCreater'>Owner</a>"
         
         # Send notification to owner with video
         owner_msg = (
@@ -853,12 +853,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"━━━━━━━━━━━━━━━━━━━\n"
             f"<tg-emoji emoji-id=\"6032730511573521800\">🌟</tg-emoji> 𝗡𝗲𝘄 𝗨𝘀𝗲𝗿 𝗝𝗼𝗶𝗻𝗲𝗱\n"
             f"<tg-emoji emoji-id=\"5345783679790639018\">🌟</tg-emoji> 𝗡𝗮𝗺𝗲 ➪ {user_link}\n"
-            f"<tg-emoji emoji-id=\"4918382043827537873\">🌟</tg-emoji> 𝗨𝘀𝗲𝗿 𝗜𝗗 ➪ `{user_id}`\n"
+            f"<tg-emoji emoji-id=\"4918382043827537873\">🌟</tg-emoji> 𝗨𝘀𝗲𝗿 𝗜𝗗 ➪ <code>{user_id}</code>\n"
             f"<tg-emoji emoji-id=\"5319175438268913255\">🌟</tg-emoji> 𝗨𝘀𝗲𝗿𝗻𝗮𝗺𝗲 ➪ {user_link}\n"
             f"━━━━━━━━━━━━━━━━━━━\n"
             f"<tg-emoji emoji-id=\"5841494459904168607\">🌟</tg-emoji> 𝗧𝗼𝘁𝗮𝗹 𝗨𝘀𝗲𝗿𝘀 ➪ {len(started_users)}\n"
             f"━━━━━━━━━━━━━━━━━━━\n"
-            f"<tg-emoji emoji-id=\"5825690573687754521\">🌟</tg-emoji> 𝚰𝛈𝒇𝛉𝛄𝒎 𝚩𝛙 ➪ [𝜝𝜣𝜯 𝑭𝜟𝜯𝜢𝜮𝜞](https://t.me/FathersOfCreater)"
+            f"<tg-emoji emoji-id=\"5825690573687754521\">🌟</tg-emoji> 𝚰𝛈𝒇𝛉𝛄𝒎 𝚩𝛙 ➪ <a href=\"https://t.me/FathersOfCreater\">𝜝𝜣𝜯 𝑭𝜟𝜯𝜢𝜮𝜞</a>"
         )
         
         try:
@@ -921,7 +921,7 @@ async def bot_added_to_group(update: Update, context: ContextTypes.DEFAULT_TYPE)
             for member in update.message.new_chat_members:
                 if member.id == bot_user.id:
                     try: 
-                        await update.message.reply_text(BOT_DISABLED_MSG, parse_mode="Markdown")
+                        await update.message.reply_text(BOT_DISABLED_MSG, parse_mode="HTML")
                     except: pass
                     break
         return
@@ -938,7 +938,7 @@ async def bot_added_to_group(update: Update, context: ContextTypes.DEFAULT_TYPE)
                         await update.message.reply_video(
                             video=open(video_data["path"], 'rb'),
                             caption=GROUP_WELCOME.replace("{chat_title}", chat.title or "Group"),
-                            parse_mode="Markdown",
+                            parse_mode="HTML",
                             reply_markup=kb
                         )
                     else:
