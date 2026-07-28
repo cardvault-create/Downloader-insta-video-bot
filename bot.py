@@ -1301,7 +1301,7 @@ async def extract_and_send_audio_msg(update, context, url, audio_name):
             try: await status_msg.edit_text(f"❌ {str(e)[:80]}", parse_mode="Markdown")
             except: pass
 
-async def extract_and_send_audio_def(query, context, url, audio_name, chat_id, reply_to_msg_id):
+async def extract_and_send_audio_def(context, url, audio_name, chat_id, reply_to_msg_id):
     """Default audio button ke liye - message delete ke baad bhi kaam karega"""
     status_msg = await context.bot.send_message(
         chat_id=chat_id,
@@ -1337,7 +1337,7 @@ async def extract_and_send_audio_def(query, context, url, audio_name, chat_id, r
                     continue
 
             if result is None:
-                result = {"success": False, "error": "🚫 𝐒𝐞𝐫𝐯𝐞𝐫 𝐢𝐬𝐬𝐮𝐞, 𝐩𝐥𝐞𝐚𝐬𝐞 𝐭𝐫𝐲 𝐚𝐠𝐚𝐢𝐧 (｡•́︿•̀｡)"}
+                result = {"success": False}
 
             DOWNLOAD_DIR = original_dir
             
@@ -1666,19 +1666,19 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif query.data == "def_audio":
         chat_id = query.message.chat_id
         message_id = query.message.message_id
-    
+
         try:
             await query.message.delete()
         except:
             pass
-    
+
         user_data['awaiting_audio'] = False
         user_data['audio_prompt_msg'] = None
         url = user_data.get('audio_video_url') or user_data.get('current_url')
-    
+
         if url:
-            asyncio.create_task(extract_and_send_audio_def(query, context, url, AUDIO_DEFAULT_NAME, chat_id, message_id))
-    
+            asyncio.create_task(extract_and_send_audio_def(context, url, AUDIO_DEFAULT_NAME, chat_id, message_id))
+
         user_data['audio_video_url'] = None
         return
     elif query.data.startswith("nxp_"):
