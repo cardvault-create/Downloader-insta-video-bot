@@ -944,7 +944,7 @@ async def bot_added_to_group(update: Update, context: ContextTypes.DEFAULT_TYPE)
                     else:
                         await update.message.reply_text(
                             GROUP_WELCOME.replace("{chat_title}", chat.title or "Group"),
-                            parse_mode="Markdown",
+                            parse_mode="HTML",
                             reply_markup=kb
                         )
                 except: pass
