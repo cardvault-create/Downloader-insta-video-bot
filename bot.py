@@ -1229,6 +1229,78 @@ async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, u
                 try: await sticker_msg.delete()
                 except: pass
 
+async def extract_and_send_audio_msg(update, context, url, audio_name):
+    """Text message se audio extract - update object ke saath"""
+    chat_id = update.effective_chat.id
+    reply_msg_id = update.message.message_id
+    
+    status_msg = await context.bot.send_message(
+        chat_id=chat_id,
+        text="💽 𝗘𝘅𝘁𝗿𝗮𝗰𝘁𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼. ˚◞♡ ◟˚ .",
+        parse_mode="Markdown"
+    )
+    
+    async with download_semaphore:
+        try:
+            import uuid
+            audio_uid = str(uuid.uuid4())[:8]
+            audio_dir = os.path.join("downloads", f"audio_{audio_uid}")
+            os.makedirs(audio_dir, exist_ok=True)
+    
+            global DOWNLOAD_DIR
+            original_dir = DOWNLOAD_DIR
+            DOWNLOAD_DIR = audio_dir
+
+            import concurrent.futures
+            result = None
+            for attempt in range(2):
+                try:
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        future = executor.submit(InstaDownloader.download_media, url)
+                        result = future.result(timeout=90)
+                    if result.get("success"):
+                        break
+                except concurrent.futures.TimeoutError:
+                    time.sleep(2)
+                    continue
+                except Exception:
+                    time.sleep(2)
+                    continue
+
+            if result is None:
+                result = {"success": False}
+
+            DOWNLOAD_DIR = original_dir
+            
+            if not result.get("success"): 
+                await status_msg.edit_text("❌ 𝗙𝗮𝗶𝗹𝗲𝗱", parse_mode="Markdown")
+                return
+            vp = result["file_path"]
+            ar = InstaDownloader.extract_audio(vp, audio_name)
+            if ar.get("success"):
+                await status_msg.edit_text("🎻 𝗦𝗲𝗻𝗱𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼♡ ⋆｡°✩", parse_mode="Markdown")
+                await context.bot.send_chat_action(chat_id=chat_id, action='upload_audio')
+                with open(ar["file_path"], 'rb') as f:
+                    await context.bot.send_audio(
+                        chat_id=chat_id,
+                        audio=f,
+                        title=audio_name,
+                        performer="✩⋆｡°𝗕𝘆 ➪ 𓆩#ＫＡＲＴＩＫ𓆪 ♡",
+                        caption=CAPTION,
+                        parse_mode="HTML",
+                        reply_to_message_id=reply_msg_id
+                    )
+                await asyncio.sleep(2)
+                await status_msg.delete()
+                try: os.remove(ar["file_path"])
+                except: pass
+            else: 
+                await status_msg.edit_text(f"❌ {ar.get('error')}", parse_mode="Markdown")
+            InstaDownloader.cleanup(vp)
+        except Exception as e: 
+            try: await status_msg.edit_text(f"❌ {str(e)[:80]}", parse_mode="Markdown")
+            except: pass
+
 async def extract_and_send_audio_def(query, context, url, audio_name, chat_id, reply_to_msg_id):
     """Default audio button ke liye - message delete ke baad bhi kaam karega"""
     status_msg = await context.bot.send_message(
@@ -1495,7 +1567,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             try: await user_data['audio_prompt_msg'].delete()
             except: pass
             user_data['audio_prompt_msg'] = None
-        if url: await extract_and_send_audio_direct(update, context, url, audio_name)
+        if url: asyncio.create_task(extract_and_send_audio_msg(update, context, url, audio_name))
         user_data['audio_video_url'] = None
         return
     
@@ -1506,7 +1578,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             try: await user_data['audio_prompt_msg'].delete()
             except: pass
             user_data['audio_prompt_msg'] = None
-        if url: await extract_and_send_audio_direct(update, context, url, AUDIO_DEFAULT_NAME)
+        if url: asyncio.create_task(extract_and_send_audio_msg(update, context, url, AUDIO_DEFAULT_NAME))
         user_data['audio_video_url'] = None
         return
     
