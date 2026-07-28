@@ -592,7 +592,7 @@ WELCOME_TEXT = f"""ʜᴇʏ, {{mention}} . ˚◞<tg-emoji emoji-id="5460831783337
 ┠ <tg-emoji emoji-id="6032730511573521800">🌟</tg-emoji> ˹ʏᴏᴜ ᴄᴀɴ ᴅᴏᴡɴʟᴏᴀᴅ ɪɴsᴛᴀɢʀᴀᴍ ʀᴇᴇʟs˼
 ┠ <tg-emoji emoji-id="5345783679790639018">🌟</tg-emoji> ˹ʏᴏᴜ ᴄᴀɴ ᴅᴏᴡɴʟᴏᴀᴅ ɪɴsᴛᴀɢʀᴀᴍ ᴘʜᴏᴛᴏs˼
 ┠ <tg-emoji emoji-id="4918382043827537873">🌟</tg-emoji> ˹ʏᴏᴜ ᴄᴀɴ ᴇxᴛʀᴀᴄᴛ ᴀᴜᴅɪᴏ ғʀᴏᴍ ᴠɪᴅᴇᴏs˼
-┠ <tg-emoji emoji-id="5269416373833972738">🌟</tg-emoji> ˹ʜᴅ ᴠɪᴅᴇᴏ + ᴏʀɪɢɪɴᴀʟ ᴀᴜᴅɪᴏ sᴜᴘᴘᴏʀᴛ˼ <tg-emoji emoji-id="5400144011409251972">🌟</tg-emoji>
+┠ <tg-emoji emoji-id="5269416373833972738">🌟</tg-emoji> ˹ʜᴅ ᴠɪᴅᴇᴏ + ᴏʀɪɢɪɴᴀʟ ᴀᴜᴅɪᴏ sᴜᴘᴘᴏʀᴛ˼
 ┠ <tg-emoji emoji-id="5319175438268913255">🌟</tg-emoji> ˹ᴍᴜʟᴛɪᴘʟᴇ ᴘʜᴏᴛᴏ ᴅᴏᴡɴʟᴏᴀᴅ sᴜᴘᴘᴏʀᴛ˼
 ┠ <tg-emoji emoji-id="5841494459904168607">🌟</tg-emoji> ˹ɢʀᴏᴜᴘ sᴜᴘᴘᴏʀᴛ ᴀᴠᴀɪʟᴀʙʟᴇ˼
 ┗━━━━━━━━━━━━━━━━━⧫
@@ -659,7 +659,7 @@ SETTINGS_TEXT = f"""<tg-emoji emoji-id="5327760901799956030">⚙️</tg-emoji> �
 ┗ <tg-emoji emoji-id="6032730511573521800">🌟</tg-emoji> /clearvideos ➪ 𝗖𝗹𝗲𝗮𝗿 𝗔𝗹𝗹 𝗩𝗶𝗱𝗲𝗼𝘀
 
 ⧫━━━━━✦◆ ◇ ◆ ◇ ◆ ◇✦━━━━━⧫
-<tg-emoji emoji-id="5825690573687754521">🌟</tg-emoji> ˹𝗗𝗲𝘃𝗲𝗹𝗼𝗽𝗲𝗿˼ <tg-emoji emoji-id="5814637011495031358">🪽</tg-emoji> ➪ <a href="https://t.me/FathersOfCreater">𝜝𝜣𝜯 𝑭𝜟𝜯𝜢𝜮𝜞</a>
+<tg-emoji emoji-id="5825690573687754521">🌟</tg-emoji> ˹𝗗𝗲𝘃𝗲𝗹𝗼𝗽𝗲𝗿˼ <tg-emoji emoji-id="5814637011495031358">🪽</tg-emoji> ➪ <a href="https://t.me/FathersOfCreater">𝜝𝜣𝜯 𝑭𝜟𝜯𝜢𝜮𝜞</a>"""
 
 async def welcome_animation(bot, chat_id, user_id, first_name):
     try:
