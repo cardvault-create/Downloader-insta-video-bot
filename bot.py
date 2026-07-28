@@ -701,7 +701,7 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
         custom_id = CUSTOM_EMOJIS[0]
         welcome_msg = await bot.send_message(
             chat_id, 
-            f"<tg-emoji emoji-id=\"{WELCOME_EMOJI}\">🌟</tg-emoji> 𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ <tg-emoji emoji-id=\"{love_id}\">❤️</tg-emoji> {user_mention}...<tg-emoji emoji-id=\"{custom_id}\">🩷</tg-emoji><tg-emoji emoji-id=\"{BACK_EMOJI}\">🌸</tg-emoji>", 
+            f"<tg-emoji emoji-id=\"{WELCOME_EMOJI}\">🌟</tg-emoji> 𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ <tg-emoji emoji-id=\"{love_id}\">❤️</tg-emoji> {user_mention} <tg-emoji emoji-id=\"{custom_id}\">🩷</tg-emoji><tg-emoji emoji-id=\"{BACK_EMOJI}\">🌸</tg-emoji>", 
             parse_mode="HTML"
         )
 
@@ -712,7 +712,7 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
                 love_id = LOVE_EMOJIS[i]
                 custom_id = CUSTOM_EMOJIS[i]
                 await welcome_msg.edit_text(
-                    f"<tg-emoji emoji-id=\"{WELCOME_EMOJI}\">🌟</tg-emoji> 𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ <tg-emoji emoji-id=\"{love_id}\">❤️</tg-emoji> {user_mention}...<tg-emoji emoji-id=\"{custom_id}\">🩷</tg-emoji><tg-emoji emoji-id=\"{BACK_EMOJI}\">🌸</tg-emoji>",
+                    f"<tg-emoji emoji-id=\"{WELCOME_EMOJI}\">🌟</tg-emoji> 𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ <tg-emoji emoji-id=\"{love_id}\">❤️</tg-emoji> {user_mention} <tg-emoji emoji-id=\"{custom_id}\">🩷</tg-emoji><tg-emoji emoji-id=\"{BACK_EMOJI}\">🌸</tg-emoji>",
                     parse_mode="HTML"
                 )
             except Exception as e:
