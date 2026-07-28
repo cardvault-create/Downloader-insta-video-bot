@@ -1287,8 +1287,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         emoji_id = text.strip()
         emoji_id = emoji_id.replace('[', '').replace(']', '').replace('(', '').replace(')', '')
     
-        # Multiple IDs handle karo (comma ya space separated)
-        if ',' in emoji_id or ' ' in emoji_id:
+        # Multiple IDs handle karo (bracket, comma ya space separated)
+        if ',' in emoji_id or ' ' in emoji_id or '][' in emoji_id:
+            # ][ ko , me convert karo taaki split ho sake
+            emoji_id = emoji_id.replace('][', ',')
             # Split by comma or space
             if ',' in emoji_id:
                 emoji_ids = [eid.strip() for eid in emoji_id.split(',') if eid.strip()]
