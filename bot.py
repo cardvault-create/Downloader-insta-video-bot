@@ -205,7 +205,7 @@ def get_random_video():
         available = vids
     chosen = random.choice(available)
     last_video_index = chosen["id"]
-    return chosen
+    return dict(chosen)  # ← ye line change karo
 def delete_video_db(vid):
     vids = get_video_list()
     for i, v in enumerate(vids):
