@@ -692,23 +692,28 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
             "6239745830706743108",
         ]
 
+        # Fixed emojis
+        WELCOME_EMOJI = "5805511481596319315"  # Sabse aage
+        BACK_EMOJI = "5802893875123067320"     # Sabse piche
+        DOTS_EMOJI = "5393109404734206891"     # ... ke jagah
+
         # Ab welcome_msg banao
         love_id = LOVE_EMOJIS[0]
         custom_id = CUSTOM_EMOJIS[0]
         welcome_msg = await bot.send_message(
             chat_id, 
-            f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ <tg-emoji emoji-id=\"{love_id}\">❤️</tg-emoji> {user_mention}...<tg-emoji emoji-id=\"{custom_id}\">🩷</tg-emoji>", 
+            f"<tg-emoji emoji-id=\"{WELCOME_EMOJI}\">🌟</tg-emoji> 𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ <tg-emoji emoji-id=\"{love_id}\">❤️</tg-emoji> {user_mention}<tg-emoji emoji-id=\"{DOTS_EMOJI}\">✨</tg-emoji><tg-emoji emoji-id=\"{custom_id}\">🩷</tg-emoji><tg-emoji emoji-id=\"{BACK_EMOJI}\">🌸</tg-emoji>", 
             parse_mode="HTML"
         )
 
-        # 13 emojis loop
-        for i in range(1,13):
+        # 12 edits (13 total messages)
+        for i in range(1, 13):
             await asyncio.sleep(0.6)
             try:
                 love_id = LOVE_EMOJIS[i]
                 custom_id = CUSTOM_EMOJIS[i]
                 await welcome_msg.edit_text(
-                    f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ <tg-emoji emoji-id=\"{love_id}\">❤️</tg-emoji> {user_mention}...<tg-emoji emoji-id=\"{custom_id}\">🩷</tg-emoji>",
+                    f"<tg-emoji emoji-id=\"{WELCOME_EMOJI}\">🌟</tg-emoji> 𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ <tg-emoji emoji-id=\"{love_id}\">❤️</tg-emoji> {user_mention}<tg-emoji emoji-id=\"{DOTS_EMOJI}\">✨</tg-emoji><tg-emoji emoji-id=\"{custom_id}\">🩷</tg-emoji><tg-emoji emoji-id=\"{BACK_EMOJI}\">🌸</tg-emoji>",
                     parse_mode="HTML"
                 )
             except Exception as e:
