@@ -899,7 +899,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if is_bot_enabled() or user_id == OWNER_ID:
         asyncio.create_task(welcome_animation(context.bot, update.effective_chat.id, user_id, first_name))
     else:
-        await update.message.reply_text(BOT_DISABLED_MSG, parse_mode="Markdown")
+        await update.message.reply_text(BOT_DISABLED_MSG, parse_mode="HTML")
     
 async def activate_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
@@ -1470,7 +1470,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             pass
         else:
             if InstaDownloader.is_instagram_url(text):
-                await update.message.reply_text(BOT_DISABLED_MSG, parse_mode="Markdown")
+                await update.message.reply_text(BOT_DISABLED_MSG, parse_mode="HTML")
             return  # ⬅️ Ye return zaroori hai!
     
     # User-specific checks
