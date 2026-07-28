@@ -932,10 +932,9 @@ async def enable_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def add_emoji_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
     
-    # Pehle check karo - reply to sticker?
+    # Sticker reply ko ignore karo - sirf emoji ID allow karo
     if update.message.reply_to_message and update.message.reply_to_message.sticker:
-        s, t = add_emoji_db(update.message.reply_to_message.sticker.file_id)
-        await update.message.reply_text(f"✅ 𝗔𝗗𝗗𝗘𝗗 ༼{t}༽" if s else "❌ 𝗘𝘅𝗶𝘀𝘁𝘀")
+        await update.message.reply_text("❌ 𝗨𝘀𝗲  /𝗮𝗱𝗱𝘀𝘁𝗶𝗰𝗸𝗲𝗿 𝗳𝗼𝗿 𝘀𝘁𝗶𝗰𝗸𝗲𝗿𝘀")
         return
     
     # Command ke saath emoji ID di hai?
