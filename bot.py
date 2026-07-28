@@ -675,22 +675,6 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
         
         await asyncio.sleep(1)
         
-        # PURANA:
-        random_love = random.choice(LOVE_EMOJIS)
-        welcome_emoji_id = get_random_emoji()
-        welcome_emoji = f'<tg-emoji emoji-id="{welcome_emoji_id}">🩷</tg-emoji>' if welcome_emoji_id else '🩷'
-
-# NAYA:
-love_id = LOVE_EMOJIS[0]
-custom_id = CUSTOM_EMOJIS[0]  # CUSTOM_EMOJIS list pehle define karo
-        welcome_msg = await bot.send_message(
-            chat_id, 
-            f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ <tg-emoji emoji-id=\"{love_id}\">❤️</tg-emoji> {user_mention}...<tg-emoji emoji-id=\"{custom_id}\">🩷</tg-emoji>" 
-            parse_mode="HTML"
-        )
-        
-        await asyncio.sleep(1)
-
         # Pehle CUSTOM_EMOJIS define karo
         CUSTOM_EMOJIS = [
             "6102783446805912845",
@@ -739,26 +723,11 @@ custom_id = CUSTOM_EMOJIS[0]  # CUSTOM_EMOJIS list pehle define karo
         
         await asyncio.sleep(0.2)
         
-        starting_emojis = [
-            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
-            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
-            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
-            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
-            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
-            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
-            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
-            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
-            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
-            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
-            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
-            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
-            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
-        ]
+        starting_emojis = []
+        for eid in CUSTOM_EMOJIS:
+            starting_emojis.append(f'<tg-emoji emoji-id="{eid}">🌸</tg-emoji>')
+        
         words = ["𝙨", "𝙩", "α", "я", "†", "ι", "и", "g", ".", ".", ".", ".", "."]
-
-        # Sirf /addemoji wala emoji
-        sticker_id = None
-        emoji_id = get_random_emoji()
 
         for i in range(len(words)):
             await asyncio.sleep(0.08)
