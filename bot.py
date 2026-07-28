@@ -698,6 +698,9 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
 
         # Welcome ke upar wale 8 emojis
         TOP_EMOJIS = [
+            "5233540769708526063",
+            "5233455454478156666",
+            "5233208322059944071",
             "5233607294456974103",
             "5233682374780276698",
             "5233388903959906921",
@@ -706,6 +709,8 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
             "5233464439549744169",
             "5233618173609133398",
             "5233547018885941243",
+            "5233419454062282254",
+            "5233228323722641627",
         ]
 
         # 8 emojis ki line banao
