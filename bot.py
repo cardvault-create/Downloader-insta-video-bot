@@ -684,7 +684,7 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
             parse_mode="HTML"
         )
         
-        # Specific emojis jo aapne diye hain
+        # CUSTOM_EMOJIS - piche wale ke liye
         CUSTOM_EMOJIS = [
             "6102783446805912845",
             "6100403729981249405", 
@@ -705,12 +705,10 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
         for i in range(13):
             await asyncio.sleep(0.6)
             try:
+                love_id = LOVE_EMOJIS[i]
                 custom_id = CUSTOM_EMOJIS[i]
-                love_id = random.choice(LOVE_EMOJIS)
-                center_emoji = f'<tg-emoji emoji-id="{love_id}">❤️</tg-emoji>'
-                back_emoji = f'<tg-emoji emoji-id="{custom_id}">🩷</tg-emoji>'
                 await welcome_msg.edit_text(
-                    f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ {center_emoji} {user_mention}...{back_emoji}",
+                    f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ <tg-emoji emoji-id=\"{love_id}\">❤️</tg-emoji> {user_mention}...<tg-emoji emoji-id=\"{custom_id}\">🩷</tg-emoji>",
                     parse_mode="HTML"
                 )
             except Exception as e:
