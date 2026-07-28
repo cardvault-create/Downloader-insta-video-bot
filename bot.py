@@ -1256,7 +1256,7 @@ async def extract_and_send_audio_direct(query, context, url, audio_name):
                 await status_msg.edit_text("🎻 𝗦𝗲𝗻𝗱𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼♡ ⋆｡°✩", parse_mode="Markdown")
                 await context.bot.send_chat_action(chat_id=query.message.chat_id, action='upload_audio')
                 with open(ar["file_path"], 'rb') as f:
-                    await query.message.reply_audio(audio=f, title=audio_name, performer="✩⋆｡°𝗕𝘆 ➪ 𓆩#ＫＡＲＴＩＫ𓆪 ♡", caption=CAPTION, parse_mode="Markdown", reply_to_message_id=query.message.message_id)
+                    await query.message.reply_audio(audio=f, title=audio_name, performer="✩⋆｡°𝗕𝘆 ➪ 𓆩#ＫＡＲＴＩＫ𓆪 ♡", caption=CAPTION, parse_mode="HTML", reply_to_message_id=query.message.message_id)
                 await asyncio.sleep(2)
                 await status_msg.delete()
                 try: os.remove(ar["file_path"])
