@@ -1074,20 +1074,20 @@ async def add_video_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             mins, secs = divmod(video_file.duration, 60)
             duration = f"{mins}m {secs}s"
         
-            text = (
-                f"<tg-emoji emoji-id=\"5352901995378252828\">✅</tg-emoji> 𝐕𝐈𝐃𝐄𝐎 𝐀𝐃𝐃𝐄𝐃 𝐒𝐔𝐂𝐂𝐄𝐒𝐒𝐅𝐔𝐋𝐋𝐘 <tg-emoji emoji-id=\"5352901995378252828\">✅</tg-emoji>\n\n"
-                f"━━━━━━━━━━━━━━━━━━━\n"
-                f"<tg-emoji emoji-id=\"6289762537344864636\">🆔</tg-emoji> Ｖｉｄｅｏ ＩＤ ： {vid}\n"
-                f"<tg-emoji emoji-id=\"5150269119139939490\">📁</tg-emoji> Ｎａｍｅ ： {os.path.basename(fp)[:30]}\n"
-                f"<tg-emoji emoji-id=\"5192706539940488777\">📹</tg-emoji> Ｔｏｔａｌ Ｖｉｄｅｏｓ ： {total}\n"
-                f"<tg-emoji emoji-id=\"5267421370114914946\">⏱️</tg-emoji> Ｄｕｒａｔｉｏｎ ： {duration}\n"
-                f"━━━━━━━━━━━━━━━━━━━\n\n"
-                f"<tg-emoji emoji-id=\"5260547274957672345\">🎲</tg-emoji> 𝘝𝘪𝘥𝘦𝘰 𝘸𝘪𝘭𝘭 𝘱𝘭𝘢𝘺 𝘳𝘢𝘯𝘥𝘰𝘮𝘭𝘺 𝘰𝘯 𝘸𝘦𝘭𝘤𝘰𝘮𝘦!\n"
-                f"<tg-emoji emoji-id=\"5352765106180610755\">📋</tg-emoji> /videos ｔｏ ｓｅ𝑒 ａｌｌ ｖｉｄｅｏ"
-            )
-            await m.edit_text(text, parse_mode="HTML")
-        except Exception as e:
-            await m.edit_text(f"<tg-emoji emoji-id=\"5438630285635757876\">❌</tg-emoji> Ｅｒｒｏｒ ： ༼e༽", parse_mode="HTML")
+        text = (
+            f"<tg-emoji emoji-id=\"5352901995378252828\">✅</tg-emoji> 𝐕𝐈𝐃𝐄𝐎 𝐀𝐃𝐃𝐄𝐃 𝐒𝐔𝐂𝐂𝐄𝐒𝐒𝐅𝐔𝐋𝐋𝐘 <tg-emoji emoji-id=\"5352901995378252828\">✅</tg-emoji>\n\n"
+            f"━━━━━━━━━━━━━━━━━━━\n"
+            f"<tg-emoji emoji-id=\"6289762537344864636\">🆔</tg-emoji> Ｖｉｄｅｏ ＩＤ ： {vid}\n"
+            f"<tg-emoji emoji-id=\"5150269119139939490\">📁</tg-emoji> Ｎａｍｅ ： {os.path.basename(fp)[:30]}\n"
+            f"<tg-emoji emoji-id=\"5192706539940488777\">📹</tg-emoji> Ｔｏｔａｌ Ｖｉｄｅｏｓ ： {total}\n"
+            f"<tg-emoji emoji-id=\"5267421370114914946\">⏱️</tg-emoji> Ｄｕｒａｔｉｏｎ ： {duration}\n"
+            f"━━━━━━━━━━━━━━━━━━━\n\n"
+            f"<tg-emoji emoji-id=\"5260547274957672345\">🎲</tg-emoji> 𝘝𝘪𝘥𝘦𝘰 𝘸𝘪𝘭𝘭 𝘱𝘭𝘢𝘺 𝘳𝘢𝘯𝘥𝘰𝘮𝘭𝘺 𝘰𝘯 𝘸𝘦𝘭𝘤𝘰𝘮𝘦!\n"
+            f"<tg-emoji emoji-id=\"5352765106180610755\">📋</tg-emoji> /videos ｔｏ ｓｅｅ ａｌｌ ｖｉｄｅｏ"
+        )
+        await m.edit_text(text, parse_mode="HTML")
+    except Exception as e:
+        await m.edit_text(f"<tg-emoji emoji-id=\"5438630285635757876\">❌</tg-emoji> Ｅｒｒｏｒ ： ༼e༽", parse_mode="HTML")
 
 async def del_video_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
