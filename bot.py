@@ -684,21 +684,32 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
             parse_mode="HTML"
         )
         
-        welcome_emojis = [
-            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
-            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
-            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
-            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
-            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',               
+        # Specific emojis jo aapne diye hain
+        CUSTOM_EMOJIS = [
+            "6102783446805912845",
+            "6100403729981249405", 
+            "6293839298827392714",
+            "6292037822039726255",
+            "6140908222225062523",
+            "6170425187398326458",
+            "6190405409619057730",
+            "6240286103232845684",
+            "6239848162597537817",
+            "6239796184903321679",
+            "6239781500410136622",
+            "6242511531947329664",
+            "6239745830706743108",
         ]
-        for emoji in welcome_emojis:
+
+        # 13 emojis loop
+        for i in range(13):
             await asyncio.sleep(0.6)
             try:
-                random_love = random.choice(LOVE_EMOJIS)
-                new_emoji_id = get_random_emoji()
-                new_emoji = f'<tg-emoji emoji-id="{new_emoji_id}">🩷</tg-emoji>' if new_emoji_id else '🩷'
+                custom_id = CUSTOM_EMOJIS[i]
+                center_emoji = f'<tg-emoji emoji-id="{custom_id}">❤️</tg-emoji>'
+                back_emoji = f'<tg-emoji emoji-id="{custom_id}">🩷</tg-emoji>'
                 await welcome_msg.edit_text(
-                    f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ <tg-emoji emoji-id=\"{random_love}\">❤️</tg-emoji> {user_mention}...{new_emoji}",
+                    f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ {center_emoji} {user_mention}...{back_emoji}",
                     parse_mode="HTML"
                 )
             except Exception as e:
