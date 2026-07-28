@@ -576,9 +576,21 @@ class InstaDownloader:
 # ═══════════════════════════
 
 CAPTION = (
-    "𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗲𝗱 𝗕𝘆 ➪ [˹𝚰𝖓𝖘𝖙𝖆𝖌𝖗𝖆𝖒 ✘ 𝚫𝐨𝐰𝐧𝐥𝐨𝐚𝐝𝐞𝐫˼ ♪](https://t.me/Instagram_LinkToVideo_Bot)\n"
+    "<tg-emoji emoji-id=\"5233303721873523335\">🌟</tg-emoji><tg-emoji emoji-id=\"5233466922040838637\">🌟</tg-emoji><tg-emoji emoji-id=\"5233548264426456836\">🌟</tg-emoji><tg-emoji emoji-id=\"5233322134398320334\">🌟</tg-emoji><tg-emoji emoji-id=\"5233414046698455589\">🌟</tg-emoji><tg-emoji emoji-id=\"5233256442873530845\">🌟</tg-emoji><tg-emoji emoji-id=\"5233650763820974838\">🌟</tg-emoji><tg-emoji emoji-id=\"5233727798354397359\">🌟</tg-emoji>\n"
     "\n"
-    "༼◉𝐂𝛄𝛆𝛂𝛕𝛆𝛄◉༽ 🪽 ➪ [𝜝𝜣𝜯 𝑭𝜟𝜯𝜢𝜮𝜞](https://t.me/FathersOfCreater)"
+    "<tg-emoji emoji-id=\"5458829250540879218\">🌟</tg-emoji><tg-emoji emoji-id=\"5233326833092542997\">🌟</tg-emoji><tg-emoji emoji-id=\"5233241990308578649\">🌟</tg-emoji><tg-emoji emoji-id=\"5233182986047866199\">🌟</tg-emoji><tg-emoji emoji-id=\"5233340418074102629\">🌟</tg-emoji><tg-emoji emoji-id=\"5233544652358962131\">🌟</tg-emoji><tg-emoji emoji-id=\"5233619423444616550\">🌟</tg-emoji><tg-emoji emoji-id=\"5233286945731267091\">🌟</tg-emoji><tg-emoji emoji-id=\"6035210073502913033\">🌟</tg-emoji>\n"
+    "\n"
+    "<tg-emoji emoji-id=\"5447410659077661506\">🌟</tg-emoji><a href=\"https://t.me/Instagram_LinkToVideo_Bot\">˹𝚰𝖓𝖘𝖙𝖆𝖌𝖗𝖆𝖒 ✘ 𝚫𝐨𝐰𝐧𝐥𝐨𝐚𝐝𝐞𝐫˼ ♪</a><tg-emoji emoji-id=\"5859300243262148377\">🌟</tg-emoji>\n"
+    "\n"
+    "<tg-emoji emoji-id=\"6325560643080424064\">🌟</tg-emoji><tg-emoji emoji-id=\"6325460845220334365\">🌟</tg-emoji><tg-emoji emoji-id=\"6325756901611015187\">🌟</tg-emoji><tg-emoji emoji-id=\"6323380178378558793\">🌟</tg-emoji><tg-emoji emoji-id=\"6325600852564249078\">🌟</tg-emoji><tg-emoji emoji-id=\"6323154370472971909\">🌟</tg-emoji><tg-emoji emoji-id=\"6325554574291636199\">🌟</tg-emoji><tg-emoji emoji-id=\"6323195679468423939\">🌟</tg-emoji>\n"
+    "\n"
+    "<tg-emoji emoji-id=\"6035338166607550430\">🌟</tg-emoji><tg-emoji emoji-id=\"5230945011733907341\">🌟</tg-emoji><tg-emoji emoji-id=\"5233301832087912725\">🌟</tg-emoji><tg-emoji emoji-id=\"5231082918838816097\">🌟</tg-emoji><tg-emoji emoji-id=\"5233493705456895584\">🌟</tg-emoji><tg-emoji emoji-id=\"5230998179134064133\">🌟</tg-emoji><tg-emoji emoji-id=\"5233649290647193551\">🌟</tg-emoji><tg-emoji emoji-id=\"5233356906453550762\">🌟</tg-emoji><tg-emoji emoji-id=\"5233598717407282431\">🌟</tg-emoji><tg-emoji emoji-id=\"6034832099200995975\">🌟</tg-emoji>\n"
+    "\n"
+    "<tg-emoji emoji-id=\"5233365393308928165\">🌟</tg-emoji><tg-emoji emoji-id=\"5233415751800475615\">🌟</tg-emoji><tg-emoji emoji-id=\"5233334533968905917\">🌟</tg-emoji><tg-emoji emoji-id=\"5233223341560578191\">🌟</tg-emoji><tg-emoji emoji-id=\"5233217440275514440\">🌟</tg-emoji><tg-emoji emoji-id=\"5233615300276012638\">🌟</tg-emoji><tg-emoji emoji-id=\"5233660942893466534\">🌟</tg-emoji><tg-emoji emoji-id=\"5233532686580075326\">🌟</tg-emoji>\n"
+    "\n"
+    "<tg-emoji emoji-id=\"6275939064843603913\">🌟</tg-emoji><tg-emoji emoji-id=\"6275853229922193308\">🌟</tg-emoji><tg-emoji emoji-id=\"6278459282933419717\">🌟</tg-emoji><tg-emoji emoji-id=\"6276014351325337415\">🌟</tg-emoji><tg-emoji emoji-id=\"6278369556771639533\">🌟</tg-emoji><tg-emoji emoji-id=\"6311813346119127281\">🌟</tg-emoji><tg-emoji emoji-id=\"6311996676798157611\">🌟</tg-emoji><tg-emoji emoji-id=\"6312329283360526701\">🌟</tg-emoji><tg-emoji emoji-id=\"6312143036398703364\">🌟</tg-emoji><tg-emoji emoji-id=\"6312056651721478657\">🌟</tg-emoji><tg-emoji emoji-id=\"6314426361272340738\">🌟</tg-emoji>\n"
+    "\n"
+    "<tg-emoji emoji-id=\"5816442521256989067\">🌟</tg-emoji><tg-emoji emoji-id=\"5805226514811197705\">🌟</tg-emoji><tg-emoji emoji-id=\"5805588073748108621\">🌟</tg-emoji><a href=\"https://t.me/FathersOfCreater\">𝜝𝜣𝜯 𝑭𝜟𝜯𝜢𝜮𝜞</a><tg-emoji emoji-id=\"5805652747365651935\">🌟</tg-emoji><tg-emoji emoji-id=\"5805659537708947764\">🌟</tg-emoji><tg-emoji emoji-id=\"5816505996578657193\">🌟</tg-emoji>"
 )
 
 WELCOME_TEXT = f"""ʜᴇʏ, {{mention}} . ˚◞<tg-emoji emoji-id="5460831783337599621">🌟</tg-emoji> ◟˚ .
@@ -622,7 +634,7 @@ GROUP_WELCOME = f"""👋🏻 ʜᴇʟʟᴏ {{chat_title}} <tg-emoji emoji-id="580
 BOT_DISABLED_MSG = "🚫 𝗕𝗢𝗧 𝗦𝗧𝗢𝗣 𝗕𝗬 𝗢𝗪𝗡𝗘𝗥\n\n𝗕𝗼𝘁 𝗶𝘀 𝗰𝘂𝗿𝗿𝗲𝗻𝘁𝗹𝘆 𝗱𝗶𝘀𝗮𝗯𝗹𝗲𝗱. (˃̣̣̥᷄⌓˂̣̣̥᷅)"
 
 AUDIO_BUTTON_TEXT = "➪ ˹𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝 𝐕𝐢𝐝𝐞𝐨 𝐀𝐮𝐝𝐢𝐨˼  ♪"
-AUDIO_DEFAULT_NAME = "<tg-emoji emoji-id=\"6035073768420807661\">🎵</tg-emoji> ༼◉♡ 𝙈𝙮 𝙈𝙪𝙨𝙞𝙘 ♪🛸◉༽"
+AUDIO_DEFAULT_NAME = "➪ ༼◉♡ 𝙈𝙮 𝙈𝙪𝙨𝙞𝙘 ♪🛸◉༽"
 
 AUDIO_NAME_PROMPT = (
     "➪ 𝙊𝙠𝙖𝙮, 𝙂𝙖𝙫𝙚 𝙈𝙚 𝘼𝙪𝙙𝙞𝙤 𝙉𝙖𝙢𝙚?\n\n"
