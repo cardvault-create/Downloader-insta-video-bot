@@ -1232,7 +1232,6 @@ async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, u
 async def extract_and_send_audio_msg(update, context, url, audio_name):
     """Text message se audio extract - update object ke saath"""
     chat_id = update.effective_chat.id
-    reply_msg_id = update.message.message_id
     
     status_msg = await context.bot.send_message(
         chat_id=chat_id,
@@ -1287,8 +1286,7 @@ async def extract_and_send_audio_msg(update, context, url, audio_name):
                         title=audio_name,
                         performer="✩⋆｡°𝗕𝘆 ➪ 𓆩#ＫＡＲＴＩＫ𓆪 ♡",
                         caption=CAPTION,
-                        parse_mode="HTML",
-                        reply_to_message_id=reply_msg_id
+                        parse_mode="HTML"
                     )
                 await asyncio.sleep(2)
                 await status_msg.delete()
@@ -1359,8 +1357,7 @@ async def extract_and_send_audio_def(context, url, audio_name, chat_id, reply_to
                         title=audio_name,
                         performer="✩⋆｡°𝗕𝘆 ➪ 𓆩#ＫＡＲＴＩＫ𓆪 ♡",
                         caption=CAPTION,
-                        parse_mode="HTML",
-                        reply_to_message_id=reply_to_msg_id
+                        parse_mode="HTML"
                     )
                     
                 await asyncio.sleep(2)
@@ -1377,9 +1374,7 @@ async def extract_and_send_audio_def(context, url, audio_name, chat_id, reply_to
             except: pass
 
 async def extract_and_send_audio_direct(query, context, url, audio_name):
-    # Message reference pehle save karo
     chat_id = query.message.chat_id
-    reply_msg_id = query.message.message_id
     
     try:
         search_msg = await query.message.reply_text("🔎")
@@ -1422,7 +1417,7 @@ async def extract_and_send_audio_direct(query, context, url, audio_name):
                     continue
 
             if result is None:
-                result = {"success": False, "error": "🚫 𝐒𝐞𝐫𝐯𝐞𝐫 𝐢𝐬𝐬𝐮𝐞, 𝐩𝐥𝐞𝐚𝐬𝐞 𝐭𝐫𝐲 𝐚𝐠𝐚𝐢𝐧 (｡•́︿•̀｡)"}
+                result = {"success": False}
 
             DOWNLOAD_DIR = original_dir
             
@@ -1441,8 +1436,7 @@ async def extract_and_send_audio_direct(query, context, url, audio_name):
                         title=audio_name,
                         performer="✩⋆｡°𝗕𝘆 ➪ 𓆩#ＫＡＲＴＩＫ𓆪 ♡",
                         caption=CAPTION,
-                        parse_mode="HTML",
-                        reply_to_message_id=reply_msg_id
+                        parse_mode="HTML"
                     )
                 await asyncio.sleep(2)
                 await status_msg.delete()
