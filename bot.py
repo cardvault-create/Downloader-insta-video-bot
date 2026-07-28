@@ -912,8 +912,10 @@ async def ego_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     
 async def bot_added_to_group(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    print(f"DEBUG: bot_added_to_group called!")  # ← yeh line add karo
     chat = update.effective_chat
     bot_user = await context.bot.get_me()
+    print(f"DEBUG: Bot ID: {bot_user.id}, Chat: {chat.title}")  # ← yeh bhi
     
     # Bot disabled hone pe alag message
     if not is_bot_enabled():
