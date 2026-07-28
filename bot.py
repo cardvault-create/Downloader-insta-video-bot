@@ -706,7 +706,8 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
             await asyncio.sleep(0.6)
             try:
                 custom_id = CUSTOM_EMOJIS[i]
-                center_emoji = f'<tg-emoji emoji-id="{custom_id}">❤️</tg-emoji>'
+                love_id = random.choice(LOVE_EMOJIS)
+                center_emoji = f'<tg-emoji emoji-id="{love_id}">❤️</tg-emoji>'
                 back_emoji = f'<tg-emoji emoji-id="{custom_id}">🩷</tg-emoji>'
                 await welcome_msg.edit_text(
                     f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ {center_emoji} {user_mention}...{back_emoji}",
