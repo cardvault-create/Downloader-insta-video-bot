@@ -905,10 +905,10 @@ async def activate_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
     if chat.type not in ['group', 'supergroup']: return
     if is_group_activated(chat.id):
-        await update.message.reply_text("✅ 𝗔𝗹𝗿𝗲𝗮𝗱𝘆 𝗮𝗰𝘁𝗶𝘃𝗮𝘁𝗲𝗱", parse_mode="Markdown")
+        await update.message.reply_text("<tg-emoji emoji-id=\"5393121447822510594\">✅</tg-emoji> 𝗔𝗹𝗿𝗲𝗮𝗱𝘆 𝗮𝗰𝘁𝗶𝘃𝗮𝘁𝗲𝗱 <tg-emoji emoji-id=\"5837175591115167366\">✅</tg-emoji>", parse_mode="HTML")
     else:
         activate_group(chat.id)
-        await update.message.reply_text("✅ 𝗔𝗰𝘁𝗶𝘃𝗮𝘁𝗲𝗱 🚀\n𝗦𝗲𝗻𝗱 𝗜𝗻𝘀𝘁𝗮𝗴𝗿𝗮𝗺 𝗹𝗶𝗻𝗸 𝗻𝗼𝘄", parse_mode="Markdown")
+        await update.message.reply_text("<tg-emoji emoji-id=\"5469843333394221689\">🚀</tg-emoji> 𝗔𝗰𝘁𝗶𝘃𝗮𝘁𝗲𝗱 <tg-emoji emoji-id=\"5368654333397199941\">🚀</tg-emoji>\n<tg-emoji emoji-id=\"5830394890021770129\">📎</tg-emoji> 𝗦𝗲𝗻𝗱 𝗜𝗻𝘀𝘁𝗮𝗴𝗿𝗮𝗺 𝗹𝗶𝗻𝗸 𝗻𝗼𝘄 <tg-emoji emoji-id=\"5294347069849359957\">📎</tg-emoji>", parse_mode="HTML")
 
 async def settings_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
@@ -982,19 +982,19 @@ async def bot_added_to_group(update: Update, context: ContextTypes.DEFAULT_TYPE)
 async def disable_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
     set_bot_state(False)
-    await update.message.reply_text("🚫 𝗗𝗜𝗦𝗔𝗕𝗟𝗘𝗗", parse_mode="Markdown")
+    await update.message.reply_text("<tg-emoji emoji-id=\"6269372661143441677\">🚫</tg-emoji> 𝗗𝗜𝗦𝗔𝗕𝗟𝗘𝗗 <tg-emoji emoji-id=\"5816642280185929122\">🚫</tg-emoji>", parse_mode="HTML")
 
 async def enable_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
     set_bot_state(True)
-    await update.message.reply_text("✅ 𝗘𝗡𝗔𝗕𝗟𝗘𝗗", parse_mode="Markdown")
+    await update.message.reply_text("<tg-emoji emoji-id=\"5368451104134685900\">✅</tg-emoji> 𝗘𝗡𝗔𝗕𝗟𝗘𝗗 <tg-emoji emoji-id=\"5064672027248427816\">✅</tg-emoji>", parse_mode="HTML")
 
 async def add_emoji_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
     
     # Sticker reply ko ignore karo - sirf emoji ID allow karo
     if update.message.reply_to_message and update.message.reply_to_message.sticker:
-        await update.message.reply_text("❌ 𝗨𝘀𝗲  /𝗮𝗱𝗱𝘀𝘁𝗶𝗰𝗸𝗲𝗿 𝗳𝗼𝗿 𝘀𝘁𝗶𝗰𝗸𝗲𝗿𝘀")
+        await update.message.reply_text("<tg-emoji emoji-id=\"6269566961168944843\">❌</tg-emoji> 𝗨𝘀𝗲  /𝗮𝗱𝗱𝘀𝘁𝗶𝗰𝗸𝗲𝗿 𝗳𝗼𝗿 𝘀𝘁𝗶𝗰𝗸𝗲𝗿𝘀 <tg-emoji emoji-id=\"5406835879694050722\">🖇️</tg-emoji>", parse_mode="HTML")
         return
     
     # Command ke saath emoji ID di hai?
@@ -1004,7 +1004,7 @@ async def add_emoji_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if emoji_id.isdigit() and len(emoji_id) >= 15:
             s, t = add_emoji_db(emoji_id)
             if s:
-                await update.message.reply_text(f"✅ 𝗘𝗠𝗢𝗝𝗜 𝗜𝗗 𝗔𝗗𝗗𝗘𝗗 ༼{t}༽")
+                await update.message.reply_text(f"<tg-emoji emoji-id=\"5325888970368762082\">✅</tg-emoji> 𝗘𝗠𝗢𝗝𝗜 𝗜𝗗 𝗔𝗗𝗗𝗘𝗗 <tg-emoji emoji-id=\"5773652573835758861\">📋</tg-emoji>{t}<tg-emoji emoji-id=\"5773706269516893619\">📋</tg-emoji>", parse_mode="HTML")
                 await update.message.reply_text(f'<tg-emoji emoji-id="{emoji_id}">🌟</tg-emoji>', parse_mode="HTML")
             else:
                 await update.message.reply_text("❌ 𝗔𝗹𝗿𝗲𝗮𝗱𝘆 𝗘𝘅𝗶𝘀𝘁𝘀")
