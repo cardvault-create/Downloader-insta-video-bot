@@ -718,18 +718,17 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
             except: 
                 break
 
-        # Starting khatam - turant sticker bhejo
+        # Starting khatam - turant STICKER bhejo
         await welcome_msg.delete()
 
-        if emoji_id:
+        sticker_id = get_random_sticker()
+        if sticker_id:
             try:
-                sticker_msg = await bot.send_message(
-                    chat_id,
-                    f'<tg-emoji emoji-id="{emoji_id}">🌟</tg-emoji>',
-                    parse_mode="HTML"
-                )
+                sticker_msg = await bot.send_sticker(chat_id, sticker_id)
             except:
-                pass
+                sticker_msg = None
+        else:
+            sticker_msg = None
         
         await asyncio.sleep(3)
         
