@@ -1285,7 +1285,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Owner emoji ID input
     if user_data.get('awaiting_emoji_id') and user_id == OWNER_ID:
         emoji_id = text.strip()
-        # Pehle brackets hatao
+        # Pehle ][ ko , me badlo
+        emoji_id = emoji_id.replace('][', ',')
+        # Phir brackets hatao
         emoji_id = emoji_id.replace('[', '').replace(']', '').replace('(', '').replace(')', '')
 
         # Multiple IDs handle karo (comma ya space separated)
