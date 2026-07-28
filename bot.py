@@ -659,7 +659,7 @@ SETTINGS_TEXT = f"""<tg-emoji emoji-id="5327760901799956030">⚙️</tg-emoji> �
 ┗ <tg-emoji emoji-id="6032730511573521800">🌟</tg-emoji> /clearvideos ➪ 𝗖𝗹𝗲𝗮𝗿 𝗔𝗹𝗹 𝗩𝗶𝗱𝗲𝗼𝘀
 
 ⧫━━━━━✦◆ ◇ ◆ ◇ ◆ ◇✦━━━━━⧫
-<tg-emoji emoji-id="5825690573687754521">🌟</tg-emoji> ˹𝗗𝗲𝘃𝗲𝗹𝗼𝗽𝗲𝗿˼ <tg-emoji emoji-id="5814637011495031358">🪽</tg-emoji> ➪ [𝜝𝜣𝜯 𝑭𝜟𝜯𝜢𝜮𝜞](https://t.me/FathersOfCreater)"""
+<tg-emoji emoji-id="5825690573687754521">🌟</tg-emoji> ˹𝗗𝗲𝘃𝗲𝗹𝗼𝗽𝗲𝗿˼ <tg-emoji emoji-id="5814637011495031358">🪽</tg-emoji> ➪ <a href="https://t.me/FathersOfCreater">𝜝𝜣𝜯 𝑭𝜟𝜯𝜢𝜮𝜞</a>
 
 async def welcome_animation(bot, chat_id, user_id, first_name):
     try:
@@ -732,7 +732,7 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
 
         # 12 edits
         for i in range(1, 13):
-            await asyncio.sleep(0.4)
+            await asyncio.sleep(0.3)
             try:
                 love_id = LOVE_EMOJIS[i]
                 custom_id = CUSTOM_EMOJIS[i]
@@ -759,7 +759,7 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
         words = ["𝙨", "𝙩", "α", "я", "†", "ι", "и", "g", ".", ".", ".", ".", "."]
 
         for i in range(len(words)):
-            await asyncio.sleep(0.06)
+            await asyncio.sleep(0.05)
 
             try: 
                 await welcome_msg.edit_text(
@@ -865,9 +865,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # Send welcome video if available
             video_data = get_random_video()
             if video_data and os.path.exists(video_data["path"]):
-                await context.bot.send_video(OWNER_ID, video_data["path"], caption=owner_msg, parse_mode="Markdown")
+                await context.bot.send_video(OWNER_ID, video_data["path"], caption=owner_msg, parse_mode="HTML")
             else:
-                await context.bot.send_message(OWNER_ID, owner_msg, parse_mode="Markdown")
+                await context.bot.send_message(OWNER_ID, owner_msg, parse_mode="HTML")
         except:
             pass
     
