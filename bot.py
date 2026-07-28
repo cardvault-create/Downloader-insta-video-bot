@@ -636,6 +636,18 @@ BOT_DISABLED_MSG = "🚫 𝗕𝗢𝗧 𝗦𝗧𝗢𝗣 𝗕𝗬 𝗢𝗪𝗡𝗘
 AUDIO_BUTTON_TEXT = "➪ ˹𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝 𝐕𝐢𝐝𝐞𝐨 𝐀𝐮𝐝𝐢𝐨˼  ♪"
 AUDIO_DEFAULT_NAME = "➪ ༼◉♡ 𝙈𝙮 𝙈𝙪𝙨𝙞𝙘 ♪🛸◉༽"
 
+# Premium emoji IDs for Default Name button
+AUDIO_DEFAULT_EMOJIS = [
+    "5411627375274270720",
+    "5474153401795225186",
+    "5474576928520283468",
+    "5188234160430394078",
+    "5474220343155500449",
+]
+
+def get_random_audio_default_emoji():
+    return random.choice(AUDIO_DEFAULT_EMOJIS)
+
 AUDIO_NAME_PROMPT = (
     "➪ 𝙊𝙠𝙖𝙮, 𝙂𝙖𝙫𝙚 𝙈𝙚 𝘼𝙪𝙙𝙞𝙤 𝙉𝙖𝙢𝙚?\n\n"
     "𝐄𝐱𝐚𝐦𝐩𝐥𝐞 : 𝐌𝐲 𝐌𝐮𝐬𝐢𝐜 🎶\n"
@@ -1216,7 +1228,82 @@ async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, u
             if sticker_msg:
                 try: await sticker_msg.delete()
                 except: pass
+
+async def extract_and_send_audio_def(query, context, url, audio_name, chat_id, reply_to_msg_id):
+    """Default audio button ke liye - message delete ke baad bhi kaam karega"""
+    status_msg = await context.bot.send_message(
+        chat_id=chat_id,
+        text="💽 𝗘𝘅𝘁𝗿𝗮𝗰𝘁𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼. ˚◞♡ ◟˚ .",
+        parse_mode="Markdown"
+    )
+    
+    async with download_semaphore:
+        try:
+            import uuid
+            audio_uid = str(uuid.uuid4())[:8]
+            audio_dir = os.path.join("downloads", f"audio_{audio_uid}")
+            os.makedirs(audio_dir, exist_ok=True)
+    
+            global DOWNLOAD_DIR
+            original_dir = DOWNLOAD_DIR
+            DOWNLOAD_DIR = audio_dir
+
+            import concurrent.futures
+            result = None
+            for attempt in range(2):
+                try:
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        future = executor.submit(InstaDownloader.download_media, url)
+                        result = future.result(timeout=90)
+                    if result.get("success"):
+                        break
+                except concurrent.futures.TimeoutError:
+                    time.sleep(2)
+                    continue
+                except Exception:
+                    time.sleep(2)
+                    continue
+
+            if result is None:
+                result = {"success": False, "error": "🚫 𝐒𝐞𝐫𝐯𝐞𝐫 𝐢𝐬𝐬𝐮𝐞, 𝐩𝐥𝐞𝐚𝐬𝐞 𝐭𝐫𝐲 𝐚𝐠𝐚𝐢𝐧 (｡•́︿•̀｡)"}
+
+            DOWNLOAD_DIR = original_dir
             
+            if not result.get("success"): 
+                await status_msg.edit_text("❌ 𝗙𝗮𝗶𝗹𝗲𝗱", parse_mode="Markdown")
+                return
+                
+            vp = result["file_path"]
+            ar = InstaDownloader.extract_audio(vp, audio_name)
+            
+            if ar.get("success"):
+                await status_msg.edit_text("🎻 𝗦𝗲𝗻𝗱𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼♡ ⋆｡°✩", parse_mode="Markdown")
+                await context.bot.send_chat_action(chat_id=chat_id, action='upload_audio')
+                
+                with open(ar["file_path"], 'rb') as f:
+                    await context.bot.send_audio(
+                        chat_id=chat_id,
+                        audio=f,
+                        title=audio_name,
+                        performer="✩⋆｡°𝗕𝘆 ➪ 𓆩#ＫＡＲＴＩＫ𓆪 ♡",
+                        caption=CAPTION,
+                        parse_mode="HTML",
+                        reply_to_message_id=reply_to_msg_id
+                    )
+                    
+                await asyncio.sleep(2)
+                await status_msg.delete()
+                try: os.remove(ar["file_path"])
+                except: pass
+            else: 
+                await status_msg.edit_text(f"❌ {ar.get('error')}", parse_mode="Markdown")
+                
+            InstaDownloader.cleanup(vp)
+            
+        except Exception as e: 
+            try: await status_msg.edit_text(f"❌ {str(e)[:80]}", parse_mode="Markdown")
+            except: pass
+
 async def extract_and_send_audio_direct(query, context, url, audio_name):
     search_msg = await query.message.reply_text("🔎")
     await asyncio.sleep(3)
@@ -1470,9 +1557,14 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         video_url = f"https://www.instagram.com/reel/{shortcode}/"
         user_data['audio_video_url'] = video_url
         user_data['awaiting_audio'] = True
-    
+
         keyboard = InlineKeyboardMarkup([[
-            InlineKeyboardButton("🎵 𝘿𝙚𝙛𝙖𝙪𝙡𝙩 𝙉𝙖𝙢𝙚", callback_data="def_audio")
+            InlineKeyboardButton(
+                AUDIO_DEFAULT_NAME,
+                callback_data="def_audio",
+                style=get_random_style(),
+                icon_custom_emoji_id=get_random_audio_default_emoji()
+            )
         ]])
         prompt_msg = await query.message.reply_text(
             AUDIO_NAME_PROMPT,
@@ -1484,12 +1576,21 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.answer("Send audio name or click Default!")
         return
     elif query.data == "def_audio":
-        await query.message.delete()
+        chat_id = query.message.chat_id
+        message_id = query.message.message_id
+    
+        try:
+            await query.message.delete()
+        except:
+            pass
+    
         user_data['awaiting_audio'] = False
         user_data['audio_prompt_msg'] = None
         url = user_data.get('audio_video_url') or user_data.get('current_url')
+    
         if url:
-            asyncio.create_task(extract_and_send_audio_direct(query, context, url, AUDIO_DEFAULT_NAME))
+            asyncio.create_task(extract_and_send_audio_def(query, context, url, AUDIO_DEFAULT_NAME, chat_id, message_id))
+    
         user_data['audio_video_url'] = None
         return
     elif query.data.startswith("nxp_"):
