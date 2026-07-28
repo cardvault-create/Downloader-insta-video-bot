@@ -1309,11 +1309,25 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         already += 1
     
             emojis = get_emojis()
-            await update.message.reply_text(
-                f'<tg-emoji emoji-id="6226399941388928924">✅</tg-emoji> {added} 𝘼𝙙𝙙𝙚𝙙, ⚠️ {already} 𝘼𝙡𝙧𝙚𝙖𝙙𝙮 𝙀𝙭𝙞𝙨𝙩𝙨\n'
-                f'📦 𝙏𝙤𝙩𝙖𝙡: {len(emojis)}',
-                parse_mode="HTML"
-            )
+            # Added emojis ka preview line banao
+            added_preview = ""
+            for eid in emoji_ids:
+                if eid.isdigit() and len(eid) >= 15 and eid in [e for e in get_emojis()]:
+                    added_preview += f'<tg-emoji emoji-id="{eid}">🌟</tg-emoji>'
+
+            if added_preview:
+                await update.message.reply_text(
+                    f'{added_preview}\n'
+                    f'<tg-emoji emoji-id="6226399941388928924">✅</tg-emoji> {added} 𝘼𝙙𝙙𝙚𝙙, ⚠️ {already} 𝘼𝙡𝙧𝙚𝙖𝙙𝙮 𝙀𝙭𝙞𝙨𝙩𝙨\n'
+                    f'📦 𝙏𝙤𝙩𝙖𝙡: {len(emojis)}',
+                    parse_mode="HTML"
+                )
+            else:
+                await update.message.reply_text(
+                    f'⚠️ {already} 𝘼𝙡𝙧𝙚𝙖𝙙𝙮 𝙀𝙭𝙞𝙨𝙩𝙨\n'
+                    f'📦 𝙏𝙤𝙩𝙖𝙡: {len(emojis)}',
+                    parse_mode="HTML"
+                )
             return
 
         # Single ID
