@@ -1229,10 +1229,10 @@ async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, u
                 try: await sticker_msg.delete()
                 except: pass
 
-async def extract_and_send_audio_msg(update, context, url, audio_name):
+async def extract_and_send_audio_msg(update, context, url, audio_name, video_msg_id=None):
     """Text message se audio extract - video ke reply mein bhejega"""
     chat_id = update.effective_chat.id
-    reply_msg_id = update.message.message_id
+    reply_msg_id = video_msg_id or update.message.message_id
     
     status_msg = await context.bot.send_message(
         chat_id=chat_id,
@@ -1560,23 +1560,27 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_data['awaiting_audio'] = False
         audio_name = text.strip()
         url = user_data.get('audio_video_url')
+        video_msg_id = user_data.get('video_msg_id')  # Saved video ID
         if 'audio_prompt_msg' in user_data:
             try: await user_data['audio_prompt_msg'].delete()
             except: pass
             user_data['audio_prompt_msg'] = None
-        if url: asyncio.create_task(extract_and_send_audio_msg(update, context, url, audio_name))
+        if url: asyncio.create_task(extract_and_send_audio_msg(update, context, url, audio_name, video_msg_id))
         user_data['audio_video_url'] = None
+        user_data['video_msg_id'] = None
         return
     
     if text == AUDIO_DEFAULT_NAME:
         user_data['awaiting_audio'] = False
         url = user_data.get('audio_video_url')
+        video_msg_id = user_data.get('video_msg_id')
         if 'audio_prompt_msg' in user_data:
             try: await user_data['audio_prompt_msg'].delete()
             except: pass
             user_data['audio_prompt_msg'] = None
-        if url: asyncio.create_task(extract_and_send_audio_msg(update, context, url, AUDIO_DEFAULT_NAME))
+        if url: asyncio.create_task(extract_and_send_audio_msg(update, context, url, AUDIO_DEFAULT_NAME, video_msg_id))
         user_data['audio_video_url'] = None
+        user_data['video_msg_id'] = None
         return
     
     if not InstaDownloader.is_instagram_url(text): return
@@ -1642,7 +1646,9 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         video_url = f"https://www.instagram.com/reel/{shortcode}/"
         user_data['audio_video_url'] = video_url
         user_data['awaiting_audio'] = True
-
+        # ORIGINAL VIDEO MESSAGE ID SAVE KARO - query.message is the video message
+        user_data['video_msg_id'] = query.message.message_id
+    
         keyboard = InlineKeyboardMarkup([[
             InlineKeyboardButton(
                 AUDIO_DEFAULT_NAME,
@@ -1661,14 +1667,9 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.answer("Send audio name or click Default!")
         return
     elif query.data == "def_audio":
-        # Video message ka reference pehle save karo
         chat_id = query.message.chat_id
-        # Original video message ka ID - query.message.reply_to_message se milega
-        # kyunki prompt_msg original video ke reply mein bheja gaya tha
-        try:
-            video_msg_id = query.message.reply_to_message.message_id
-        except:
-            video_msg_id = query.message.message_id  # fallback
+        # Saved video message ID use karo
+        video_msg_id = user_data.get('video_msg_id', query.message.message_id)
 
         try:
             await query.message.delete()
@@ -1683,6 +1684,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             asyncio.create_task(extract_and_send_audio_def(context, url, AUDIO_DEFAULT_NAME, chat_id, video_msg_id))
 
         user_data['audio_video_url'] = None
+        user_data['video_msg_id'] = None
         return
     elif query.data.startswith("nxp_"):
         parts = query.data[4:].rsplit("_", 1)
