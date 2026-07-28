@@ -631,30 +631,35 @@ AUDIO_NAME_PROMPT = (
     "𝐘𝐨𝐮 𝐇𝐚𝐯𝐞 𝐍𝐨 𝐈𝐝𝐞𝐚 𝐓𝐡𝐚𝐧 𝐂𝐥𝐢𝐜𝐤 𝐓𝐡𝐢𝐬 𝐁𝐮𝐭𝐭𝐨𝐧 ⤵️"
 )
 
-SETTINGS_TEXT = (
-    "⚙️ 𝗖𝗢𝗠𝗠𝗔𝗡𝗗𝗦 ：\n\n"
-    "👑 𝗢𝗪𝗡𝗘𝗥 ： \n"
-    "┣ /start ➪ 𝗦𝘁𝗮𝗿𝘁 𝗕𝗼𝘁\n"
-    "┣ /disable ➪ 𝗗𝗶𝘀𝗮𝗯𝗹𝗲 𝗕𝗼𝘁\n"
-    "┣ /enable ➪ 𝗘𝗻𝗮𝗯𝗹𝗲 𝗕𝗼𝘁\n"
-    "┗ /settings ➪ 𝗕𝗼𝘁 𝗦𝗲𝘁𝘁𝗶𝗻𝗴𝘀\n\n"
-    "👥 𝗚𝗥𝗢𝗨𝗣 ：\n"
-    "┗ /activate ➪ 𝗔𝗰𝘁𝗶𝘃𝗮𝘁𝗲 𝗚𝗿𝗼𝘂𝗽\n\n"
-    "🎨 𝗘𝗠𝗢𝗝Ｉ ：\n"
-    "┣ /addemoji ➪ 𝗔𝗱𝗱 𝗘𝗺𝗼𝗷𝗶\n"
-    "┣ /removeemoji ➪ 𝗥𝗲𝗺𝗼𝘃𝗲 𝗘𝗺𝗼𝗷𝗶\n"
-    "┗ /listemojis ➪ 𝗟𝗶𝘀𝘁 𝗘𝗺𝗼𝗷𝗶𝘀\n\n"
-    "❄ 𝗦𝗧𝗜𝗖𝗞𝗘𝗥 ：\n"
-    "┣ /addsticker ➪ 𝗔𝗱𝗱 𝗦𝘁𝗶𝗰𝗸𝗲𝗿\n"
-    "┣ /removesticker ➪ 𝗥𝗲𝗺𝗼𝘃𝗲 𝗦𝘁𝗶𝗰𝗸𝗲𝗿\n"
-    "┗ /liststickers ➪ 𝗟𝗶𝘀𝘁 𝗦𝘁𝗶𝗰𝗸𝗲𝗿𝘀\n\n"
-    "📹 𝗩𝗜𝗗𝗘𝗢 ：\n"
-    "┣ /addvideo ➪ 𝗔𝗱𝗱 𝗩𝗶𝗱𝗲𝗼\n"
-    "┣ /delvideo ➪ 𝗗𝗲𝗹𝗲𝘁𝗲 𝗩𝗶𝗱𝗲𝗼\n"
-    "┣ /videos ➪ 𝗟𝗶𝘀𝘁 𝗩𝗶𝗱𝗲𝗼𝘀\n"
-    "┗ /clearvideos ➪ 𝗖𝗹𝗲𝗮𝗿 𝗔𝗹𝗹 𝗩𝗶𝗱𝗲𝗼𝘀\n\n"
-    "⧫━━━━━✦◆ ◇ ◆ ◇ ◆ ◇✦━━━━━⧫\n"
-    "🫧 ˹𝗗𝗲𝘃𝗲𝗹𝗼𝗽𝗲𝗿˼ 🪽 ➪ [𝜝𝜣𝜯 𝑭𝜟𝜯𝜢𝜮𝜞](https://t.me/FathersOfCreater)"
+SETTINGS_TEXT = f"""<tg-emoji emoji-id="5327760901799956030">⚙️</tg-emoji> 𝗖𝗢𝗠𝗠𝗔𝗡𝗗𝗦 ：
+
+<tg-emoji emoji-id="5352540225987943305">👑</tg-emoji> 𝗢𝗪𝗡𝗘𝗥 ：
+┣ <tg-emoji emoji-id="5801170880272797821">🌟</tg-emoji> /start ➪ 𝗦𝘁𝗮𝗿𝘁 𝗕𝗼𝘁
+┣ <tg-emoji emoji-id="5353060840448727534">🌟</tg-emoji> /disable ➪ 𝗗𝗶𝘀𝗮𝗯𝗹𝗲 𝗕𝗼𝘁
+┣ <tg-emoji emoji-id="6226399941388928924">🌟</tg-emoji> /enable ➪ 𝗘𝗻𝗮𝗯𝗹𝗲 𝗕𝗼𝘁
+┗ <tg-emoji emoji-id="6127410617482484040">🌟</tg-emoji> /settings ➪ 𝗕𝗼𝘁 𝗦𝗲𝘁𝘁𝗶𝗻𝗴𝘀
+
+<tg-emoji emoji-id="5841494459904168607">👥</tg-emoji> 𝗚𝗥𝗢𝗨𝗣 ：
+┗ <tg-emoji emoji-id="6127672662027146442">🌟</tg-emoji> /activate ➪ 𝗔𝗰𝘁𝗶𝘃𝗮𝘁𝗲 𝗚𝗿𝗼𝘂𝗽
+
+<tg-emoji emoji-id="5352555352862765789">🎨</tg-emoji> 𝗘𝗠𝗢𝗝𝗜 ：
+┣ <tg-emoji emoji-id="6170160969600212116">🌟</tg-emoji> /addemoji ➪ 𝗔𝗱𝗱 𝗘𝗺𝗼𝗷𝗶
+┣ <tg-emoji emoji-id="5929358014627713883">🌟</tg-emoji> /removeemoji ➪ 𝗥𝗲𝗺𝗼𝘃𝗲 𝗘𝗺𝗼𝗷𝗶
+┗ <tg-emoji emoji-id="6172671064452111943">🌟</tg-emoji> /listemojis ➪ 𝗟𝗶𝘀𝘁 𝗘𝗺𝗼𝗷𝗶𝘀
+
+<tg-emoji emoji-id="5983582264502523326">❄</tg-emoji> 𝗦𝗧𝗜𝗖𝗞𝗘𝗥 ：
+┣ <tg-emoji emoji-id="5237707944547592720">🌟</tg-emoji> /addsticker ➪ 𝗔𝗱𝗱 𝗦𝘁𝗶𝗰𝗸𝗲𝗿
+┣ <tg-emoji emoji-id="5233540769708526063">🌟</tg-emoji> /removesticker ➪ 𝗥𝗲𝗺𝗼𝘃𝗲 𝗦𝘁𝗶𝗰𝗸𝗲𝗿
+┗ <tg-emoji emoji-id="5233455454478156666">🌟</tg-emoji> /liststickers ➪ 𝗟𝗶𝘀𝘁 𝗦𝘁𝗶𝗰𝗸𝗲𝗿𝘀
+
+<tg-emoji emoji-id="5269416373833972738">📹</tg-emoji> 𝗩𝗜𝗗𝗘𝗢 ：
+┣ <tg-emoji emoji-id="5400144011409251972">🌟</tg-emoji> /addvideo ➪ 𝗔𝗱𝗱 𝗩𝗶𝗱𝗲𝗼
+┣ <tg-emoji emoji-id="4918382043827537873">🌟</tg-emoji> /delvideo ➪ 𝗗𝗲𝗹𝗲𝘁𝗲 𝗩𝗶𝗱𝗲𝗼
+┣ <tg-emoji emoji-id="5319175438268913255">🌟</tg-emoji> /videos ➪ 𝗟𝗶𝘀𝘁 𝗩𝗶𝗱𝗲𝗼𝘀
+┗ <tg-emoji emoji-id="6032730511573521800">🌟</tg-emoji> /clearvideos ➪ 𝗖𝗹𝗲𝗮𝗿 𝗔𝗹𝗹 𝗩𝗶𝗱𝗲𝗼𝘀
+
+⧫━━━━━✦◆ ◇ ◆ ◇ ◆ ◇✦━━━━━⧫
+<tg-emoji emoji-id="5825690573687754521">🌟</tg-emoji> ˹𝗗𝗲𝘃𝗲𝗹𝗼𝗽𝗲𝗿˼ <tg-emoji emoji-id="5814637011495031358">🪽</tg-emoji> ➪ [𝜝𝜣𝜯 𝑭𝜟𝜯𝜢𝜮𝜞](https://t.me/FathersOfCreater)"""
 )
 
 async def welcome_animation(bot, chat_id, user_id, first_name):
