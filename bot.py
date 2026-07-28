@@ -845,16 +845,16 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         # Send notification to owner with video
         owner_msg = (
-            f"👋🏻 ʜᴇʟʟᴏ {owner_link} ♡ ⋆｡°✩\n"
+            f"<tg-emoji emoji-id=\"5805511481596319315\">🌟</tg-emoji> ʜᴇʟʟᴏ {owner_link} <tg-emoji emoji-id=\"5237707944547592720\">🌟</tg-emoji>\n"
             f"━━━━━━━━━━━━━━━━━━━\n"
-            f"🗞️ 𝗡𝗲𝘄 𝗨𝘀𝗲𝗿 𝗝𝗼𝗶𝗻𝗲𝗱\n"
-            f"🎻 𝗡𝗮𝗺𝗲 ➪ {user_link}\n"
-            f"🈲 𝗨𝘀𝗲𝗿 𝗜𝗗 ➪ `{user_id}`\n"
-            f"🔎 𝗨𝘀𝗲𝗿𝗻𝗮𝗺𝗲 ➪ {user_link}\n"
+            f"<tg-emoji emoji-id=\"6032730511573521800\">🌟</tg-emoji> 𝗡𝗲𝘄 𝗨𝘀𝗲𝗿 𝗝𝗼𝗶𝗻𝗲𝗱\n"
+            f"<tg-emoji emoji-id=\"5345783679790639018\">🌟</tg-emoji> 𝗡𝗮𝗺𝗲 ➪ {user_link}\n"
+            f"<tg-emoji emoji-id=\"4918382043827537873\">🌟</tg-emoji> 𝗨𝘀𝗲𝗿 𝗜𝗗 ➪ `{user_id}`\n"
+            f"<tg-emoji emoji-id=\"5319175438268913255\">🌟</tg-emoji> 𝗨𝘀𝗲𝗿𝗻𝗮𝗺𝗲 ➪ {user_link}\n"
             f"━━━━━━━━━━━━━━━━━━━\n"
-            f"🔹 𝗧𝗼𝘁𝗮𝗹 𝗨𝘀𝗲𝗿𝘀 ➪ {len(started_users)}\n"
+            f"<tg-emoji emoji-id=\"5841494459904168607\">🌟</tg-emoji> 𝗧𝗼𝘁𝗮𝗹 𝗨𝘀𝗲𝗿𝘀 ➪ {len(started_users)}\n"
             f"━━━━━━━━━━━━━━━━━━━\n"
-            f"🫧 𝚰𝛈𝒇𝛉𝛄𝒎 𝚩𝛙 ➪ [𝜝𝜣𝜯 𝑭𝜟𝜯𝜢𝜮𝜞](https://t.me/FathersOfCreater)"
+            f"<tg-emoji emoji-id=\"5825690573687754521\">🌟</tg-emoji> 𝚰𝛈𝒇𝛉𝛄𝒎 𝚩𝛙 ➪ [𝜝𝜣𝜯 𝑭𝜟𝜯𝜢𝜮𝜞](https://t.me/FathersOfCreater)"
         )
         
         try:
