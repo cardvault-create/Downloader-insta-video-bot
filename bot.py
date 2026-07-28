@@ -1007,52 +1007,52 @@ async def add_emoji_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await update.message.reply_text(f"<tg-emoji emoji-id=\"5325888970368762082\">✅</tg-emoji> 𝗘𝗠𝗢𝗝𝗜 𝗜𝗗 𝗔𝗗𝗗𝗘𝗗 <tg-emoji emoji-id=\"5773652573835758861\">📋</tg-emoji>{t}<tg-emoji emoji-id=\"5773706269516893619\">📋</tg-emoji>", parse_mode="HTML")
                 await update.message.reply_text(f'<tg-emoji emoji-id="{emoji_id}">🌟</tg-emoji>', parse_mode="HTML")
             else:
-                await update.message.reply_text("❌ 𝗔𝗹𝗿𝗲𝗮𝗱𝘆 𝗘𝘅𝗶𝘀𝘁𝘀")
+                await update.message.reply_text("<tg-emoji emoji-id=\"5352542184493031170\">❌</tg-emoji> 𝗔𝗹𝗿𝗲𝗮𝗱𝘆 𝗘𝘅𝗶𝘀𝘁𝘀 <tg-emoji emoji-id=\"5352703271536454445\">❌</tg-emoji>", parse_mode="HTML")
             return
         else:
-            await update.message.reply_text("❌ 𝗜𝗻𝘃𝗮𝗹𝗶𝗱 𝗘𝗺𝗼𝗷𝗶 𝗜𝗗!\n\nUse: `/addemoji <emoji_id>` ya sticker pe reply karo")
+            await update.message.reply_text("𝗜𝗻𝘃𝗮𝗹𝗶𝗱 𝗘𝗺𝗼𝗷𝗶 𝗜𝗗 <tg-emoji emoji-id=\"5420323339723881652\">❌</tg-emoji>", parse_mode="HTML")
             return
     
     # Kuch nahi diya
     await update.message.reply_text(
-        "🔎 Ｕｓａｇｅ ➪\n"
-        "𝟏. ˹/addemoji˼ ˹𝐞𝐦𝐨𝐣𝐢_𝐢𝐝♪ → 𝚺𝒎𝛉𝒋𝒊 𝚰𝐃 𝒔𝛆 𝛂𝛅𝛅 𝛋𝛂𝛄𝛉\n"
-        "𝟐. 𝐒𝛕𝒊𝛓𝛋𝛆𝛄 𝛒𝛆 𝛄𝛆𝛒𝛊𝛙 𝛋𝛂𝛄𝛋𝛆 ˹/addemoji˼ → 𝘚𝘵𝘪𝘤𝘬𝘦𝘳 𝘢𝘥𝘥 𝘬𝘢𝘳𝘰"
+        "<tg-emoji emoji-id=\"5017088445353296841\">🔎</tg-emoji> Ｕｓａｇｅ ➪\n"
+        "𝟏. ˹/addemoji˼ ˹𝐞𝐦𝐨𝐣𝐢_𝐢𝐝♪ → 𝚺𝒎𝛉𝒋𝒊 𝚰𝐃 𝒔𝛆 𝛂𝛅𝛅 𝛋𝛂𝛄𝛉 <tg-emoji emoji-id=\"5337135183319542200\">✅</tg-emoji>\n"
+        "𝟐. 𝐒𝛕𝒊𝛓𝛋𝛆𝛄 𝛒𝛆 𝛄𝛆𝛒𝛊𝛙 𝛋𝛂𝛄𝛋𝛆 ˹/addemoji˼ → 𝘚𝘵𝘪𝘤𝘬𝘦𝘳 𝘢𝘥𝘥 𝘬𝘢𝘳𝘰 <tg-emoji emoji-id=\"5933931304394428667\">✅</tg-emoji>",
+        parse_mode="HTML"
     )
 async def remove_emoji_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
     try:
         idx = int(update.message.text.split()[1]) - 1
         s, t = remove_emoji_db(idx)
-        await update.message.reply_text(f"✅ 𝗥𝗲𝗺𝗼𝘃𝗲𝗱 ༼{t}༽" if s else f"❌ 𝗜𝗻𝘃𝗮𝗹𝗶𝗱 Ｔｏｔａｌ： ༼t༽")
-    except: await update.message.reply_text("/removeemoji 🅸🅽🅳🅴🆇")
+        await update.message.reply_text(f"<tg-emoji emoji-id=\"5352542184493031170\">✅</tg-emoji> 𝗥𝗲𝗺𝗼𝘃𝗲𝗱 ༼{t}༽ <tg-emoji emoji-id=\"5352542184493031170\">✅</tg-emoji>" if s else f"<tg-emoji emoji-id=\"6260436084035949371\">❌</tg-emoji> 𝗜𝗻𝘃𝗮𝗹𝗶𝗱 Ｔｏｔａｌ： ༼{t}༽ <tg-emoji emoji-id=\"5814637011495031358\">❌</tg-emoji>", parse_mode="HTML")
+    except: await update.message.reply_text("<tg-emoji emoji-id=\"5310097750010901912\">🌟</tg-emoji><tg-emoji emoji-id=\"5321450791683241246\">🌟</tg-emoji><tg-emoji emoji-id=\"5294029641701407930\">🌟</tg-emoji><tg-emoji emoji-id=\"5327938799345349736\">🌟</tg-emoji><tg-emoji emoji-id=\"5334637865995352639\">🌟</tg-emoji> /removeemoji", parse_mode="HTML")
 
 async def list_emojis_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
     emojis = get_emojis()
-    if not emojis: await update.message.reply_text("📭 𝗡𝗼 𝗲𝗺𝗼𝗷𝗶𝘀"); return
-    text = "🎨 𝗘𝗠𝗢𝗝𝗜𝗦\n" + "\n".join([f"**{i+1}.** `{e[:30]}`" for i, e in enumerate(emojis)])
-    await update.message.reply_text(text + f"\n\n🔹 𝗧𝗼𝘁𝗮𝗹 {len(emojis)}", parse_mode="Markdown")
+    if not emojis: await update.message.reply_text("<tg-emoji emoji-id=\"6098344001105038370\">📭</tg-emoji> 𝗡𝗼 𝗲𝗺𝗼𝗷𝗶𝘀 <tg-emoji emoji-id=\"6098344001105038370\">📭</tg-emoji>", parse_mode="HTML"); return
+    text = "<tg-emoji emoji-id=\"5352555352862765789\">🎨</tg-emoji> 𝗘𝗠𝗢𝗝𝗜𝗦\n" + "\n".join([f"<b>{i+1}.</b> <code>{e[:30]}</code>" for i, e in enumerate(emojis)])
+    await update.message.reply_text(text + f"\n\n<tg-emoji emoji-id=\"5352555352862765789\">🔹</tg-emoji> 𝗧𝗼𝘁𝗮𝗹 {len(emojis)}", parse_mode="HTML")
 
 async def add_sticker_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
     if not update.message.reply_to_message or not update.message.reply_to_message.sticker:
         await update.message.reply_text("⎘ 𝗥𝗲𝗽𝗹𝘆 𝘁𝗼 𝘀𝘁𝗶𝗰𝗸𝗲𝗿"); return
     s, t = add_sticker_db(update.message.reply_to_message.sticker.file_id)
-    await update.message.reply_text(f"✅ 𝗔𝗗𝗗𝗘𝗗 ༼{t}༽" if s else "❌ 𝗘𝘅𝗶𝘀𝘁𝘀")
+    await update.message.reply_text(f"<tg-emoji emoji-id=\"5442874134231008257\">✅</tg-emoji> 𝗔𝗗𝗗𝗘𝗗 ༼{t}༽ <tg-emoji emoji-id=\"5442874134231008257\">✅</tg-emoji>" if s else f"<tg-emoji emoji-id=\"5438630285635757876\">❌</tg-emoji> 𝗘𝘅𝗶𝘀𝘁𝘀 <tg-emoji emoji-id=\"5438630285635757876\">❌</tg-emoji>", parse_mode="HTML")
 
 async def remove_sticker_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
     try:
         idx = int(update.message.text.split()[1]) - 1
         s, t = remove_sticker_db(idx)
-        await update.message.reply_text(f"✅ 𝗥𝗲𝗺𝗼𝘃𝗲𝗱 ༼{t}༽" if s else f"❌ 𝗜𝗻𝘃𝗮𝗹𝗶𝗱 Ｔｏｔａｌ： ༼t༽")
-    except: await update.message.reply_text("/removesticker 🅘🅝🅓🅔🅧")
-
+        await update.message.reply_text(f"<tg-emoji emoji-id=\"5442874134231008257\">✅</tg-emoji> 𝗥𝗲𝗺𝗼𝘃𝗲𝗱 ༼{t}༽ <tg-emoji emoji-id=\"5442874134231008257\">✅</tg-emoji>" if s else f"<tg-emoji emoji-id=\"5438630285635757876\">❌</tg-emoji> 𝗜𝗻𝘃𝗮𝗹𝗶𝗱 Ｔｏｔａｌ： ༼{t}༽ <tg-emoji emoji-id=\"5438630285635757876\">❌</tg-emoji>", parse_mode="HTML")
+    except: await update.message.reply_text("<tg-emoji emoji-id=\"5310097750010901912\">🌟</tg-emoji><tg-emoji emoji-id=\"5321450791683241246\">🌟</tg-emoji><tg-emoji emoji-id=\"5294029641701407930\">🌟</tg-emoji><tg-emoji emoji-id=\"5327938799345349736\">🌟</tg-emoji><tg-emoji emoji-id=\"5334637865995352639\">🌟</tg-emoji> /removesticker", parse_mode="HTML")
 async def list_stickers_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
     stickers = get_stickers()
-    if not stickers: await update.message.reply_text("📭 𝗡𝗼 𝘀𝘁𝗶𝗰𝗸𝗲𝗿𝘀"); return
+    if not stickers: await update.message.reply_text("<tg-emoji emoji-id=\"5438630285635757876\">📭</tg-emoji> 𝗡𝗼 𝘀𝘁𝗶𝗰𝗸𝗲𝗿𝘀 <tg-emoji emoji-id=\"5438630285635757876\">📭</tg-emoji>", parse_mode="HTML"); return
     text = "❄ 𝗦𝗧𝗜𝗖𝗞𝗘𝗥𝗦\n" + "\n".join([f"**{i+1}.** `{s[:25]}`" for i, s in enumerate(stickers)])
     await update.message.reply_text(text + f"\n\n🔹 𝗧𝗼𝘁𝗮𝗹 {len(stickers)}", parse_mode="Markdown")
 
@@ -1061,7 +1061,7 @@ async def add_video_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message.reply_to_message or not update.message.reply_to_message.video:
         await update.message.reply_text("⎘ 𝗥𝗲𝗽𝗹𝘆 𝘁𝗼 𝘃𝗶𝗱𝗲𝗼")
         return
-    m = await update.message.reply_text("📂𝗔𝗱𝗱𝗶𝗻𝗴 𝗩𝗶𝗱𝗲𝗼...")
+    m = await update.message.reply_text("<tg-emoji emoji-id=\"5357315181649076022\">📂</tg-emoji> 𝗔𝗱𝗱𝗶𝗻𝗴 𝗩𝗶𝗱𝗲𝗼... <tg-emoji emoji-id=\"5357315181649076022\">📂</tg-emoji>", parse_mode="HTML")
     try:
         video_file = update.message.reply_to_message.video
         file = await context.bot.get_file(video_file.file_id)
@@ -1074,29 +1074,29 @@ async def add_video_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             mins, secs = divmod(video_file.duration, 60)
             duration = f"{mins}m {secs}s"
         
-        text = (
-            f"✅ 𝐕𝐈𝐃𝐄𝐎 𝐀𝐃𝐃𝐄𝐃 𝐒𝐔𝐂𝐂𝐄𝐒𝐒𝐅𝐔𝐋𝐋𝐘 ✅\n\n"
-            f"━━━━━━━━━━━━━━━━━━━\n"
-            f"🆔 Ｖｉｄｅｏ ＩＤ ： {vid}\n"
-            f"📁 Ｎａｍｅ ： {os.path.basename(fp)[:30]}\n"
-            f"📹 Ｔｏｔａｌ Ｖｉｄｅｏｓ ： {total}\n"
-            f"⏱️ Ｄｕｒａｔｉｏｎ ： {duration}\n"
-            f"━━━━━━━━━━━━━━━━━━━\n\n"
-            f"🎲 𝘝𝘪𝘥𝘦𝘰 𝘸𝘪𝘭𝘭 𝘱𝘭𝘢𝘺 𝘳𝘢𝘯𝘥𝘰𝘮𝘭𝘺 𝘰𝘯 𝘸𝘦𝘭𝘤𝘰𝘮𝘦!\n"
-            f"📋 /videos ｔｏ ｓｅｅ ａｌｌ ｖｉｄｅｏ"
-        )
-        await m.edit_text(text)
-    except Exception as e:
-        await m.edit_text(f"❌ Ｅｒｒｏｒ ： ༼e༽")
+            text = (
+                f"<tg-emoji emoji-id=\"5352901995378252828\">✅</tg-emoji> 𝐕𝐈𝐃𝐄𝐎 𝐀𝐃𝐃𝐄𝐃 𝐒𝐔𝐂𝐂𝐄𝐒𝐒𝐅𝐔𝐋𝐋𝐘 <tg-emoji emoji-id=\"5352901995378252828\">✅</tg-emoji>\n\n"
+                f"━━━━━━━━━━━━━━━━━━━\n"
+                f"<tg-emoji emoji-id=\"6289762537344864636\">🆔</tg-emoji> Ｖｉｄｅｏ ＩＤ ： {vid}\n"
+                f"<tg-emoji emoji-id=\"5150269119139939490\">📁</tg-emoji> Ｎａｍｅ ： {os.path.basename(fp)[:30]}\n"
+                f"<tg-emoji emoji-id=\"5192706539940488777\">📹</tg-emoji> Ｔｏｔａｌ Ｖｉｄｅｏｓ ： {total}\n"
+                f"<tg-emoji emoji-id=\"5267421370114914946\">⏱️</tg-emoji> Ｄｕｒａｔｉｏｎ ： {duration}\n"
+                f"━━━━━━━━━━━━━━━━━━━\n\n"
+                f"<tg-emoji emoji-id=\"5260547274957672345\">🎲</tg-emoji> 𝘝𝘪𝘥𝘦𝘰 𝘸𝘪𝘭𝘭 𝘱𝘭𝘢𝘺 𝘳𝘢𝘯𝘥𝘰𝘮𝘭𝘺 𝘰𝘯 𝘸𝘦𝘭𝘤𝘰𝘮𝘦!\n"
+                f"<tg-emoji emoji-id=\"5352765106180610755\">📋</tg-emoji> /videos ｔｏ ｓｅ𝑒 ａｌｌ ｖｉｄｅｏ"
+            )
+            await m.edit_text(text, parse_mode="HTML")
+        except Exception as e:
+            await m.edit_text(f"<tg-emoji emoji-id=\"5438630285635757876\">❌</tg-emoji> Ｅｒｒｏｒ ： ༼e༽", parse_mode="HTML")
 
 async def del_video_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
     try:
         vid = int(update.message.text.split()[1])
         s, t = delete_video_db(vid)
-        await update.message.reply_text(f"✅ Ｄｅｌｅｔｅｄ！ ༼{t}༽" if s else "❌ Ｎｏｔ ｆｏｕｎｄ！")
+        await update.message.reply_text(f"<tg-emoji emoji-id=\"5337135183319542200\">✅</tg-emoji> Ｄｅｌｅｔｅｄ！ ༼{t}༽ <tg-emoji emoji-id=\"5337135183319542200\">✅</tg-emoji>" if s else f"<tg-emoji emoji-id=\"5017088445353296841\">❌</tg-emoji> Ｎｏｔ ｆｏｕｎｄ！ <tg-emoji emoji-id=\"5017088445353296841\">❌</tg-emoji>", parse_mode="HTML")
     except:
-        await update.message.reply_text("Ｕｓｅ ： /delvideo ＩＤ")
+        await update.message.reply_text("Ｕｓｅ ： /delvideo <tg-emoji emoji-id=\"6289762537344864636\">🆔</tg-emoji>", parse_mode="HTML")
 
 async def list_videos_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
@@ -1126,12 +1126,12 @@ async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, u
         try: sticker_msg = await context.bot.send_sticker(chat_id, sticker_id)
         except: sticker_msg = None
     
-    msg = await update.message.reply_text("⏳ 𝗣𝗿𝗼𝗰𝗲𝘀𝘀𝗶𝗻𝗴...", parse_mode="Markdown")
+    msg = await update.message.reply_text("<tg-emoji emoji-id=\"5454415424319931791\">⏳</tg-emoji> 𝗣𝗿𝗼𝗰𝗲𝘀𝘀𝗶𝗻𝗴...", parse_mode="HTML")
     
     async with download_semaphore:
         try:
             is_reel = '/reel/' in url or '/tv/' in url
-            await msg.edit_text("📥 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗩𝗶𝗱𝗲𝗼..." if is_reel else "📥 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗣𝗵𝗼𝘁𝗼...", parse_mode="Markdown")
+            await msg.edit_text("<tg-emoji emoji-id=\"5294261750324042913\">📥</tg-emoji><tg-emoji emoji-id=\"5293990986995768044\">📥</tg-emoji> 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗩𝗶𝗱𝗲𝗼..." if is_reel else "<tg-emoji emoji-id=\"5294261750324042913\">📥</tg-emoji><tg-emoji emoji-id=\"5293990986995768044\">📥</tg-emoji> 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗣𝗵𝗼𝘁𝗼...", parse_mode="HTML")
             task_dir = os.path.join("downloads", f"task_{unique_id}")
             os.makedirs(task_dir, exist_ok=True)
     
@@ -1158,7 +1158,7 @@ async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, u
             DOWNLOAD_DIR = original_dir
             
             if result is None or not result.get("success"):
-                await msg.edit_text("❌ 𝗙𝗮𝗶𝗹𝗲𝗱！ 🚫 𝐒𝐞𝐫𝐯𝐞𝐫 𝐁𝐮𝐬𝐲 (˃̣̣̥᷄⌓˂̣̣̥᷅)", parse_mode="Markdown")
+                await msg.edit_text("<tg-emoji emoji-id=\"5850414922294365618\">❌</tg-emoji> 𝗙𝗮𝗶𝗹𝗲𝗱！ <tg-emoji emoji-id=\"5850600963097759409\">🚫</tg-emoji> 𝐒𝐞𝐫𝐯𝐞𝐫 𝐁𝐮𝐬𝐲 (˃̣̣̥᷄⌓˂̣̣̥᷅)", parse_mode="HTML")
                 if sticker_msg:
                     try: await sticker_msg.delete()
                     except: pass
@@ -1168,7 +1168,7 @@ async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, u
                 photo_paths = result.get("file_paths", [])
                 total = len(photo_paths)
                 save_photo_cache(cache_key, photo_paths)
-                await msg.edit_text(f"🪂 𝗨𝗽𝗹𝗼𝗮𝗱𝗶𝗻𝗴 {total} 𝗣𝗵𝗼𝘁𝗼𝘀...", parse_mode="Markdown")
+                await msg.edit_text(f"<tg-emoji emoji-id=\"5325888970368762082\">🪂</tg-emoji> 𝗨𝗽𝗹𝗼𝗮𝗱𝗶𝗻𝗴 {total} 𝗣𝗵𝗼𝘁𝗼𝘀...", parse_mode="HTML")
     
                 for i, path in enumerate(photo_paths):
                     if os.path.exists(path):
@@ -1205,13 +1205,13 @@ async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, u
             is_video = result.get("is_video", False) or fp.endswith(('.mp4', '.mov', '.webm'))
             
             if is_video:
-                await msg.edit_text("🪂 𝗨𝗽𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗩𝗶𝗱𝗲𝗼 . ˚◞♡ ◟˚ .", parse_mode="Markdown")
+                await msg.edit_text("<tg-emoji emoji-id=\"5275974823254725631\">🪂</tg-emoji> 𝗨𝗽𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗩𝗶𝗱𝗲𝗼 . ˚◞♡ ◟˚ .", parse_mode="HTML")
                 keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(AUDIO_BUTTON_TEXT, callback_data=f"aud_{shortcode}", style=get_random_style(), icon_custom_emoji_id=get_random_emoji_id())]])
                 await context.bot.send_chat_action(chat_id=chat_id, action='upload_video')
                 with open(fp, 'rb') as f:
                     await update.message.reply_video(video=f, caption=CAPTION, parse_mode="HTML", reply_markup=keyboard, supports_streaming=True, reply_to_message_id=update.message.message_id)
             else:
-                await msg.edit_text("🪂 𝗨𝗽𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗣𝗵𝗼𝘁𝗼♡ ⋆｡°✩", parse_mode="Markdown")
+                await msg.edit_text("<tg-emoji emoji-id=\"5384337002751630535\">🪂</tg-emoji> 𝗨𝗽𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗣𝗵𝗼𝘁𝗼♡ ⋆｡°✩", parse_mode="HTML")
                 with open(fp, 'rb') as f:
                     await update.message.reply_photo(photo=f, caption=CAPTION, parse_mode="HTML", reply_to_message_id=update.message.message_id)
             
@@ -1223,7 +1223,7 @@ async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, u
                 
         except Exception as e:
             logging.error(f"Process error: {e}")
-            try: await msg.edit_text(f"❌ 𝗘𝗿𝗿𝗼𝗿： {str(e)[:80]}", parse_mode="Markdown")
+            try: await msg.edit_text(f"<tg-emoji emoji-id=\"5438630285635757876\">❌</tg-emoji> 𝗘𝗿𝗿𝗼𝗿 ： {str(e)[:80]}", parse_mode="HTML")
             except: pass
             # ERROR PE STICKER DELETE - GUARANTEED
             if sticker_msg:
@@ -1237,8 +1237,8 @@ async def extract_and_send_audio_msg(update, context, url, audio_name, video_msg
     
     status_msg = await context.bot.send_message(
         chat_id=chat_id,
-        text="💽 𝗘𝘅𝘁𝗿𝗮𝗰𝘁𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼. ˚◞♡ ◟˚ .",
-        parse_mode="Markdown"
+        text="<tg-emoji emoji-id=\"5859300243262148377\">💽</tg-emoji> 𝗘𝘅𝘁𝗿𝗮𝗰𝘁𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼. ˚◞♡ ◟˚ .",
+        parse_mode="HTML"
     )
     
     async with download_semaphore:
@@ -1274,12 +1274,12 @@ async def extract_and_send_audio_msg(update, context, url, audio_name, video_msg
             DOWNLOAD_DIR = original_dir
             
             if not result.get("success"): 
-                await status_msg.edit_text("❌ 𝗙𝗮𝗶𝗹𝗲𝗱", parse_mode="Markdown")
+                await status_msg.edit_text("<tg-emoji emoji-id=\"5334637865995352639\">❌</tg-emoji> 𝗙𝗮𝗶𝗹𝗲𝗱", parse_mode="HTML")
                 return
             vp = result["file_path"]
             ar = InstaDownloader.extract_audio(vp, audio_name)
             if ar.get("success"):
-                await status_msg.edit_text("🎻 𝗦𝗲𝗻𝗱𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼♡ ⋆｡°✩", parse_mode="Markdown")
+                await status_msg.edit_text("<tg-emoji emoji-id=\"6032754146778551433\">🎻</tg-emoji> 𝗦𝗲𝗻𝗱𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼♡ ⋆｡°✩", parse_mode="HTML")
                 await context.bot.send_chat_action(chat_id=chat_id, action='upload_audio')
                 with open(ar["file_path"], 'rb') as f:
                     await context.bot.send_audio(
@@ -1306,8 +1306,8 @@ async def extract_and_send_audio_def(context, url, audio_name, chat_id, reply_to
     """Default audio button ke liye - video message ke reply mein audio bhejega"""
     status_msg = await context.bot.send_message(
         chat_id=chat_id,
-        text="💽 𝗘𝘅𝘁𝗿𝗮𝗰𝘁𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼. ˚◞♡ ◟˚ .",
-        parse_mode="Markdown"
+        text="<tg-emoji emoji-id=\"5859300243262148377\">💽</tg-emoji> 𝗘𝘅𝘁𝗿𝗮𝗰𝘁𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼. ˚◞♡ ◟˚ .",
+        parse_mode="HTML"
     )
     
     async with download_semaphore:
@@ -1343,14 +1343,14 @@ async def extract_and_send_audio_def(context, url, audio_name, chat_id, reply_to
             DOWNLOAD_DIR = original_dir
             
             if not result.get("success"): 
-                await status_msg.edit_text("❌ 𝗙𝗮𝗶𝗹𝗲𝗱", parse_mode="Markdown")
+                await status_msg.edit_text("<tg-emoji emoji-id=\"5334637865995352639\">❌</tg-emoji> 𝗙𝗮𝗶𝗹𝗲𝗱", parse_mode="HTML")
                 return
                 
             vp = result["file_path"]
             ar = InstaDownloader.extract_audio(vp, audio_name)
             
             if ar.get("success"):
-                await status_msg.edit_text("🎻 𝗦𝗲𝗻𝗱𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼♡ ⋆｡°✩", parse_mode="Markdown")
+                await status_msg.edit_text("<tg-emoji emoji-id=\"6032754146778551433\">🎻</tg-emoji> 𝗦𝗲𝗻𝗱𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼♡ ⋆｡°✩", parse_mode="HTML")
                 await context.bot.send_chat_action(chat_id=chat_id, action='upload_audio')
                 
                 with open(ar["file_path"], 'rb') as f:
@@ -1389,8 +1389,8 @@ async def extract_and_send_audio_direct(query, context, url, audio_name):
     
     status_msg = await context.bot.send_message(
         chat_id=chat_id,
-        text="💽 𝗘𝘅𝘁𝗿𝗮𝗰𝘁𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼. ˚◞♡ ◟˚ .",
-        parse_mode="Markdown"
+        text="<tg-emoji emoji-id=\"5859300243262148377\">💽</tg-emoji> 𝗘𝘅𝘁𝗿𝗮𝗰𝘁𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼. ˚◞♡ ◟˚ .",
+        parse_mode="HTML"
     )
     
     async with download_semaphore:
@@ -1426,12 +1426,12 @@ async def extract_and_send_audio_direct(query, context, url, audio_name):
             DOWNLOAD_DIR = original_dir
             
             if not result.get("success"): 
-                await status_msg.edit_text("❌ 𝗙𝗮𝗶𝗹𝗲𝗱", parse_mode="Markdown")
+                await status_msg.edit_text("<tg-emoji emoji-id=\"5334637865995352639\">❌</tg-emoji> 𝗙𝗮𝗶𝗹𝗲𝗱", parse_mode="HTML")
                 return
             vp = result["file_path"]
             ar = InstaDownloader.extract_audio(vp, audio_name)
             if ar.get("success"):
-                await status_msg.edit_text("🎻 𝗦𝗲𝗻𝗱𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼♡ ⋆｡°✩", parse_mode="Markdown")
+                await status_msg.edit_text("<tg-emoji emoji-id=\"6032754146778551433\">🎻</tg-emoji> 𝗦𝗲𝗻𝗱𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼♡ ⋆｡°✩", parse_mode="HTML")
                 await context.bot.send_chat_action(chat_id=chat_id, action='upload_audio')
                 with open(ar["file_path"], 'rb') as f:
                     await context.bot.send_audio(
