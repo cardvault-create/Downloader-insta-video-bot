@@ -887,7 +887,7 @@ async def activate_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def settings_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
-    await update.message.reply_text(SETTINGS_TEXT, parse_mode="Markdown", disable_web_page_preview=True)
+    await update.message.reply_text(SETTINGS_TEXT, parse_mode="HTML", disable_web_page_preview=True)
 
 async def ego_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: 
