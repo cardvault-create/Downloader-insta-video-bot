@@ -689,22 +689,16 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
             f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
             f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
             f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
-            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
-            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
-            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
-            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
-            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
-            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
-            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
-            f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',
             f'<tg-emoji emoji-id="{get_random_peach_emoji()}">🌸</tg-emoji>',               
         ]
         for emoji in welcome_emojis:
             await asyncio.sleep(0.6)
             try:
                 random_love = random.choice(LOVE_EMOJIS)
+                new_emoji_id = get_random_emoji()
+                new_emoji = f'<tg-emoji emoji-id="{new_emoji_id}">🩷</tg-emoji>' if new_emoji_id else '🩷'
                 await welcome_msg.edit_text(
-                    f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ <tg-emoji emoji-id=\"{random_love}\">❤️</tg-emoji> {user_mention}...{emoji}",
+                    f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ <tg-emoji emoji-id=\"{random_love}\">❤️</tg-emoji> {user_mention}...{new_emoji}",
                     parse_mode="HTML"
                 )
             except Exception as e:
