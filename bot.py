@@ -607,7 +607,7 @@ WELCOME_TEXT = f"""ʜᴇʏ, {{mention}} . ˚◞<tg-emoji emoji-id="5460831783337
 
 GROUP_WELCOME = f"""👋🏻 ʜᴇʟʟᴏ {{chat_title}} <tg-emoji emoji-id="5801170880272797821">🌟</tg-emoji> ⋆｡°✩
 
-ɪ'ᴍ [˹𝚰𝖓𝖘𝖙𝖆𝖌𝖗𝖆𝖒 ✘ 𝚫𝐨𝐰𝐧𝐥𝐨𝐚𝐝𝐞𝐫˼ ♪](https://t.me/Instagram_LinkToVideo_Bot), <tg-emoji emoji-id="5224334236726600040">🌟</tg-emoji>
+ɪ'ᴍ <a href="https://t.me/Instagram_LinkToVideo_Bot">˹𝚰𝖓𝖘𝖙𝖆𝖌𝖗𝖆𝖒 ✘ 𝚫𝐨𝐰𝐧𝐥𝐨𝐚𝐝𝐞𝐫˼ ♪</a>, <tg-emoji emoji-id="5224334236726600040">🌟</tg-emoji>
 
 ┏━━━━━━━━━━━━━━━━━⧫
 ┠ <tg-emoji emoji-id="6032730511573521800">🌟</tg-emoji> ˹ᴅᴏᴡɴʟᴏᴀᴅ ɪɴsᴛᴀɢʀᴀᴍ ʀᴇᴇʟs, ᴘʜᴏᴛᴏs & ᴀᴜᴅɪᴏ˼
@@ -617,7 +617,7 @@ GROUP_WELCOME = f"""👋🏻 ʜᴇʟʟᴏ {{chat_title}} <tg-emoji emoji-id="580
 
 <tg-emoji emoji-id="5801170880272797821">🌟</tg-emoji> ˹sɪʀғ ʟɪɴᴋ ʙʜᴇᴊᴏ, ʙᴀᴋɪ ʙᴏᴛ ᴅᴇᴋʜ ʟᴇɢᴀ˼✧ ⋆˚ · . 　 ☽ 　 . · ˚⋆
 
-<tg-emoji emoji-id="5825690573687754521">🌟</tg-emoji> ˹ᴅᴇᴠᴇʟᴏᴩᴇʀ˼ <tg-emoji emoji-id="5814637011495031358">🪽</tg-emoji> ➪ [𝜝𝜣𝜯 𝑭𝜟𝜯𝜢𝜮𝜞](https://t.me/FathersOfCreater) <tg-emoji emoji-id="5825889735616238150">🌟</tg-emoji>"""
+<tg-emoji emoji-id="5825690573687754521">🌟</tg-emoji> ˹ᴅᴇᴠᴇʟᴏᴩᴇʀ˼ <tg-emoji emoji-id="5814637011495031358">🪽</tg-emoji> ➪ <a href="https://t.me/FathersOfCreater">𝜝𝜣𝜯 𝑭𝜟𝜯𝜢𝜮𝜞</a> <tg-emoji emoji-id="5825889735616238150">🌟</tg-emoji>"""
 
 BOT_DISABLED_MSG = "🚫 𝗕𝗢𝗧 𝗦𝗧𝗢𝗣 𝗕𝗬 𝗢𝗪𝗡𝗘𝗥\n\n𝗕𝗼𝘁 𝗶𝘀 𝗰𝘂𝗿𝗿𝗲𝗻𝘁𝗹𝘆 𝗱𝗶𝘀𝗮𝗯𝗹𝗲𝗱. (˃̣̣̥᷄⌓˂̣̣̥᷅)"
 
