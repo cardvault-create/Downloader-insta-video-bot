@@ -696,23 +696,38 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
         WELCOME_EMOJI = "5805511481596319315"  # Sabse aage
         BACK_EMOJI = "5802893875123067320"     # Sabse piche
 
+        # Welcome ke upar wale 8 emojis
+        TOP_EMOJIS = [
+            "5233607294456974103",
+            "5233682374780276698",
+            "5233388903959906921",
+            "5233493370449446389",
+            "5233354862049116785",
+            "5233464439549744169",
+            "5233618173609133398",
+            "5233547018885941243",
+        ]
+
+        # 8 emojis ki line banao
+        top_line = "".join([f'<tg-emoji emoji-id="{eid}">🔊</tg-emoji>' for eid in TOP_EMOJIS])
+
         # Ab welcome_msg banao
         love_id = LOVE_EMOJIS[0]
         custom_id = CUSTOM_EMOJIS[0]
         welcome_msg = await bot.send_message(
             chat_id, 
-            f"<tg-emoji emoji-id=\"{WELCOME_EMOJI}\">🌟</tg-emoji> 𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ <tg-emoji emoji-id=\"{love_id}\">❤️</tg-emoji> {user_mention} <tg-emoji emoji-id=\"{custom_id}\">🩷</tg-emoji><tg-emoji emoji-id=\"{BACK_EMOJI}\">🌸</tg-emoji>", 
+            f"{top_line}\n<tg-emoji emoji-id=\"{WELCOME_EMOJI}\">🌟</tg-emoji>𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ<tg-emoji emoji-id=\"{love_id}\">❤️</tg-emoji>{user_mention}<tg-emoji emoji-id=\"{custom_id}\">🩷</tg-emoji><tg-emoji emoji-id=\"{BACK_EMOJI}\">🌸</tg-emoji>", 
             parse_mode="HTML"
         )
 
-        # 12 edits (13 total messages)
+        # 12 edits
         for i in range(1, 13):
             await asyncio.sleep(0.6)
             try:
                 love_id = LOVE_EMOJIS[i]
                 custom_id = CUSTOM_EMOJIS[i]
                 await welcome_msg.edit_text(
-                    f"<tg-emoji emoji-id=\"{WELCOME_EMOJI}\">🌟</tg-emoji> 𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ <tg-emoji emoji-id=\"{love_id}\">❤️</tg-emoji> {user_mention} <tg-emoji emoji-id=\"{custom_id}\">🩷</tg-emoji><tg-emoji emoji-id=\"{BACK_EMOJI}\">🌸</tg-emoji>",
+                    f"{top_line}\n<tg-emoji emoji-id=\"{WELCOME_EMOJI}\">🌟</tg-emoji>𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ<tg-emoji emoji-id=\"{love_id}\">❤️</tg-emoji>{user_mention}<tg-emoji emoji-id=\"{custom_id}\">🩷</tg-emoji><tg-emoji emoji-id=\"{BACK_EMOJI}\">🌸</tg-emoji>",
                     parse_mode="HTML"
                 )
             except Exception as e:
