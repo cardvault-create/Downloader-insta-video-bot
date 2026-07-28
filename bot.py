@@ -1305,22 +1305,30 @@ async def extract_and_send_audio_def(query, context, url, audio_name, chat_id, r
             except: pass
 
 async def extract_and_send_audio_direct(query, context, url, audio_name):
-    search_msg = await query.message.reply_text("🔎")
-    await asyncio.sleep(3)
-    try: await search_msg.delete()
-    except: pass
-    status_msg = await query.message.reply_text("💽 𝗘𝘅𝘁𝗿𝗮𝗰𝘁𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼. ˚◞♡ ◟˚ .", parse_mode="Markdown")
+    # Message reference pehle save karo
+    chat_id = query.message.chat_id
+    reply_msg_id = query.message.message_id
     
-    # Wait for semaphore (max 2 parallel)
+    try:
+        search_msg = await query.message.reply_text("🔎")
+        await asyncio.sleep(3)
+        await search_msg.delete()
+    except:
+        pass
+    
+    status_msg = await context.bot.send_message(
+        chat_id=chat_id,
+        text="💽 𝗘𝘅𝘁𝗿𝗮𝗰𝘁𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼. ˚◞♡ ◟˚ .",
+        parse_mode="Markdown"
+    )
+    
     async with download_semaphore:
         try:
-            # Unique folder for THIS audio request
             import uuid
             audio_uid = str(uuid.uuid4())[:8]
             audio_dir = os.path.join("downloads", f"audio_{audio_uid}")
             os.makedirs(audio_dir, exist_ok=True)
     
-            # Temp change DOWNLOAD_DIR for this download
             global DOWNLOAD_DIR
             original_dir = DOWNLOAD_DIR
             DOWNLOAD_DIR = audio_dir
@@ -1353,9 +1361,17 @@ async def extract_and_send_audio_direct(query, context, url, audio_name):
             ar = InstaDownloader.extract_audio(vp, audio_name)
             if ar.get("success"):
                 await status_msg.edit_text("🎻 𝗦𝗲𝗻𝗱𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼♡ ⋆｡°✩", parse_mode="Markdown")
-                await context.bot.send_chat_action(chat_id=query.message.chat_id, action='upload_audio')
+                await context.bot.send_chat_action(chat_id=chat_id, action='upload_audio')
                 with open(ar["file_path"], 'rb') as f:
-                    await query.message.reply_audio(audio=f, title=audio_name, performer="✩⋆｡°𝗕𝘆 ➪ 𓆩#ＫＡＲＴＩＫ𓆪 ♡", caption=CAPTION, parse_mode="HTML", reply_to_message_id=query.message.message_id)
+                    await context.bot.send_audio(
+                        chat_id=chat_id,
+                        audio=f,
+                        title=audio_name,
+                        performer="✩⋆｡°𝗕𝘆 ➪ 𓆩#ＫＡＲＴＩＫ𓆪 ♡",
+                        caption=CAPTION,
+                        parse_mode="HTML",
+                        reply_to_message_id=reply_msg_id
+                    )
                 await asyncio.sleep(2)
                 await status_msg.delete()
                 try: os.remove(ar["file_path"])
@@ -1366,7 +1382,7 @@ async def extract_and_send_audio_direct(query, context, url, audio_name):
         except Exception as e: 
             try: await status_msg.edit_text(f"❌ {str(e)[:80]}", parse_mode="Markdown")
             except: pass
-
+                
 # ═══════════════ MESSAGE HANDLER ═══════════════
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
