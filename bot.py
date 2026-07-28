@@ -757,7 +757,7 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
 
         # 12 edits
         for i in range(1, 13):
-            await asyncio.sleep(0.6)
+            await asyncio.sleep(0.5)
             try:
                 love_id = LOVE_EMOJIS[i]
                 custom_id = CUSTOM_EMOJIS[i]
