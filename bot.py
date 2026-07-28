@@ -67,6 +67,24 @@ PREMIUM_EMOJIS = [
 def get_random_emoji_id():
     return random.choice(PREMIUM_EMOJIS)
 
+import random
+
+LOVE_EMOJIS = [
+    "5474548985463056592",
+    "5188650080768371488",
+    "5188481821129583527",
+    "5474538119195797886",
+    "5404408875279458778",
+    "5407131175875518700",
+    "6023847192060499006",
+    "6023660820544623088",
+    "6026256492619895014",
+    "6026321200597176575",
+    "5384337002751630535",
+    "5373041818583738556",
+    "5325888970368762082",
+]
+
 # ═══════════════ RANDOM BUTTON COLOUR ═══════════════
 def get_random_style():
     styles = ["primary", "success", "danger"]
@@ -657,9 +675,10 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
         
         await asyncio.sleep(1)
         
+        random_love = random.choice(LOVE_EMOJIS)
         welcome_msg = await bot.send_message(
             chat_id, 
-            f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ ꨄ {user_mention}...🩷", 
+            f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ <tg-emoji emoji-id=\"{random_love}\">❤️</tg-emoji> {user_mention}...🩷", 
             parse_mode="HTML"
         )
         
