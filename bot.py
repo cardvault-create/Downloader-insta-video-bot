@@ -352,7 +352,7 @@ class InstaDownloader:
                 if os.path.exists(fp) and os.path.getsize(fp) > 50000:
                     return {"success": True, "file_path": fp, "is_video": True}
     
-        return {"success": False, "error": "🚫 𝐒𝐞𝐫𝐯𝐞𝐫 𝐁𝐮𝐬𝐲, 𝐓𝐫𝐲 𝐀𝐠𝐚𝐢𝐧 (˃̣̣̥᷄⌓˂̣̣̥᷅)"}
+        return {"success": False, "error": "<tg-emoji emoji-id=\"5850414922294365618\">🚫</tg-emoji> 𝐒𝐞𝐫𝐯𝐞𝐫 𝐁𝐮𝐬𝐲, 𝐓𝐫𝐲 𝐀𝐠𝐚𝐢𝐧 <tg-emoji emoji-id=\"5850600963097759409\">🚫</tg-emoji>"}
     
     # ═══════════════ PHOTO METHODS ═══════════════
     
@@ -364,7 +364,7 @@ class InstaDownloader:
         for method in [InstaDownloader._method_oembed, InstaDownloader._method_ytdlp, InstaDownloader._method_scrape_single, InstaDownloader._method_cdn]:
             result = method(shortcode)
             if result.get("success"): return result
-        return {"success": False, "error": "🚫 𝐒𝐞𝐫𝐯𝐞𝐫 𝐢𝐬𝐬𝐮𝐞, 𝐩𝐥𝐞𝐚𝐬𝐞 𝐭𝐫𝐲 𝐚𝐠𝐚𝐢𝐧 (˃̣̣̥᷄⌓˂̣̣̥᷅)"}
+        return {"success": False, "error": "<tg-emoji emoji-id=\"5850414922294365618\">🚫</tg-emoji> 𝐒𝐞𝐫𝐯𝐞𝐫 𝐢𝐬𝐬𝐮𝐞, 𝐩𝐥𝐞𝐚𝐬𝐞 𝐭𝐫𝐲 𝐚𝐠𝐚𝐢𝐧 <tg-emoji emoji-id=\"5850600963097759409\">🚫</tg-emoji>"}
     
     @staticmethod
     def _method_scrape_multi(shortcode, url):
@@ -631,7 +631,7 @@ GROUP_WELCOME = f"""👋🏻 ʜᴇʟʟᴏ {{chat_title}} <tg-emoji emoji-id="580
 
 <tg-emoji emoji-id="5825690573687754521">🌟</tg-emoji> ˹ᴅᴇᴠᴇʟᴏᴩᴇʀ˼ <tg-emoji emoji-id="5814637011495031358">🪽</tg-emoji> ➪ <a href="https://t.me/FathersOfCreater">𝜝𝜣𝜯 𝑭𝜟𝜯𝜢𝜮𝜞</a> <tg-emoji emoji-id="5825889735616238150">🌟</tg-emoji>"""
 
-BOT_DISABLED_MSG = "🚫 𝗕𝗢𝗧 𝗦𝗧𝗢𝗣 𝗕𝗬 𝗢𝗪𝗡𝗘𝗥\n\n𝗕𝗼𝘁 𝗶𝘀 𝗰𝘂𝗿𝗿𝗲𝗻𝘁𝗹𝘆 𝗱𝗶𝘀𝗮𝗯𝗹𝗲𝗱. (˃̣̣̥᷄⌓˂̣̣̥᷅)"
+BOT_DISABLED_MSG = "<tg-emoji emoji-id=\"5352865784508980799\">🚫</tg-emoji><tg-emoji emoji-id=\"5325878958799994800\">🚫</tg-emoji><tg-emoji emoji-id=\"5293991227513914037\">🚫</tg-emoji><tg-emoji emoji-id=\"5330292450013494017\">🚫</tg-emoji><tg-emoji emoji-id=\"5463362571341942623\">🚫</tg-emoji><tg-emoji emoji-id=\"5327938799345349736\">🚫</tg-emoji><tg-emoji emoji-id=\"5328162635860948105\">🚫</tg-emoji><tg-emoji emoji-id=\"5352708339597844431\">🚫</tg-emoji>\n\n<tg-emoji emoji-id=\"5352901995378252828\">⛔</tg-emoji> 𝗕𝗢𝗧 𝗦𝗧𝗢𝗣 𝗕𝗬 𝗢𝗪𝗡𝗘𝗥\n\n𝗕𝗼𝘁 𝗶𝘀 𝗰𝘂𝗿𝗿𝗲𝗻𝘁𝗹𝘆 𝗱𝗶𝘀𝗮𝗯𝗹𝗲𝗱 <tg-emoji emoji-id=\"5415914740478130417\">😢</tg-emoji> (˃̣̣̥᷄⌓˂̣̣̥᷅)"
 
 AUDIO_BUTTON_TEXT = "➪ ˹𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝 𝐕𝐢𝐝𝐞𝐨 𝐀𝐮𝐝𝐢𝐨˼  ♪"
 AUDIO_DEFAULT_NAME = "➪ ༼◉♡ 𝙈𝙮 𝙈𝙪𝙨𝙞𝙘 ♪🛸◉༽"
