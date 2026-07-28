@@ -1312,7 +1312,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # Added emojis ka preview line banao
             added_preview = ""
             for eid in emoji_ids:
-                if eid.isdigit() and len(eid) >= 15 and eid in [e for e in get_emojis()]:
+                if eid.isdigit() and len(eid) >= 15:
                     added_preview += f'<tg-emoji emoji-id="{eid}">🌟</tg-emoji>'
 
             if added_preview:
