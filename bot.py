@@ -675,12 +675,17 @@ async def welcome_animation(bot, chat_id, user_id, first_name):
         
         await asyncio.sleep(1)
         
+        # PURANA:
         random_love = random.choice(LOVE_EMOJIS)
         welcome_emoji_id = get_random_emoji()
         welcome_emoji = f'<tg-emoji emoji-id="{welcome_emoji_id}">🩷</tg-emoji>' if welcome_emoji_id else '🩷'
+
+# NAYA:
+love_id = LOVE_EMOJIS[0]
+custom_id = CUSTOM_EMOJIS[0]  # CUSTOM_EMOJIS list pehle define karo
         welcome_msg = await bot.send_message(
             chat_id, 
-            f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ <tg-emoji emoji-id=\"{random_love}\">❤️</tg-emoji> {user_mention}...{welcome_emoji}", 
+            f"𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐁ᴀʙʏ <tg-emoji emoji-id=\"{love_id}\">❤️</tg-emoji> {user_mention}...<tg-emoji emoji-id=\"{custom_id}\">🩷</tg-emoji>" 
             parse_mode="HTML"
         )
         
