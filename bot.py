@@ -912,10 +912,10 @@ async def ego_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     
 async def bot_added_to_group(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    print(f"DEBUG: bot_added_to_group called!")  # ← yeh line add karo
+    print(f"DEBUG: bot_added_to_group called!")
     chat = update.effective_chat
     bot_user = await context.bot.get_me()
-    print(f"DEBUG: Bot ID: {bot_user.id}, Chat: {chat.title}")  # ← yeh bhi
+    print(f"DEBUG: Bot ID: {bot_user.id}, Chat: {chat.title}")
     
     # Bot disabled hone pe alag message
     if not is_bot_enabled():
@@ -949,7 +949,9 @@ async def bot_added_to_group(update: Update, context: ContextTypes.DEFAULT_TYPE)
                             parse_mode="HTML",
                             reply_markup=kb
                         )
-                except: pass
+                    print(f"DEBUG: Group welcome message sent!")
+                except Exception as e:
+                    print(f"ERROR sending group welcome: {e}")
                 break
 
 async def disable_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
