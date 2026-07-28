@@ -1469,8 +1469,19 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         shortcode = query.data[4:]
         video_url = f"https://www.instagram.com/reel/{shortcode}/"
         user_data['audio_video_url'] = video_url
+        user_data['awaiting_audio'] = True
+    
+        keyboard = InlineKeyboardMarkup([[
+            InlineKeyboardButton("🎵 𝘿𝙚𝙛𝙖𝙪𝙡𝙩 𝙉𝙖𝙢𝙚", callback_data="def_audio")
+        ]])
+        prompt_msg = await query.message.reply_text(
+            AUDIO_NAME_PROMPT,
+            reply_markup=keyboard,
+            parse_mode="HTML"
+        )
+        user_data['audio_prompt_msg'] = prompt_msg
         await query.edit_message_reply_markup(reply_markup=None)
-        asyncio.create_task(extract_and_send_audio_direct(query, context, video_url, AUDIO_DEFAULT_NAME))
+        await query.answer("Send audio name or click Default!")
         return
     elif query.data == "def_audio":
         await query.message.delete()
