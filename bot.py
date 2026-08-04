@@ -555,15 +555,59 @@ class InstaDownloader:
         try:
             if custom_name and custom_name.lower() != "skip":
                 safe = re.sub(r'[^\w\s-]', '', custom_name).strip()[:50] or "Audio"
-                # Audio file VIDEO file ke SAME folder mein banao
                 ap = os.path.join(os.path.dirname(video_path), f"{safe}.mp3")
             else:
                 ap = os.path.join(os.path.dirname(video_path), f"{os.path.splitext(os.path.basename(video_path))[0]}.mp3")
-            if not shutil.which('ffmpeg'): return {"success": False, "error": "FFmpeg not found"}
-            subprocess.run(['ffmpeg', '-i', video_path, '-vn', '-acodec', 'libmp3lame', '-ab', '192k', '-y', ap], capture_output=True, timeout=300)
-            if os.path.exists(ap) and os.path.getsize(ap) > 1000: return {"success": True, "file_path": ap}
+        
+            if not shutil.which('ffmpeg'):
+                return {"success": False, "error": "FFmpeg not found"}
+        
+            # ═══════════════ HIGH QUALITY THUMBNAIL ═══════════════
+            thumbnail_path = os.path.join(os.path.dirname(video_path), f"{os.path.splitext(os.path.basename(video_path))[0]}_thumb.jpg")
+        
+            # 3 second ka frame (usually better quality)
+            subprocess.run([
+                'ffmpeg', '-i', video_path, 
+                '-ss', '00:00:03',
+                '-vframes', '1',
+                '-q:v', '2',  # High quality (1-5, 1 best)
+                '-vf', 'scale=1280:1280:force_original_aspect_ratio=decrease,pad=1280:1280:(ow-iw)/2:(oh-ih)/2',
+                '-y', thumbnail_path
+            ], capture_output=True, timeout=30)
+        
+            if os.path.exists(thumbnail_path) and os.path.getsize(thumbnail_path) > 500:
+                subprocess.run([
+                    'ffmpeg', 
+                    '-i', video_path,
+                    '-i', thumbnail_path,
+                    '-map', '0:a:0',
+                    '-map', '1:v:0',
+                    '-c:a', 'libmp3lame',
+                    '-ab', '320k',  # 320kbps quality
+                    '-id3v2_version', '3',
+                    '-metadata:s:v', 'title="Album cover"',
+                    '-metadata:s:v', 'comment="Cover (front)"',
+                    '-disposition:v', 'attached_pic',
+                    '-y', ap
+                ], capture_output=True, timeout=300)
+            else:
+                subprocess.run([
+                    'ffmpeg', '-i', video_path,
+                    '-vn',
+                    '-acodec', 'libmp3lame',
+                    '-ab', '320k',
+                    '-y', ap
+                ], capture_output=True, timeout=300)
+        
+            if os.path.exists(thumbnail_path):
+                try: os.remove(thumbnail_path)
+                except: pass
+        
+          if os.path.exists(ap) and os.path.getsize(ap) > 1000:
+                return {"success": True, "file_path": ap}
             return {"success": False, "error": "Audio extraction failed"}
-        except Exception as e: return {"success": False, "error": str(e)[:50]}
+        except Exception as e:
+            return {"success": False, "error": str(e)[:50]}
     
     @staticmethod
     def cleanup(fp):
