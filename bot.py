@@ -1425,7 +1425,7 @@ async def extract_and_send_audio_def(context, url, audio_name, chat_id, reply_to
                         thumb=thumb_file,
                         caption=CAPTION,
                         parse_mode="HTML",
-                        reply_to_message_id=reply_msg_id
+                        reply_to_message_id=reply_to_msg_id
                     )
 
                 if thumb_file:
@@ -1446,7 +1446,7 @@ async def extract_and_send_audio_def(context, url, audio_name, chat_id, reply_to
         except Exception as e: 
             try: await status_msg.edit_text(f"❌ {str(e)[:80]}", parse_mode="Markdown")
             except: pass
-
+                
 async def extract_and_send_audio_direct(query, context, url, audio_name):
     chat_id = query.message.chat_id
     
