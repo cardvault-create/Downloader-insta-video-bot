@@ -555,35 +555,15 @@ class InstaDownloader:
         try:
             if custom_name and custom_name.lower() != "skip":
                 safe = re.sub(r'[^\w\s-]', '', custom_name).strip()[:50] or "Audio"
+                # Audio file VIDEO file ke SAME folder mein banao
                 ap = os.path.join(os.path.dirname(video_path), f"{safe}.mp3")
             else:
                 ap = os.path.join(os.path.dirname(video_path), f"{os.path.splitext(os.path.basename(video_path))[0]}.mp3")
-    
-            if not shutil.which('ffmpeg'):
-                return {"success": False, "error": "FFmpeg not found"}
-    
-            # Simple thumbnail
-            thumb_path = os.path.join(os.path.dirname(video_path), "thumb.jpg")
-            subprocess.run([
-                'ffmpeg', '-i', video_path,
-                '-ss', '00:00:02', '-vframes', '1',
-                '-q:v', '2', '-y', thumb_path
-            ], capture_output=True, timeout=30)
-    
-            # Simple audio - NO attached_pic
-            subprocess.run([
-                'ffmpeg', '-i', video_path,
-                '-vn', '-acodec', 'libmp3lame',
-                '-ab', '192k', '-y', ap
-            ], capture_output=True, timeout=300)
-    
-            thumb_ok = os.path.exists(thumb_path) and os.path.getsize(thumb_path) > 500
-    
-            if os.path.exists(ap) and os.path.getsize(ap) > 1000:
-                return {"success": True, "file_path": ap, "thumbnail": thumb_path if thumb_ok else None}
+            if not shutil.which('ffmpeg'): return {"success": False, "error": "FFmpeg not found"}
+            subprocess.run(['ffmpeg', '-i', video_path, '-vn', '-acodec', 'libmp3lame', '-ab', '192k', '-y', ap], capture_output=True, timeout=300)
+            if os.path.exists(ap) and os.path.getsize(ap) > 1000: return {"success": True, "file_path": ap}
             return {"success": False, "error": "Audio extraction failed"}
-        except Exception as e:
-            return {"success": False, "error": str(e)[:50]}
+        except Exception as e: return {"success": False, "error": str(e)[:50]}
     
     @staticmethod
     def cleanup(fp):
@@ -1301,29 +1281,19 @@ async def extract_and_send_audio_msg(update, context, url, audio_name, video_msg
             if ar.get("success"):
                 await status_msg.edit_text("<tg-emoji emoji-id=\"6032754146778551433\">🎻</tg-emoji> 𝗦𝗲𝗻𝗱𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼♡ ⋆｡°✩", parse_mode="HTML")
                 await context.bot.send_chat_action(chat_id=chat_id, action='upload_audio')
-                thumb = ar.get("thumbnail")
-                thumb_file = open(thumb, 'rb') if thumb and os.path.exists(thumb) else None
-
                 with open(ar["file_path"], 'rb') as f:
                     await context.bot.send_audio(
                         chat_id=chat_id,
                         audio=f,
                         title=audio_name,
-                        performer="✩⋆｡°𝗕𝘆 ➪ 𓆩#ＫＡ𝐑ＴＩ𝐊𓆪 ♡",
-                        thumb=thumb_file,
+                        performer="✩⋆｡°𝗕𝘆 ➪ 𓆩#ＫＡＲＴＩＫ𓆪 ♡",
                         caption=CAPTION,
                         parse_mode="HTML",
-                        reply_to_message_id=reply_msg_id   # ya query.message.message_id
+                        reply_to_message_id=reply_msg_id
                     )
-
-                if thumb_file:
-                    thumb_file.close()
                 await asyncio.sleep(2)
                 await status_msg.delete()
-                try: 
-                    os.remove(ar["file_path"])
-                    if thumb and os.path.exists(thumb):
-                        os.remove(thumb)
+                try: os.remove(ar["file_path"])
                 except: pass
             else: 
                 await status_msg.edit_text(f"❌ {ar.get('error')}", parse_mode="Markdown")
@@ -1383,29 +1353,20 @@ async def extract_and_send_audio_def(context, url, audio_name, chat_id, reply_to
                 await status_msg.edit_text("<tg-emoji emoji-id=\"6032754146778551433\">🎻</tg-emoji> 𝗦𝗲𝗻𝗱𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼♡ ⋆｡°✩", parse_mode="HTML")
                 await context.bot.send_chat_action(chat_id=chat_id, action='upload_audio')
                 
-                thumb = ar.get("thumbnail")
-                thumb_file = open(thumb, 'rb') if thumb and os.path.exists(thumb) else None
-
                 with open(ar["file_path"], 'rb') as f:
                     await context.bot.send_audio(
                         chat_id=chat_id,
                         audio=f,
                         title=audio_name,
-                        performer="✩⋆｡°𝗕𝘆 ➪ 𓆩#ＫＡ𝐑ＴＩ𝐊𓆪 ♡",
-                        thumb=thumb_file,
+                        performer="✩⋆｡°𝗕𝘆 ➪ 𓆩#ＫＡＲＴＩＫ𓆪 ♡",
                         caption=CAPTION,
                         parse_mode="HTML",
                         reply_to_message_id=reply_to_msg_id
                     )
-
-                if thumb_file:
-                    thumb_file.close()
+                    
                 await asyncio.sleep(2)
                 await status_msg.delete()
-                try: 
-                    os.remove(ar["file_path"])
-                    if thumb and os.path.exists(thumb):
-                        os.remove(thumb)
+                try: os.remove(ar["file_path"])
                 except: pass
             else: 
                 await status_msg.edit_text(f"❌ {ar.get('error')}", parse_mode="Markdown")
@@ -1415,7 +1376,7 @@ async def extract_and_send_audio_def(context, url, audio_name, chat_id, reply_to
         except Exception as e: 
             try: await status_msg.edit_text(f"❌ {str(e)[:80]}", parse_mode="Markdown")
             except: pass
-                
+
 async def extract_and_send_audio_direct(query, context, url, audio_name):
     chat_id = query.message.chat_id
     
@@ -1472,29 +1433,18 @@ async def extract_and_send_audio_direct(query, context, url, audio_name):
             if ar.get("success"):
                 await status_msg.edit_text("<tg-emoji emoji-id=\"6032754146778551433\">🎻</tg-emoji> 𝗦𝗲𝗻𝗱𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼♡ ⋆｡°✩", parse_mode="HTML")
                 await context.bot.send_chat_action(chat_id=chat_id, action='upload_audio')
-                thumb = ar.get("thumbnail")
-                thumb_file = open(thumb, 'rb') if thumb and os.path.exists(thumb) else None
-
                 with open(ar["file_path"], 'rb') as f:
                     await context.bot.send_audio(
                         chat_id=chat_id,
                         audio=f,
                         title=audio_name,
-                        performer="✩⋆｡°𝗕𝘆 ➪ 𓆩#ＫＡ𝐑ＴＩ𝐊𓆪 ♡",
-                        thumb=thumb_file,
+                        performer="✩⋆｡°𝗕𝘆 ➪ 𓆩#ＫＡＲＴＩＫ𓆪 ♡",
                         caption=CAPTION,
-                        parse_mode="HTML",
-                        reply_to_message_id=query.message.message_id
+                        parse_mode="HTML"
                     )
-
-                if thumb_file:
-                    thumb_file.close()
                 await asyncio.sleep(2)
                 await status_msg.delete()
-                try: 
-                    os.remove(ar["file_path"])
-                    if thumb and os.path.exists(thumb):
-                        os.remove(thumb)
+                try: os.remove(ar["file_path"])
                 except: pass
             else: 
                 await status_msg.edit_text(f"❌ {ar.get('error')}", parse_mode="Markdown")
