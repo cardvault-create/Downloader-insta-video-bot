@@ -1500,7 +1500,7 @@ async def extract_and_send_audio_direct(query, context, url, audio_name):
                         thumb=thumb_file,
                         caption=CAPTION,
                         parse_mode="HTML",
-                        reply_to_message_id=reply_msg_id
+                        reply_to_message_id=query.message.message_id
                     )
 
                 if thumb_file:
