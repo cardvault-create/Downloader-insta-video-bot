@@ -563,7 +563,7 @@ class InstaDownloader:
                 return {"success": False, "error": "FFmpeg not found"}
     
             subprocess.run([
-            'ffmpeg', '-i', video_path,
+                'ffmpeg', '-i', video_path,
                 '-vn',
                 '-acodec', 'libmp3lame',
                 '-ab', '192k',
