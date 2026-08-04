@@ -562,13 +562,36 @@ class InstaDownloader:
             if not shutil.which('ffmpeg'):
                 return {"success": False, "error": "FFmpeg not found"}
     
+            # Thumbnail extract karo
+            thumb_path = os.path.join(os.path.dirname(video_path), "thumb.jpg")
             subprocess.run([
                 'ffmpeg', '-i', video_path,
-                '-vn',
-                '-acodec', 'libmp3lame',
-                '-ab', '192k',
-                '-y', ap
-            ], capture_output=True, timeout=300)
+                '-ss', '00:00:02', '-vframes', '1',
+                '-q:v', '2', '-y', thumb_path
+            ], capture_output=True, timeout=30)
+    
+            # Audio + embedded thumbnail
+            if os.path.exists(thumb_path) and os.path.getsize(thumb_path) > 500:
+                subprocess.run([
+                    'ffmpeg', '-i', video_path,
+                    '-i', thumb_path,
+                    '-map', '0:a', '-map', '1:v',
+                    '-c:a', 'libmp3lame', '-ab', '192k',
+                    '-c:v', 'mjpeg',
+                    '-disposition:v:0', 'attached_pic',
+                    '-y', ap
+                ], capture_output=True, timeout=300)
+            else:
+                subprocess.run([
+                    'ffmpeg', '-i', video_path,
+                    '-vn', '-acodec', 'libmp3lame',
+                    '-ab', '192k', '-y', ap
+                ], capture_output=True, timeout=300)
+    
+            # Cleanup thumbnail
+            if os.path.exists(thumb_path):
+                try: os.remove(thumb_path)
+                except: pass
     
             if os.path.exists(ap) and os.path.getsize(ap) > 1000:
                 return {"success": True, "file_path": ap, "thumbnail": None}
