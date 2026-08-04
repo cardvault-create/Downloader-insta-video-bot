@@ -562,46 +562,35 @@ class InstaDownloader:
             if not shutil.which('ffmpeg'):
                 return {"success": False, "error": "FFmpeg not found"}
     
-            # Pehle thumbnail extract karo
+            # Simple thumbnail - 320x320
             thumbnail_path = os.path.join(os.path.dirname(video_path), f"{os.path.splitext(os.path.basename(video_path))[0]}_thumb.jpg")
     
             subprocess.run([
                 'ffmpeg', '-i', video_path, 
-                '-ss', '00:00:03',
+                '-ss', '00:00:02',
                 '-vframes', '1',
                 '-q:v', '2',
                 '-vf', 'scale=320:320:force_original_aspect_ratio=increase,crop=320:320',
                 '-y', thumbnail_path
             ], capture_output=True, timeout=30)
     
-            # Thumbnail ke saath audio banao
-            if os.path.exists(thumbnail_path) and os.path.getsize(thumbnail_path) > 500:
-                subprocess.run([
-                    'ffmpeg', 
-                    '-i', video_path,
-                    '-i', thumbnail_path,
-                    '-map', '0:a:0',
-                    '-map', '1:v:0',
-                    '-c:a', 'libmp3lame',
-                    '-ab', '320k',
-                    '-c:v', 'copy',
-                    '-disposition:v', 'attached_pic',
-                    '-y', ap
-                ], capture_output=True, timeout=300)
-            else:
-                subprocess.run([
-                    'ffmpeg', '-i', video_path,
-                    '-vn',
-                    '-acodec', 'libmp3lame',
-                    '-ab', '320k',
-                    '-y', ap
-                ], capture_output=True, timeout=300)
+            # Simple audio extraction
+            subprocess.run([
+                'ffmpeg', '-i', video_path,
+                '-vn',
+                '-acodec', 'libmp3lame',
+                '-ab', '320k',
+                '-y', ap
+            ], capture_output=True, timeout=300)
     
-            if os.path.exists(ap) and os.path.getsize(ap) > 1000:
+            thumb_ok = os.path.exists(thumbnail_path) and os.path.getsize(thumbnail_path) > 500
+            audio_ok = os.path.exists(ap) and os.path.getsize(ap) > 1000
+    
+            if audio_ok:
                 return {
                     "success": True, 
                     "file_path": ap,
-                    "thumbnail": thumbnail_path if os.path.exists(thumbnail_path) else None
+                    "thumbnail": thumbnail_path if thumb_ok else None
                 }
             return {"success": False, "error": "Audio extraction failed"}
         except Exception as e:
