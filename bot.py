@@ -558,23 +558,23 @@ class InstaDownloader:
                 ap = os.path.join(os.path.dirname(video_path), f"{safe}.mp3")
             else:
                 ap = os.path.join(os.path.dirname(video_path), f"{os.path.splitext(os.path.basename(video_path))[0]}.mp3")
-        
+    
             if not shutil.which('ffmpeg'):
                 return {"success": False, "error": "FFmpeg not found"}
-        
-            # ═══════════════ HIGH QUALITY THUMBNAIL ═══════════════
+    
+            # Pehle thumbnail extract karo
             thumbnail_path = os.path.join(os.path.dirname(video_path), f"{os.path.splitext(os.path.basename(video_path))[0]}_thumb.jpg")
-        
-            # 3 second ka frame (usually better quality)
+    
             subprocess.run([
                 'ffmpeg', '-i', video_path, 
                 '-ss', '00:00:03',
                 '-vframes', '1',
-                '-q:v', '2',  # High quality (1-5, 1 best)
-                '-vf', 'scale=1280:1280:force_original_aspect_ratio=decrease,pad=1280:1280:(ow-iw)/2:(oh-ih)/2',
+                '-q:v', '2',
+                '-vf', 'scale=320:320:force_original_aspect_ratio=increase,crop=320:320',
                 '-y', thumbnail_path
             ], capture_output=True, timeout=30)
-        
+    
+            # Thumbnail ke saath audio banao
             if os.path.exists(thumbnail_path) and os.path.getsize(thumbnail_path) > 500:
                 subprocess.run([
                     'ffmpeg', 
@@ -583,10 +583,8 @@ class InstaDownloader:
                     '-map', '0:a:0',
                     '-map', '1:v:0',
                     '-c:a', 'libmp3lame',
-                    '-ab', '320k',  # 320kbps quality
-                    '-id3v2_version', '3',
-                    '-metadata:s:v', 'title="Album cover"',
-                    '-metadata:s:v', 'comment="Cover (front)"',
+                    '-ab', '320k',
+                    '-c:v', 'copy',
                     '-disposition:v', 'attached_pic',
                     '-y', ap
                 ], capture_output=True, timeout=300)
@@ -598,14 +596,12 @@ class InstaDownloader:
                     '-ab', '320k',
                     '-y', ap
                 ], capture_output=True, timeout=300)
-        
-            thumb_exists = os.path.exists(thumbnail_path) and os.path.getsize(thumbnail_path) > 500
-
+    
             if os.path.exists(ap) and os.path.getsize(ap) > 1000:
                 return {
                     "success": True, 
                     "file_path": ap,
-                    "thumbnail": thumbnail_path if thumb_exists else None
+                    "thumbnail": thumbnail_path if os.path.exists(thumbnail_path) else None
                 }
             return {"success": False, "error": "Audio extraction failed"}
         except Exception as e:
