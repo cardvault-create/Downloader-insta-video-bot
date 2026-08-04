@@ -1306,8 +1306,6 @@ async def extract_and_send_audio_msg(update, context, url, audio_name, video_msg
                 await status_msg.delete()
                 try: 
                     os.remove(ar["file_path"])
-                    if ar.get("thumbnail") and os.path.exists(ar["thumbnail"]):
-                        os.remove(ar["thumbnail"])
                 except: pass
             else: 
                 await status_msg.edit_text(f"❌ {ar.get('error')}", parse_mode="Markdown")
@@ -1382,8 +1380,6 @@ async def extract_and_send_audio_def(context, url, audio_name, chat_id, reply_to
                 await status_msg.delete()
                 try: 
                     os.remove(ar["file_path"])
-                    if ar.get("thumbnail") and os.path.exists(ar["thumbnail"]):
-                        os.remove(ar["thumbnail"])
                 except: pass
             else: 
                 await status_msg.edit_text(f"❌ {ar.get('error')}", parse_mode="Markdown")
@@ -1462,9 +1458,7 @@ async def extract_and_send_audio_direct(query, context, url, audio_name):
                 await asyncio.sleep(2)
                 await status_msg.delete()
                 try: 
-                    os.remove(ar["file_path"])
-                    if ar.get("thumbnail") and os.path.exists(ar["thumbnail"]):
-                        os.remove(ar["thumbnail"])
+                    os.remove(ar["file_path"])        
                 except: pass
             else: 
                 await status_msg.edit_text(f"❌ {ar.get('error')}", parse_mode="Markdown")
