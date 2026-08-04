@@ -880,7 +880,9 @@ async def bot_added_to_group(update: Update, context: ContextTypes.DEFAULT_TYPE)
                         )
                 except Exception as e:
                     print(f"ERROR sending group welcome: {e}")
-                breakasync def add_emoji_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+                    break
+
+async def add_emoji_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
     
     if update.message.reply_to_message and update.message.reply_to_message.sticker:
