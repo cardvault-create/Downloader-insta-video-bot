@@ -562,36 +562,16 @@ class InstaDownloader:
             if not shutil.which('ffmpeg'):
                 return {"success": False, "error": "FFmpeg not found"}
     
-            # Simple thumbnail - 320x320
-            thumbnail_path = os.path.join(os.path.dirname(video_path), f"{os.path.splitext(os.path.basename(video_path))[0]}_thumb.jpg")
-    
             subprocess.run([
-                'ffmpeg', '-i', video_path, 
-                '-ss', '00:00:02',
-                '-vframes', '1',
-                '-q:v', '2',
-                '-vf', 'scale=320:320:force_original_aspect_ratio=increase,crop=320:320',
-                '-y', thumbnail_path
-            ], capture_output=True, timeout=30)
-    
-            # Simple audio extraction
-            subprocess.run([
-                'ffmpeg', '-i', video_path,
+            'ffmpeg', '-i', video_path,
                 '-vn',
                 '-acodec', 'libmp3lame',
-                '-ab', '320k',
+                '-ab', '192k',
                 '-y', ap
             ], capture_output=True, timeout=300)
     
-            thumb_ok = os.path.exists(thumbnail_path) and os.path.getsize(thumbnail_path) > 500
-            audio_ok = os.path.exists(ap) and os.path.getsize(ap) > 1000
-    
-            if audio_ok:
-                return {
-                    "success": True, 
-                    "file_path": ap,
-                    "thumbnail": thumbnail_path if thumb_ok else None
-                }
+            if os.path.exists(ap) and os.path.getsize(ap) > 1000:
+                return {"success": True, "file_path": ap, "thumbnail": None}
             return {"success": False, "error": "Audio extraction failed"}
         except Exception as e:
             return {"success": False, "error": str(e)[:50]}
@@ -1312,23 +1292,16 @@ async def extract_and_send_audio_msg(update, context, url, audio_name, video_msg
             if ar.get("success"):
                 await status_msg.edit_text("<tg-emoji emoji-id=\"6032754146778551433\">🎻</tg-emoji> 𝗦𝗲𝗻𝗱𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼♡ ⋆｡°✩", parse_mode="HTML")
                 await context.bot.send_chat_action(chat_id=chat_id, action='upload_audio')
-                thumb_path = ar.get("thumbnail")
-                thumb_file = open(thumb_path, 'rb') if thumb_path and os.path.exists(thumb_path) else None
-
                 with open(ar["file_path"], 'rb') as f:
                     await context.bot.send_audio(
                         chat_id=chat_id,
                         audio=f,
                         title=audio_name,
                         performer="✩⋆｡°𝗕𝘆 ➪ 𓆩#ＫＡＲＴＩＫ𓆪 ♡",
-                        thumb=thumb_file,
                         caption=CAPTION,
                         parse_mode="HTML",
                         reply_to_message_id=reply_msg_id
                     )
-
-                if thumb_file:
-                    thumb_file.close()
                 await asyncio.sleep(2)
                 await status_msg.delete()
                 try: 
@@ -1394,23 +1367,16 @@ async def extract_and_send_audio_def(context, url, audio_name, chat_id, reply_to
                 await status_msg.edit_text("<tg-emoji emoji-id=\"6032754146778551433\">🎻</tg-emoji> 𝗦𝗲𝗻𝗱𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼♡ ⋆｡°✩", parse_mode="HTML")
                 await context.bot.send_chat_action(chat_id=chat_id, action='upload_audio')
                 
-                thumb_path = ar.get("thumbnail")
-                thumb_file = open(thumb_path, 'rb') if thumb_path and os.path.exists(thumb_path) else None
-
                 with open(ar["file_path"], 'rb') as f:
                     await context.bot.send_audio(
                         chat_id=chat_id,
                         audio=f,
                         title=audio_name,
                         performer="✩⋆｡°𝗕𝘆 ➪ 𓆩#ＫＡＲＴＩ𝐊𓆪 ♡",
-                        thumb=thumb_file,
                         caption=CAPTION,
                         parse_mode="HTML",
                         reply_to_message_id=reply_to_msg_id
                     )
-
-                if thumb_file:
-                    thumb_file.close()
                     
                 await asyncio.sleep(2)
                 await status_msg.delete()
@@ -1484,22 +1450,15 @@ async def extract_and_send_audio_direct(query, context, url, audio_name):
             if ar.get("success"):
                 await status_msg.edit_text("<tg-emoji emoji-id=\"6032754146778551433\">🎻</tg-emoji> 𝗦𝗲𝗻𝗱𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼♡ ⋆｡°✩", parse_mode="HTML")
                 await context.bot.send_chat_action(chat_id=chat_id, action='upload_audio')
-                thumb_path = ar.get("thumbnail")
-                thumb_file = open(thumb_path, 'rb') if thumb_path and os.path.exists(thumb_path) else None
-
                 with open(ar["file_path"], 'rb') as f:
                     await context.bot.send_audio(
                         chat_id=chat_id,
                         audio=f,
                         title=audio_name,
                         performer="✩⋆｡°𝗕𝘆 ➪ 𓆩#ＫＡＲＴＩ𝐊𓆪 ♡",
-                        thumb=thumb_file,
                         caption=CAPTION,
                         parse_mode="HTML"
                     )
-
-                if thumb_file:
-                    thumb_file.close()
                 await asyncio.sleep(2)
                 await status_msg.delete()
                 try: 
