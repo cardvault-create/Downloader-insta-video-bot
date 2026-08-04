@@ -562,7 +562,7 @@ class InstaDownloader:
             if not shutil.which('ffmpeg'):
                 return {"success": False, "error": "FFmpeg not found"}
     
-            # Thumbnail extract karo
+            # Simple thumbnail
             thumb_path = os.path.join(os.path.dirname(video_path), "thumb.jpg")
             subprocess.run([
                 'ffmpeg', '-i', video_path,
@@ -570,33 +570,17 @@ class InstaDownloader:
                 '-q:v', '2', '-y', thumb_path
             ], capture_output=True, timeout=30)
     
-            # Audio + embedded thumbnail
-            if os.path.exists(thumb_path) and os.path.getsize(thumb_path) > 500:
-                subprocess.run([
-                    'ffmpeg', '-i', video_path,
-                    '-i', thumb_path,
-                    '-map', '0:a', '-map', '1:v',
-                    '-c:a', 'libmp3lame', '-ab', '192k',
-                    '-c:v', 'mjpeg',
-                    '-disposition:v:0', 'attached_pic',
-                    '-y', ap
-                ], capture_output=True, timeout=300)
-            else:
-                subprocess.run([
-                    'ffmpeg', '-i', video_path,
-                    '-vn', '-acodec', 'libmp3lame',
-                    '-ab', '192k', '-y', ap
-                ], capture_output=True, timeout=300)
+            # Simple audio - NO attached_pic
+            subprocess.run([
+                'ffmpeg', '-i', video_path,
+                '-vn', '-acodec', 'libmp3lame',
+                '-ab', '192k', '-y', ap
+            ], capture_output=True, timeout=300)
     
-            # Thumbnail DELETE MAT KARO
             thumb_ok = os.path.exists(thumb_path) and os.path.getsize(thumb_path) > 500
-
+    
             if os.path.exists(ap) and os.path.getsize(ap) > 1000:
-                return {
-                    "success": True, 
-                    "file_path": ap, 
-                    "thumbnail": thumb_path if thumb_ok else None
-                }
+                return {"success": True, "file_path": ap, "thumbnail": thumb_path if thumb_ok else None}
             return {"success": False, "error": "Audio extraction failed"}
         except Exception as e:
             return {"success": False, "error": str(e)[:50]}
@@ -1325,11 +1309,11 @@ async def extract_and_send_audio_msg(update, context, url, audio_name, video_msg
                         chat_id=chat_id,
                         audio=f,
                         title=audio_name,
-                        performer="✩⋆｡°𝗕𝘆 ➪ 𓆩#ＫＡＲＴＩＫ𓆪 ♡",
+                        performer="✩⋆｡°𝗕𝘆 ➪ 𓆩#ＫＡ𝐑ＴＩ𝐊𓆪 ♡",
                         thumb=thumb_file,
                         caption=CAPTION,
                         parse_mode="HTML",
-                        reply_to_message_id=reply_msg_id
+                        reply_to_message_id=reply_msg_id   # ya query.message.message_id
                     )
 
                 if thumb_file:
@@ -1407,11 +1391,11 @@ async def extract_and_send_audio_def(context, url, audio_name, chat_id, reply_to
                         chat_id=chat_id,
                         audio=f,
                         title=audio_name,
-                        performer="✩⋆｡°𝗕𝘆 ➪ 𓆩#ＫＡＲＴＩＫ𓆪 ♡",
+                        performer="✩⋆｡°𝗕𝘆 ➪ 𓆩#ＫＡ𝐑ＴＩ𝐊𓆪 ♡",
                         thumb=thumb_file,
                         caption=CAPTION,
                         parse_mode="HTML",
-                        reply_to_message_id=reply_to_msg_id 
+                        reply_to_message_id=reply_msg_id   # ya query.message.message_id
                     )
 
                 if thumb_file:
@@ -1496,11 +1480,11 @@ async def extract_and_send_audio_direct(query, context, url, audio_name):
                         chat_id=chat_id,
                         audio=f,
                         title=audio_name,
-                        performer="✩⋆｡°𝗕𝘆 ➪ 𓆩#ＫＡＲＴＩＫ𓆪 ♡",
+                        performer="✩⋆｡°𝗕𝘆 ➪ 𓆩#ＫＡ𝐑ＴＩ𝐊𓆪 ♡",
                         thumb=thumb_file,
                         caption=CAPTION,
                         parse_mode="HTML",
-                        reply_to_message_id=query.message.message_id
+                        reply_to_message_id=reply_msg_id   # ya query.message.message_id
                     )
 
                 if thumb_file:
