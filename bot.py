@@ -599,10 +599,6 @@ class InstaDownloader:
                     '-y', ap
                 ], capture_output=True, timeout=300)
         
-            if os.path.exists(thumbnail_path):
-                try: os.remove(thumbnail_path)
-                except: pass
-        
             thumb_exists = os.path.exists(thumbnail_path) and os.path.getsize(thumbnail_path) > 500
 
             if os.path.exists(ap) and os.path.getsize(ap) > 1000:
