@@ -603,7 +603,7 @@ class InstaDownloader:
                 try: os.remove(thumbnail_path)
                 except: pass
         
-          if os.path.exists(ap) and os.path.getsize(ap) > 1000:
+            if os.path.exists(ap) and os.path.getsize(ap) > 1000:
                 return {"success": True, "file_path": ap}
             return {"success": False, "error": "Audio extraction failed"}
         except Exception as e:
