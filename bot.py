@@ -634,7 +634,7 @@ GROUP_WELCOME = f"""👋🏻 ʜᴇʟʟᴏ {{chat_title}} <tg-emoji emoji-id="580
 BOT_DISABLED_MSG = "<tg-emoji emoji-id=\"5352865784508980799\">🚫</tg-emoji><tg-emoji emoji-id=\"5325878958799994800\">🚫</tg-emoji><tg-emoji emoji-id=\"5293991227513914037\">🚫</tg-emoji><tg-emoji emoji-id=\"5330292450013494017\">🚫</tg-emoji><tg-emoji emoji-id=\"5463362571341942623\">🚫</tg-emoji><tg-emoji emoji-id=\"5327938799345349736\">🚫</tg-emoji><tg-emoji emoji-id=\"5328162635860948105\">🚫</tg-emoji><tg-emoji emoji-id=\"5352708339597844431\">🚫</tg-emoji>\n\n<tg-emoji emoji-id=\"5352901995378252828\">⛔</tg-emoji> 𝗕𝗢𝗧 𝗦𝗧𝗢𝗣 𝗕𝗬 𝗢𝗪𝗡𝗘𝗥\n\n𝗕𝗼𝘁 𝗶𝘀 𝗰𝘂𝗿𝗿𝗲𝗻𝘁𝗹𝘆 𝗱𝗶𝘀𝗮𝗯𝗹𝗲𝗱 <tg-emoji emoji-id=\"5415914740478130417\">😢</tg-emoji> (˃̣̣̥᷄⌓˂̣̣̥᷅)"
 
 AUDIO_BUTTON_TEXT = "➪ ˹𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝 𝐕𝐢𝐝𝐞𝐨 𝐀𝐮𝐝𝐢𝐨˼  ♪"
-AUDIO_DEFAULT_NAME = "➪ ╰◉♡ ˹𝐌𝐲𐙚𝐌𝐮𝐬𝐢𝐜˼→♪◟˚ . ⋆˚ · ♪◉╯"
+AUDIO_DEFAULT_NAME = "⁂ ╰◉♡ ˹𝐌𝐲𐙚𝐌𝐮𝐬𝐢𝐜˼→♪◟˚ . ⋆˚ · ♪◉╯"
 
 # Premium emoji IDs for Default Name button
 AUDIO_DEFAULT_EMOJIS = [
