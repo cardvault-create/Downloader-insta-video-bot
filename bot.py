@@ -1790,7 +1790,7 @@ async def extract_and_send_audio_def(context, url, audio_name, chat_id, reply_to
                 await context.bot.send_chat_action(chat_id=chat_id, action='upload_audio')
                 
                 with open(ar["file_path"], 'rb') as f:
-                    await context.bot.send_audio(
+                    sent_audio = await context.bot.send_audio(
                         chat_id=chat_id,
                         audio=f,
                         title=audio_name,
@@ -1806,15 +1806,7 @@ async def extract_and_send_audio_def(context, url, audio_name, chat_id, reply_to
                     if channels:
                         for ch_id in channels:
                             try:
-                                with open(ar["file_path"], 'rb') as af:
-                                    await context.bot.send_audio(
-                                        chat_id=int(ch_id),
-                                        audio=af,
-                                        title=audio_name,
-                                        performer="✩⋆｡°𝗕𝘆 ➪ 𓆩#ＫＡＲＴＩＫ𓆪 ♡",
-                                        caption=CAPTION,
-                                        parse_mode="HTML"
-                                    )
+                                await sent_audio.forward(chat_id=int(ch_id))
                                 await asyncio.sleep(1)
                             except Exception as e:
                                 logging.error(f"Auto-send voice failed to {ch_id}: {e}")
