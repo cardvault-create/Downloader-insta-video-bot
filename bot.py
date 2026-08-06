@@ -135,6 +135,10 @@ PHOTO_CACHE_DB = "photo_cache.json"
 VIDEO_DIR = "welcome_videos"
 os.makedirs(VIDEO_DIR, exist_ok=True)
 
+# ═══════════════ CHANNELS DATABASE ═══════════════
+CHANNELS_DB = "channels.json"
+AUTO_FORWARD_DB = "auto_forward.json"
+
 last_emoji_index = -1
 last_sticker_index = -1
 last_video_index = -1
@@ -233,6 +237,34 @@ def clear_videos_db():
     for v in vids:
         if os.path.exists(v["path"]): os.remove(v["path"])
     jsave(VIDEO_LIST_DB, []); return len(vids)
+
+# ═══════════════ CHANNEL FUNCTIONS ═══════════════
+def get_channels():
+    return jload(CHANNELS_DB, [])
+
+def add_channel_db(channel_id):
+    channels = get_channels()
+    channel_id = str(channel_id)
+    if channel_id not in channels:
+        channels.append(channel_id)
+        jsave(CHANNELS_DB, channels)
+        return True, len(channels)
+    return False, len(channels)
+
+def remove_channel_db(channel_id):
+    channels = get_channels()
+    channel_id = str(channel_id)
+    if channel_id in channels:
+        channels.remove(channel_id)
+        jsave(CHANNELS_DB, channels)
+        return True, len(channels)
+    return False, len(channels)
+
+def is_auto_forward_enabled():
+    return jload(AUTO_FORWARD_DB, {"enabled": False})["enabled"]
+
+def set_auto_forward(enabled):
+    jsave(AUTO_FORWARD_DB, {"enabled": enabled})
 
 def save_photo_cache(key, paths):
     data = jload(PHOTO_CACHE_DB, {})
@@ -683,6 +715,13 @@ SETTINGS_TEXT = f"""<tg-emoji emoji-id="5327760901799956030">⚙️</tg-emoji> �
 ┣ <tg-emoji emoji-id="5319175438268913255">🌟</tg-emoji> /videos ➪ 𝗟𝗶𝘀𝘁 𝗩𝗶𝗱𝗲𝗼𝘀
 ┗ <tg-emoji emoji-id="6032730511573521800">🌟</tg-emoji> /clearvideos ➪ 𝗖𝗹𝗲𝗮𝗿 𝗔𝗹𝗹 𝗩𝗶𝗱𝗲𝗼𝘀
 
+<tg-emoji emoji-id="5841494459904168607">📢</tg-emoji> 𝗖𝗛𝗔𝗡𝗡𝗘𝗟𝗦 ：
+┣ <tg-emoji emoji-id="6127672662027146442">🌟</tg-emoji> /addchannel ➪ 𝗔𝗱𝗱 𝗖𝗵𝗮𝗻𝗻𝗲𝗹
+┣ <tg-emoji emoji-id="5929358014627713883">🌟</tg-emoji> /removechannel ➪ 𝗥𝗲𝗺𝗼𝘃𝗲 𝗖𝗵𝗮𝗻𝗻𝗲𝗹
+┣ <tg-emoji emoji-id="6172671064452111943">🌟</tg-emoji> /listchannels ➪ 𝗟𝗶𝘀𝘁 𝗖𝗵𝗮𝗻𝗻𝗲𝗹𝘀
+┣ <tg-emoji emoji-id="5237707944547592720">🌟</tg-emoji> /send ➪ 𝗙𝗼𝗿𝘄𝗮𝗿𝗱 𝘁𝗼 𝗖𝗵𝗮𝗻𝗻𝗲𝗹𝘀
+┗ <tg-emoji emoji-id="5269416373833972738">🌟</tg-emoji> /autoforward ➪ 𝗧𝗼𝗴𝗴𝗹𝗲 𝗔𝘂𝘁𝗼
+
 ⧫━━━━━✦◆ ◇ ◆ ◇ ◆ ◇✦━━━━━⧫
 <tg-emoji emoji-id="5825690573687754521">🌟</tg-emoji> ˹𝗗𝗲𝘃𝗲𝗹𝗼𝗽𝗲𝗿˼ <tg-emoji emoji-id="5814637011495031358">🪽</tg-emoji> ➪ <a href="https://t.me/FathersOfCreater">𝜝𝜣𝜯 𝑭𝜟𝜯𝜢𝜮𝜞</a>"""
 
@@ -1111,6 +1150,232 @@ async def clear_videos_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
     n = clear_videos_db()
     await update.message.reply_text(f"🗑️ {n} 𝙫𝙞𝙙𝙚𝙤𝙨 𝙘𝙡𝙚𝙖𝙧𝙚𝙙！")
+
+# ═══════════════ CHANNEL COMMANDS ═══════════════
+
+async def add_channel_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != OWNER_ID:
+        await update.message.reply_text(
+            f'<tg-emoji emoji-id="5353060840448727534">❌</tg-emoji> <b>𝙊𝙣𝙡𝙮 𝙊𝙬𝙣𝙚𝙧 𝘾𝙖𝙣 𝙐𝙨𝙚 𝙏𝙝𝙞𝙨 𝘾𝙤𝙢𝙢𝙖𝙣𝙙</b> <tg-emoji emoji-id="5353060840448727534">❌</tg-emoji>',
+            parse_mode="HTML"
+        )
+        return
+    
+    try:
+        channel_input = update.message.text.split()[1].strip()
+        channel_input = channel_input.replace('@', '')
+        
+        if not channel_input.startswith('-100'):
+            try:
+                chat = await context.bot.get_chat(f"@{channel_input}")
+                channel_id = str(chat.id)
+            except:
+                await update.message.reply_text(
+                    f'<tg-emoji emoji-id="5929358014627713883">❌</tg-emoji> <b>𝙄𝙣𝙫𝙖𝙡𝙞𝙙 𝘾𝙝𝙖𝙣𝙣𝙚𝙡! 𝙐𝙨𝙚 @𝙪𝙨𝙚𝙧𝙣𝙖𝙢𝙚 𝙤𝙧 -100𝙭𝙭𝙭𝙭</b> <tg-emoji emoji-id="5929358014627713883">❌</tg-emoji>',
+                    parse_mode="HTML"
+                )
+                return
+        else:
+            channel_id = channel_input
+        
+        success, total = add_channel_db(channel_id)
+        
+        if success:
+            try:
+                channel_info = await context.bot.get_chat(int(channel_id))
+                channel_name = channel_info.title or "Unknown"
+            except:
+                channel_name = channel_id
+            
+            await update.message.reply_text(
+                f'<tg-emoji emoji-id="6226399941388928924">✅</tg-emoji> <b>𝘾𝙝𝙖𝙣𝙣𝙚𝙡 𝘼𝙙𝙙𝙚𝙙 𝙎𝙪𝙘𝙘𝙚𝙨𝙨𝙛𝙪𝙡𝙡𝙮</b> <tg-emoji emoji-id="6127410617482484040">✅</tg-emoji>\n'
+                f'<tg-emoji emoji-id="5841494459904168607">📢</tg-emoji> <b>𝙉𝙖𝙢𝙚:</b> {channel_name}\n'
+                f'<tg-emoji emoji-id="6289762537344864636">🆔</tg-emoji> <b>𝙄𝘿:</b> <code>{channel_id}</code>\n'
+                f'<tg-emoji emoji-id="6172671064452111943">📊</tg-emoji> <b>𝙏𝙤𝙩𝙖𝙡 𝘾𝙝𝙖𝙣𝙣𝙚𝙡𝙨:</b> {total}',
+                parse_mode="HTML"
+            )
+        else:
+            await update.message.reply_text(
+                f'<tg-emoji emoji-id="5334637865995352639">⚠️</tg-emoji> <b>𝘾𝙝𝙖𝙣𝙣𝙚𝙡 𝘼𝙡𝙧𝙚𝙖𝙙𝙮 𝙀𝙭𝙞𝙨𝙩𝙨!</b> <tg-emoji emoji-id="5334637865995352639">⚠️</tg-emoji>',
+                parse_mode="HTML"
+            )
+            
+    except IndexError:
+        await update.message.reply_text(
+            f'<tg-emoji emoji-id="6170160969600212116">📝</tg-emoji> <b>𝙐𝙨𝙖𝙜𝙚:</b>\n'
+            f'<tg-emoji emoji-id="5237707944547592720">🌟</tg-emoji> <code>/addchannel @username</code>\n'
+            f'<tg-emoji emoji-id="5233540769708526063">🌟</tg-emoji> <code>/addchannel -1001234567890</code>',
+            parse_mode="HTML"
+        )
+
+async def remove_channel_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != OWNER_ID:
+        await update.message.reply_text(
+            f'<tg-emoji emoji-id="5353060840448727534">❌</tg-emoji> <b>𝙊𝙣𝙡𝙮 𝙊𝙬𝙣𝙚𝙧 𝘾𝙖𝙣 𝙐𝙨𝙚 𝙏𝙝𝙞𝙨 𝘾𝙤𝙢𝙢𝙖𝙣𝙙</b> <tg-emoji emoji-id="5353060840448727534">❌</tg-emoji>',
+            parse_mode="HTML"
+        )
+        return
+    
+    try:
+        channel_id = update.message.text.split()[1].strip()
+        success, total = remove_channel_db(channel_id)
+        
+        if success:
+            await update.message.reply_text(
+                f'<tg-emoji emoji-id="5352542184493031170">✅</tg-emoji> <b>𝘾𝙝𝙖𝙣𝙣𝙚𝙡 𝙍𝙚𝙢𝙤𝙫𝙚𝙙 𝙎𝙪𝙘𝙘𝙚𝙨𝙨𝙛𝙪𝙡𝙡𝙮</b> <tg-emoji emoji-id="5352542184493031170">✅</tg-emoji>\n'
+                f'<tg-emoji emoji-id="6172671064452111943">📊</tg-emoji> <b>𝙍𝙚𝙢𝙖𝙞𝙣𝙞𝙣𝙜 𝘾𝙝𝙖𝙣𝙣𝙚𝙡𝙨:</b> {total}',
+                parse_mode="HTML"
+            )
+        else:
+            await update.message.reply_text(
+                f'<tg-emoji emoji-id="5929358014627713883">❌</tg-emoji> <b>𝘾𝙝𝙖𝙣𝙣𝙚𝙡 𝙉𝙤𝙩 𝙁𝙤𝙪𝙣𝙙!</b> <tg-emoji emoji-id="5929358014627713883">❌</tg-emoji>',
+                parse_mode="HTML"
+            )
+            
+    except IndexError:
+        await update.message.reply_text(
+            f'<tg-emoji emoji-id="6170160969600212116">📝</tg-emoji> <b>𝙐𝙨𝙖𝙜𝙚:</b> <code>/removechannel -1001234567890</code>',
+            parse_mode="HTML"
+        )
+
+async def list_channels_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != OWNER_ID:
+        await update.message.reply_text(
+            f'<tg-emoji emoji-id="5353060840448727534">❌</tg-emoji> <b>𝙊𝙣𝙡𝙮 𝙊𝙬𝙣𝙚𝙧 𝘾𝙖𝙣 𝙐𝙨𝙚 𝙏𝙝𝙞𝙨 𝘾𝙤𝙢𝙢𝙖𝙣𝙙</b> <tg-emoji emoji-id="5353060840448727534">❌</tg-emoji>',
+            parse_mode="HTML"
+        )
+        return
+    
+    channels = get_channels()
+    if not channels:
+        await update.message.reply_text(
+            f'<tg-emoji emoji-id="6098344001105038370">📭</tg-emoji> <b>𝙉𝙤 𝘾𝙝𝙖𝙣𝙣𝙚𝙡𝙨 𝘼𝙙𝙙𝙚𝙙 𝙔𝙚𝙩!</b> <tg-emoji emoji-id="6098344001105038370">📭</tg-emoji>\n'
+            f'<tg-emoji emoji-id="5237707944547592720">🌟</tg-emoji> <b>𝙐𝙨𝙚</b> <code>/addchannel</code> <b>𝙩𝙤 𝙖𝙙𝙙</b>',
+            parse_mode="HTML"
+        )
+        return
+    
+    text = f'<tg-emoji emoji-id="5841494459904168607">📢</tg-emoji> <b>𝘼𝘿𝘿𝙀𝘿 𝘾𝙃𝘼𝙉𝙉𝙀𝙇𝙎:</b>\n\n'
+    
+    for i, ch_id in enumerate(channels, 1):
+        try:
+            chat = await context.bot.get_chat(int(ch_id))
+            name = chat.title or "Unknown"
+            text += f'<tg-emoji emoji-id="5233303721873523335">🌟</tg-emoji> <b>{i}.</b> {name} ➪ <code>{ch_id}</code>\n'
+        except:
+            text += f'<tg-emoji emoji-id="5334637865995352639">⚠️</tg-emoji> <b>{i}.</b> <code>{ch_id}</code> (𝙄𝙣𝙖𝙘𝙘𝙚𝙨𝙨𝙞𝙗𝙡𝙚)\n'
+    
+    text += f'\n<tg-emoji emoji-id="6172671064452111943">📊</tg-emoji> <b>𝙏𝙤𝙩𝙖𝙡 𝘾𝙝𝙖𝙣𝙣𝙚𝙡𝙨:</b> {len(channels)}'
+    
+    await update.message.reply_text(text, parse_mode="HTML")
+
+async def send_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != OWNER_ID:
+        await update.message.reply_text(
+            f'<tg-emoji emoji-id="5353060840448727534">❌</tg-emoji> <b>𝙊𝙣𝙡𝙮 𝙊𝙬𝙣𝙚𝙧 𝘾𝙖𝙣 𝙐𝙨𝙚 𝙏𝙝𝙞𝙨 𝘾𝙤𝙢𝙢𝙖𝙣𝙙</b> <tg-emoji emoji-id="5353060840448727534">❌</tg-emoji>',
+            parse_mode="HTML"
+        )
+        return
+    
+    if not update.message.reply_to_message:
+        await update.message.reply_text(
+            f'<tg-emoji emoji-id="6170160969600212116">📝</tg-emoji> <b>𝙍𝙚𝙥𝙡𝙮 𝙠𝙖𝙧𝙤 𝙠𝙞𝙨𝙞 𝙢𝙚𝙨𝙨𝙖𝙜𝙚 𝙥𝙚 𝙖𝙪𝙧</b> <code>/send</code> <b>𝙠𝙖𝙧𝙤!</b>\n'
+            f'<tg-emoji emoji-id="5237707944547592720">🌟</tg-emoji> <b>𝙑𝙞𝙙𝙚𝙤/𝙋𝙝𝙤𝙩𝙤/𝘼𝙪𝙙𝙞𝙤/𝙏𝙚𝙭𝙩 𝙨𝙖𝙗 𝙘𝙝𝙖𝙡𝙚𝙜𝙖</b>',
+            parse_mode="HTML"
+        )
+        return
+    
+    channels = get_channels()
+    if not channels:
+        await update.message.reply_text(
+            f'<tg-emoji emoji-id="6098344001105038370">📭</tg-emoji> <b>𝙆𝙤𝙞 𝘾𝙝𝙖𝙣𝙣𝙚𝙡 𝘼𝙙𝙙 𝙉𝙖𝙝𝙞 𝙃𝙖𝙞!</b>\n'
+            f'<tg-emoji emoji-id="5237707944547592720">🌟</tg-emoji> <b>𝙋𝙚𝙝𝙡𝙚</b> <code>/addchannel @username</code> <b>𝙠𝙖𝙧𝙤</b>',
+            parse_mode="HTML"
+        )
+        return
+    
+    replied_msg = update.message.reply_to_message
+    
+    loading_emojis = [
+        "5357315181649076022", "5294261750324042913", "5293990986995768044",
+        "5275974823254725631", "5384337002751630535", "5325888970368762082"
+    ]
+    load_emoji = random.choice(loading_emojis)
+    
+    status_msg = await update.message.reply_text(
+        f'<tg-emoji emoji-id="{load_emoji}">📤</tg-emoji> <b>𝙁𝙤𝙧𝙬𝙖𝙧𝙙𝙞𝙣𝙜 𝙩𝙤 {len(channels)} 𝘾𝙝𝙖𝙣𝙣𝙚𝙡𝙨...</b> <tg-emoji emoji-id="{load_emoji}">📤</tg-emoji>',
+        parse_mode="HTML"
+    )
+    
+    success_count = 0
+    failed_channels = []
+    
+    for ch_id in channels:
+        try:
+            await context.bot.copy_message(
+                chat_id=int(ch_id),
+                from_chat_id=update.effective_chat.id,
+                message_id=replied_msg.message_id
+            )
+            success_count += 1
+            await asyncio.sleep(1)
+        except Exception as e:
+            failed_channels.append(ch_id)
+            logging.error(f"Forward failed to {ch_id}: {e}")
+    
+    if success_count == len(channels):
+        result_emoji = "6226399941388928924"
+        result_text = (
+            f'<tg-emoji emoji-id="{result_emoji}">✅</tg-emoji> <b>𝙎𝙪𝙘𝙘𝙚𝙨𝙨𝙛𝙪𝙡𝙡𝙮 𝙁𝙤𝙧𝙬𝙖𝙧𝙙𝙚𝙙!</b> <tg-emoji emoji-id="{result_emoji}">✅</tg-emoji>\n'
+            f'<tg-emoji emoji-id="6172671064452111943">📊</tg-emoji> <b>{success_count}/{len(channels)} 𝘾𝙝𝙖𝙣𝙣𝙚𝙡𝙨</b>'
+        )
+    else:
+        result_emoji = "5334637865995352639"
+        result_text = (
+            f'<tg-emoji emoji-id="{result_emoji}">⚠️</tg-emoji> <b>𝙋𝙖𝙧𝙩𝙞𝙖𝙡𝙡𝙮 𝙁𝙤𝙧𝙬𝙖𝙧𝙙𝙚𝙙!</b> <tg-emoji emoji-id="{result_emoji}">⚠️</tg-emoji>\n'
+            f'<tg-emoji emoji-id="6226399941388928924">✅</tg-emoji> <b>𝙎𝙪𝙘𝙘𝙚𝙨𝙨:</b> {success_count}\n'
+            f'<tg-emoji emoji-id="5929358014627713883">❌</tg-emoji> <b>𝙁𝙖𝙞𝙡𝙚𝙙:</b> {len(failed_channels)}'
+        )
+    
+    await status_msg.edit_text(result_text, parse_mode="HTML")
+
+async def auto_forward_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != OWNER_ID:
+        await update.message.reply_text(
+            f'<tg-emoji emoji-id="5353060840448727534">❌</tg-emoji> <b>𝙊𝙣𝙡𝙮 𝙊𝙬𝙣𝙚𝙧 𝘾𝙖𝙣 𝙐𝙨𝙚 𝙏𝙝𝙞𝙨 𝘾𝙤𝙢𝙢𝙖𝙣𝙙</b> <tg-emoji emoji-id="5353060840448727534">❌</tg-emoji>',
+            parse_mode="HTML"
+        )
+        return
+    
+    try:
+        action = update.message.text.split()[1].lower()
+        if action == "on":
+            set_auto_forward(True)
+            await update.message.reply_text(
+                f'<tg-emoji emoji-id="5368451104134685900">✅</tg-emoji> <b>𝘼𝙪𝙩𝙤 𝙁𝙤𝙧𝙬𝙖𝙧𝙙 𝙊𝙉 𝙃𝙤 𝙂𝙖𝙮𝙖!</b> <tg-emoji emoji-id="5064672027248427816">✅</tg-emoji>\n'
+                f'<tg-emoji emoji-id="5841494459904168607">📢</tg-emoji> <b>𝘼𝙗 𝙝𝙖𝙧 𝙙𝙤𝙬𝙣𝙡𝙤𝙖𝙙 𝙘𝙝𝙖𝙣𝙣𝙚𝙡 𝙥𝙚 𝙗𝙝𝙞 𝙟𝙖𝙮𝙚𝙜𝙖</b>',
+                parse_mode="HTML"
+            )
+        elif action == "off":
+            set_auto_forward(False)
+            await update.message.reply_text(
+                f'<tg-emoji emoji-id="6269372661143441677">🚫</tg-emoji> <b>𝘼𝙪𝙩𝙤 𝙁𝙤𝙧𝙬𝙖𝙧𝙙 𝙊𝙁𝙁 𝙃𝙤 𝙂𝙖𝙮𝙖!</b> <tg-emoji emoji-id="5816642280185929122">🚫</tg-emoji>',
+                parse_mode="HTML"
+            )
+        else:
+            raise ValueError
+    except:
+        is_on = is_auto_forward_enabled()
+        status = "𝙊𝙉 ✅" if is_on else "𝙊𝙁𝙁 🚫"
+        status_emoji = "5368451104134685900" if is_on else "6269372661143441677"
+        
+        await update.message.reply_text(
+            f'<tg-emoji emoji-id="{status_emoji}">⚙️</tg-emoji> <b>𝘼𝙪𝙩𝙤 𝙁𝙤𝙧𝙬𝙖𝙧𝙙 𝙎𝙩𝙖𝙩𝙪𝙨:</b> {status}\n\n'
+            f'<tg-emoji emoji-id="6170160969600212116">📝</tg-emoji> <b>𝙐𝙨𝙖𝙜𝙚:</b>\n'
+            f'<tg-emoji emoji-id="5237707944547592720">🌟</tg-emoji> <code>/autoforward on</code> - 𝙀𝙣𝙖𝙗𝙡𝙚\n'
+            f'<tg-emoji emoji-id="5233540769708526063">🌟</tg-emoji> <code>/autoforward off</code> - 𝘿𝙞𝙨𝙖𝙗𝙡𝙚',
+            parse_mode="HTML"
+        )
 
 # ═══════════════ MESSAGE HANDLER ═══════════════
 
@@ -1755,6 +2020,11 @@ def main():
     app.add_handler(CommandHandler("delvideo", del_video_cmd))
     app.add_handler(CommandHandler("videos", list_videos_cmd))
     app.add_handler(CommandHandler("clearvideos", clear_videos_cmd))
+    app.add_handler(CommandHandler("addchannel", add_channel_cmd))
+    app.add_handler(CommandHandler("removechannel", remove_channel_cmd))
+    app.add_handler(CommandHandler("listchannels", list_channels_cmd))
+    app.add_handler(CommandHandler("send", send_cmd))
+    app.add_handler(CommandHandler("autoforward", auto_forward_cmd))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(CallbackQueryHandler(button_handler))
     
