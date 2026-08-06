@@ -1302,144 +1302,137 @@ async def send_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     success_count = 0
     failed_channels = []
-    
-    msg = replied_msg
+    forward_used = False
     
     for ch_id in channels:
         try:
-            # ⭐ TEXT MESSAGE - parse_mode="HTML" use karo
-            if msg.text and not msg.photo and not msg.video and not msg.audio and not msg.voice and not msg.document and not msg.sticker and not msg.animation and not msg.video_note:
-                if msg.entities:
-                    # HTML entities ko text mein convert karo
-                    text_html = msg.text_html if hasattr(msg, 'text_html') else msg.text
-                    await context.bot.send_message(
-                        chat_id=int(ch_id),
-                        text=text_html,
-                        parse_mode="HTML",
-                        reply_markup=msg.reply_markup
-                    )
-                else:
-                    await context.bot.send_message(
-                        chat_id=int(ch_id),
-                        text=msg.text,
-                        reply_markup=msg.reply_markup
-                    )
-            
-            # ⭐ PHOTO - caption_html use karo
-            elif msg.photo:
-                file_id = msg.photo[-1].file_id
-                caption_html = msg.caption_html if hasattr(msg, 'caption_html') else msg.caption or ""
-                await context.bot.send_photo(
-                    chat_id=int(ch_id),
-                    photo=file_id,
-                    caption=caption_html,
-                    parse_mode="HTML" if caption_html else None,
-                    reply_markup=msg.reply_markup
-                )
-            
-            # ⭐ VIDEO
-            elif msg.video:
-                caption_html = msg.caption_html if hasattr(msg, 'caption_html') else msg.caption or ""
-                await context.bot.send_video(
-                    chat_id=int(ch_id),
-                    video=msg.video.file_id,
-                    caption=caption_html,
-                    parse_mode="HTML" if caption_html else None,
-                    reply_markup=msg.reply_markup,
-                    supports_streaming=True
-                )
-            
-            # ⭐ ANIMATION (GIF)
-            elif msg.animation:
-                caption_html = msg.caption_html if hasattr(msg, 'caption_html') else msg.caption or ""
-                await context.bot.send_animation(
-                    chat_id=int(ch_id),
-                    animation=msg.animation.file_id,
-                    caption=caption_html,
-                    parse_mode="HTML" if caption_html else None,
-                    reply_markup=msg.reply_markup
-                )
-            
-            # ⭐ AUDIO
-            elif msg.audio:
-                caption_html = msg.caption_html if hasattr(msg, 'caption_html') else msg.caption or ""
-                await context.bot.send_audio(
-                    chat_id=int(ch_id),
-                    audio=msg.audio.file_id,
-                    caption=caption_html,
-                    parse_mode="HTML" if caption_html else None,
-                    reply_markup=msg.reply_markup,
-                    title=msg.audio.title,
-                    performer=msg.audio.performer
-                )
-            
-            # ⭐ VOICE
-            elif msg.voice:
-                caption_html = msg.caption_html if hasattr(msg, 'caption_html') else msg.caption or ""
-                await context.bot.send_voice(
-                    chat_id=int(ch_id),
-                    voice=msg.voice.file_id,
-                    caption=caption_html,
-                    parse_mode="HTML" if caption_html else None,
-                    reply_markup=msg.reply_markup
-                )
-            
-            # ⭐ DOCUMENT
-            elif msg.document:
-                caption_html = msg.caption_html if hasattr(msg, 'caption_html') else msg.caption or ""
-                await context.bot.send_document(
-                    chat_id=int(ch_id),
-                    document=msg.document.file_id,
-                    caption=caption_html,
-                    parse_mode="HTML" if caption_html else None,
-                    reply_markup=msg.reply_markup
-                )
-            
-            # ⭐ STICKER
-            elif msg.sticker:
-                await context.bot.send_sticker(
-                    chat_id=int(ch_id),
-                    sticker=msg.sticker.file_id,
-                    reply_markup=msg.reply_markup
-                )
-            
-            # ⭐ VIDEO NOTE
-            elif msg.video_note:
-                await context.bot.send_video_note(
-                    chat_id=int(ch_id),
-                    video_note=msg.video_note.file_id,
-                    reply_markup=msg.reply_markup
-                )
-            
-            # ⭐ POLL
-            elif msg.poll:
-                await context.bot.send_poll(
-                    chat_id=int(ch_id),
-                    question=msg.poll.question,
-                    options=[opt.text for opt in msg.poll.options],
-                    type=msg.poll.type,
-                    allows_multiple_answers=msg.poll.allows_multiple_answers,
-                    correct_option_id=msg.poll.correct_option_id,
-                    explanation=msg.poll.explanation,
-                    explanation_parse_mode="HTML" if msg.poll.explanation else None,
-                    reply_markup=msg.reply_markup
-                )
-            
-            # ⭐ FORWARD - as last resort (premium emojis ke liye best)
-            else:
-                await msg.forward(chat_id=int(ch_id))
-            
+            # ⭐ PEHLE FORWARD TRY KARO (EMOJI SAFE) - Bot apne channel pe forward kar sakta hai
+            await context.bot.forward_message(
+                chat_id=int(ch_id),
+                from_chat_id=update.effective_chat.id,
+                message_id=replied_msg.message_id,
+                disable_notification=True
+            )
+            forward_used = True
             success_count += 1
             await asyncio.sleep(1)
             
         except Exception as e:
-            # Agar upar wala fail hua toh FORWARD try karo
+            # Forward fail hua - direct send try karo
             try:
-                await msg.forward(chat_id=int(ch_id))
+                msg = replied_msg
+                
+                # TEXT
+                if msg.text and not msg.photo and not msg.video and not msg.audio and not msg.voice and not msg.document and not msg.sticker and not msg.animation:
+                    await context.bot.send_message(
+                        chat_id=int(ch_id),
+                        text=msg.text,
+                        entities=msg.entities,
+                        reply_markup=msg.reply_markup
+                    )
+                
+                # PHOTO
+                elif msg.photo:
+                    await context.bot.send_photo(
+                        chat_id=int(ch_id),
+                        photo=msg.photo[-1].file_id,
+                        caption=msg.caption or "",
+                        caption_entities=msg.caption_entities,
+                        reply_markup=msg.reply_markup
+                    )
+                
+                # VIDEO
+                elif msg.video:
+                    await context.bot.send_video(
+                        chat_id=int(ch_id),
+                        video=msg.video.file_id,
+                        caption=msg.caption or "",
+                        caption_entities=msg.caption_entities,
+                        reply_markup=msg.reply_markup,
+                        supports_streaming=True
+                    )
+                
+                # AUDIO
+                elif msg.audio:
+                    await context.bot.send_audio(
+                        chat_id=int(ch_id),
+                        audio=msg.audio.file_id,
+                        caption=msg.caption or "",
+                        caption_entities=msg.caption_entities,
+                        reply_markup=msg.reply_markup,
+                        title=msg.audio.title,
+                        performer=msg.audio.performer
+                    )
+                
+                # ANIMATION
+                elif msg.animation:
+                    await context.bot.send_animation(
+                        chat_id=int(ch_id),
+                        animation=msg.animation.file_id,
+                        caption=msg.caption or "",
+                        caption_entities=msg.caption_entities,
+                        reply_markup=msg.reply_markup
+                    )
+                
+                # STICKER
+                elif msg.sticker:
+                    await context.bot.send_sticker(
+                        chat_id=int(ch_id),
+                        sticker=msg.sticker.file_id,
+                        reply_markup=msg.reply_markup
+                    )
+                
+                # VOICE
+                elif msg.voice:
+                    await context.bot.send_voice(
+                        chat_id=int(ch_id),
+                        voice=msg.voice.file_id,
+                        caption=msg.caption or "",
+                        caption_entities=msg.caption_entities,
+                        reply_markup=msg.reply_markup
+                    )
+                
+                # DOCUMENT
+                elif msg.document:
+                    await context.bot.send_document(
+                        chat_id=int(ch_id),
+                        document=msg.document.file_id,
+                        caption=msg.caption or "",
+                        caption_entities=msg.caption_entities,
+                        reply_markup=msg.reply_markup
+                    )
+                
+                # VIDEO NOTE
+                elif msg.video_note:
+                    await context.bot.send_video_note(
+                        chat_id=int(ch_id),
+                        video_note=msg.video_note.file_id,
+                        reply_markup=msg.reply_markup
+                    )
+                
+                # POLL
+                elif msg.poll:
+                    await context.bot.forward_message(
+                        chat_id=int(ch_id),
+                        from_chat_id=update.effective_chat.id,
+                        message_id=msg.message_id,
+                        disable_notification=True
+                    )
+                
+                else:
+                    await context.bot.forward_message(
+                        chat_id=int(ch_id),
+                        from_chat_id=update.effective_chat.id,
+                        message_id=msg.message_id,
+                        disable_notification=True
+                    )
+                
                 success_count += 1
+                
             except Exception as e2:
                 failed_channels.append(ch_id)
-                logging.error(f"Send failed to {ch_id}: {e} | {e2}")
+                logging.error(f"All methods failed for {ch_id}: {e} | {e2}")
+            
             await asyncio.sleep(1)
     
     if success_count == len(channels):
