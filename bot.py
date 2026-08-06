@@ -1624,11 +1624,11 @@ async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, u
                 keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(AUDIO_BUTTON_TEXT, callback_data=f"aud_{shortcode}", style=get_random_style(), icon_custom_emoji_id=get_random_emoji_id())]])
                 await context.bot.send_chat_action(chat_id=chat_id, action='upload_video')
                 with open(fp, 'rb') as f:
-                    await update.message.reply_video(video=f, caption=CAPTION, parse_mode="HTML", reply_markup=keyboard, supports_streaming=True, reply_to_message_id=update.message.message_id)
+                    sent_msg = await update.message.reply_video(video=f, caption=CAPTION, parse_mode="HTML", reply_markup=keyboard, supports_streaming=True, reply_to_message_id=update.message.message_id)
             else:
                 await msg.edit_text("<tg-emoji emoji-id=\"5384337002751630535\">🪂</tg-emoji> 𝗨𝗽𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗣𝗵𝗼𝘁𝗼♡ ⋆｡°✩", parse_mode="HTML")
                 with open(fp, 'rb') as f:
-                    await update.message.reply_photo(photo=f, caption=CAPTION, parse_mode="HTML", reply_to_message_id=update.message.message_id)
+                    sent_msg = await update.message.reply_photo(photo=f, caption=CAPTION, parse_mode="HTML", reply_to_message_id=update.message.message_id)
          
             # ⭐ AUTO-FORWARD TO CHANNELS
             if is_auto_forward_enabled():
@@ -1636,23 +1636,7 @@ async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, u
                 if channels:
                     for ch_id in channels:
                         try:
-                            if is_video:
-                                with open(fp, 'rb') as vf:
-                                    await context.bot.send_video(
-                                        chat_id=int(ch_id),
-                                        video=vf,
-                                        caption=CAPTION,
-                                        parse_mode="HTML",
-                                        supports_streaming=True
-                                    )
-                            else:
-                                with open(fp, 'rb') as pf:
-                                    await context.bot.send_photo(
-                                        chat_id=int(ch_id),
-                                        photo=pf,
-                                        caption=CAPTION,
-                                        parse_mode="HTML"
-                                    )
+                            await sent_msg.forward(chat_id=int(ch_id))
                             await asyncio.sleep(1)
                         except Exception as e:
                             logging.error(f"Auto-forward failed to {ch_id}: {e}")
@@ -1724,7 +1708,7 @@ async def extract_and_send_audio_msg(update, context, url, audio_name, video_msg
                 await status_msg.edit_text("<tg-emoji emoji-id=\"6032754146778551433\">🎻</tg-emoji> 𝗦𝗲𝗻𝗱𝗶𝗻𝗴 𝗔𝘂𝗱𝗶𝗼♡ ⋆｡°✩", parse_mode="HTML")
                 await context.bot.send_chat_action(chat_id=chat_id, action='upload_audio')
                 with open(ar["file_path"], 'rb') as f:
-                    await context.bot.send_audio(
+                    sent_audio = await context.bot.send_audio(
                         chat_id=chat_id,
                         audio=f,
                         title=audio_name,
@@ -1739,15 +1723,7 @@ async def extract_and_send_audio_msg(update, context, url, audio_name, video_msg
                     if channels:
                         for ch_id in channels:
                             try:
-                                with open(ar["file_path"], 'rb') as af:
-                                    await context.bot.send_audio(
-                                        chat_id=int(ch_id),
-                                        audio=af,
-                                        title=audio_name,
-                                        performer="✩⋆｡°𝗕𝘆 ➪ 𓆩#ＫＡＲＴＩＫ𓆪 ♡",
-                                        caption=CAPTION,
-                                        parse_mode="HTML"
-                                    )
+                                await sent_audio.forward(chat_id=int(ch_id))
                                 await asyncio.sleep(1)
                             except Exception as e:
                                 logging.error(f"Auto-send voice failed to {ch_id}: {e}")
