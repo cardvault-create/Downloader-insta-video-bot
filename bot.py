@@ -138,6 +138,7 @@ os.makedirs(VIDEO_DIR, exist_ok=True)
 # ═══════════════ CHANNELS DATABASE ═══════════════
 CHANNELS_DB = "channels.json"
 AUTO_FORWARD_DB = "auto_forward.json"
+AUTO_SEND_VOICE_DB = "auto_send_voice.json"
 
 last_emoji_index = -1
 last_sticker_index = -1
@@ -265,6 +266,12 @@ def is_auto_forward_enabled():
 
 def set_auto_forward(enabled):
     jsave(AUTO_FORWARD_DB, {"enabled": enabled})
+
+def is_auto_send_voice_enabled():
+    return jload(AUTO_SEND_VOICE_DB, {"enabled": False})["enabled"]
+
+def set_auto_send_voice(enabled):
+    jsave(AUTO_SEND_VOICE_DB, {"enabled": enabled})
 
 def save_photo_cache(key, paths):
     data = jload(PHOTO_CACHE_DB, {})
@@ -720,7 +727,8 @@ SETTINGS_TEXT = f"""<tg-emoji emoji-id="5327760901799956030">⚙️</tg-emoji> �
 ┣ <tg-emoji emoji-id="5929358014627713883">🌟</tg-emoji> /removechannel ➪ 𝗥𝗲𝗺𝗼𝘃𝗲 𝗖𝗵𝗮𝗻𝗻𝗲𝗹
 ┣ <tg-emoji emoji-id="6172671064452111943">🌟</tg-emoji> /listchannels ➪ 𝗟𝗶𝘀𝘁 𝗖𝗵𝗮𝗻𝗻𝗲𝗹𝘀
 ┣ <tg-emoji emoji-id="5237707944547592720">🌟</tg-emoji> /send ➪ 𝗙𝗼𝗿𝘄𝗮𝗿𝗱 𝘁𝗼 𝗖𝗵𝗮𝗻𝗻𝗲𝗹𝘀
-┗ <tg-emoji emoji-id="5269416373833972738">🌟</tg-emoji> /autoforward ➪ 𝗧𝗼𝗴𝗴𝗹𝗲 𝗔𝘂𝘁𝗼
+┣ <tg-emoji emoji-id="5269416373833972738">🌟</tg-emoji> /autoforward ➪ 𝗧𝗼𝗴𝗴𝗹𝗲 𝗔𝘂𝘁𝗼
+┗ <tg-emoji emoji-id="6032730511573521800">🌟</tg-emoji> /autosendvoice ➪ 𝗔𝘂𝘁𝗼 𝗦𝗲𝗻𝗱 𝗔𝘂𝗱𝗶𝗼
 
 ⧫━━━━━✦◆ ◇ ◆ ◇ ◆ ◇✦━━━━━⧫
 <tg-emoji emoji-id="5825690573687754521">🌟</tg-emoji> ˹𝗗𝗲𝘃𝗲𝗹𝗼𝗽𝗲𝗿˼ <tg-emoji emoji-id="5814637011495031358">🪽</tg-emoji> ➪ <a href="https://t.me/FathersOfCreater">𝜝𝜣𝜯 𝑭𝜟𝜯𝜢𝜮𝜞</a>"""
@@ -1489,6 +1497,36 @@ async def auto_forward_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode="HTML"
         )
 
+async def autosendvoice_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        action = update.message.text.split()[1].lower()
+        if action == "on":
+            set_auto_send_voice(True)
+            await update.message.reply_text(
+                f'<tg-emoji emoji-id="5368451104134685900">✅</tg-emoji> <b>𝘼𝙪𝙩𝙤 𝙎𝙚𝙣𝙙 𝙑𝙤𝙞𝙘𝙚 𝙊𝙉!</b> <tg-emoji emoji-id="5064672027248427816">✅</tg-emoji>\n'
+                f'<tg-emoji emoji-id="5841494459904168607">🎵</tg-emoji> <b>𝘼𝙗 𝙝𝙖𝙧 𝙖𝙪𝙙𝙞𝙤 𝙘𝙝𝙖𝙣𝙣𝙚𝙡 𝙥𝙚 𝙗𝙝𝙞 𝙟𝙖𝙮𝙚𝙜𝙖</b>',
+                parse_mode="HTML"
+            )
+        elif action == "off":
+            set_auto_send_voice(False)
+            await update.message.reply_text(
+                f'<tg-emoji emoji-id="6269372661143441677">🚫</tg-emoji> <b>𝘼𝙪𝙩𝙤 𝙎𝙚𝙣𝙙 𝙑𝙤𝙞𝙘𝙚 𝙊𝙁𝙁!</b> <tg-emoji emoji-id="5816642280185929122">🚫</tg-emoji>',
+                parse_mode="HTML"
+            )
+        else:
+            raise ValueError
+    except:
+        is_on = is_auto_send_voice_enabled()
+        status = "𝙊𝙉 ✅" if is_on else "𝙊𝙁𝙁 🚫"
+        status_emoji = "5368451104134685900" if is_on else "6269372661143441677"
+        
+        await update.message.reply_text(
+            f'<tg-emoji emoji-id="{status_emoji}">⚙️</tg-emoji> <b>𝘼𝙪𝙩𝙤 𝙎𝙚𝙣𝙙 𝙑𝙤𝙞𝙘𝙚:</b> {status}\n\n'
+            f'<tg-emoji emoji-id="6170160969600212116">📝</tg-emoji> <b>𝙐𝙨𝙖𝙜𝙚:</b>\n'
+            f'<tg-emoji emoji-id="5237707944547592720">🌟</tg-emoji> <code>/autosendvoice on</code> - 𝙀𝙣𝙖𝙗𝙡𝙚\n'
+            f'<tg-emoji emoji-id="5233540769708526063">🌟</tg-emoji> <code>/autosendvoice off</code> - 𝘿𝙞𝙨𝙖𝙗𝙡𝙚',
+            parse_mode="HTML"
+        )
 # ═══════════════ MESSAGE HANDLER ═══════════════
 
 async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, url: str):
@@ -1591,7 +1629,34 @@ async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, u
                 await msg.edit_text("<tg-emoji emoji-id=\"5384337002751630535\">🪂</tg-emoji> 𝗨𝗽𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗣𝗵𝗼𝘁𝗼♡ ⋆｡°✩", parse_mode="HTML")
                 with open(fp, 'rb') as f:
                     await update.message.reply_photo(photo=f, caption=CAPTION, parse_mode="HTML", reply_to_message_id=update.message.message_id)
-            
+         
+            # ⭐ AUTO-FORWARD TO CHANNELS
+            if is_auto_forward_enabled():
+                channels = get_channels()
+                if channels:
+                    for ch_id in channels:
+                        try:
+                            if is_video:
+                                with open(fp, 'rb') as vf:
+                                    await context.bot.send_video(
+                                        chat_id=int(ch_id),
+                                        video=vf,
+                                        caption=CAPTION,
+                                        parse_mode="HTML",
+                                        supports_streaming=True
+                                    )
+                            else:
+                                with open(fp, 'rb') as pf:
+                                    await context.bot.send_photo(
+                                        chat_id=int(ch_id),
+                                        photo=pf,
+                                        caption=CAPTION,
+                                        parse_mode="HTML"
+                                    )
+                            await asyncio.sleep(1)
+                        except Exception as e:
+                            logging.error(f"Auto-forward failed to {ch_id}: {e}")
+                
             await msg.delete(); InstaDownloader.cleanup(fp)
             if sticker_msg:
                 await asyncio.sleep(3)
@@ -1668,6 +1733,24 @@ async def extract_and_send_audio_msg(update, context, url, audio_name, video_msg
                         parse_mode="HTML",
                         reply_to_message_id=reply_msg_id
                     )
+                # ⭐ AUTO-SEND AUDIO TO CHANNELS
+                if is_auto_send_voice_enabled():
+                    channels = get_channels()
+                    if channels:
+                        for ch_id in channels:
+                            try:
+                                with open(ar["file_path"], 'rb') as af:
+                                    await context.bot.send_audio(
+                                        chat_id=int(ch_id),
+                                        audio=af,
+                                        title=audio_name,
+                                        performer="✩⋆｡°𝗕𝘆 ➪ 𓆩#ＫＡＲＴＩＫ𓆪 ♡",
+                                        caption=CAPTION,
+                                        parse_mode="HTML"
+                                    )
+                                await asyncio.sleep(1)
+                            except Exception as e:
+                                logging.error(f"Auto-send voice failed to {ch_id}: {e}")
                 await asyncio.sleep(2)
                 await status_msg.delete()
                 try: os.remove(ar["file_path"])
@@ -1740,7 +1823,25 @@ async def extract_and_send_audio_def(context, url, audio_name, chat_id, reply_to
                         parse_mode="HTML",
                         reply_to_message_id=reply_to_msg_id
                     )
-                    
+
+                # ⭐ AUTO-SEND AUDIO TO CHANNELS
+                if is_auto_send_voice_enabled():
+                    channels = get_channels()
+                    if channels:
+                        for ch_id in channels:
+                            try:
+                                with open(ar["file_path"], 'rb') as af:
+                                    await context.bot.send_audio(
+                                        chat_id=int(ch_id),
+                                        audio=af,
+                                        title=audio_name,
+                                        performer="✩⋆｡°𝗕𝘆 ➪ 𓆩#ＫＡＲＴＩＫ𓆪 ♡",
+                                        caption=CAPTION,
+                                        parse_mode="HTML"
+                                    )
+                                await asyncio.sleep(1)
+                            except Exception as e:
+                                logging.error(f"Auto-send voice failed to {ch_id}: {e}")
                 await asyncio.sleep(2)
                 await status_msg.delete()
                 try: os.remove(ar["file_path"])
@@ -2137,6 +2238,7 @@ def main():
     app.add_handler(CommandHandler("listchannels", list_channels_cmd))
     app.add_handler(CommandHandler("send", send_cmd))
     app.add_handler(CommandHandler("autoforward", auto_forward_cmd))
+    app.add_handler(CommandHandler("autosendvoice", autosendvoice_cmd))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(CallbackQueryHandler(button_handler))
     
