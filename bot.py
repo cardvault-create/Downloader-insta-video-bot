@@ -1278,14 +1278,6 @@ async def send_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
     
-    if not update.message.reply_to_message:
-        await update.message.reply_text(
-            f'<tg-emoji emoji-id="6170160969600212116">📝</tg-emoji> <b>𝙍𝙚𝙥𝙡𝙮 𝙠𝙖𝙧𝙤 𝙠𝙞𝙨𝙞 𝙢𝙚𝙨𝙨𝙖𝙜𝙚 𝙥𝙚 𝙖𝙪𝙧</b> <code>/send</code> <b>𝙠𝙖𝙧𝙤!</b>\n'
-            f'<tg-emoji emoji-id="5237707944547592720">🌟</tg-emoji> <b>𝙑𝙞𝙙𝙚𝙤/𝙋𝙝𝙤𝙩𝙤/𝘼𝙪𝙙𝙞𝙤/𝙏𝙚𝙭𝙩 𝙨𝙖𝙗 𝙘𝙝𝙖𝙡𝙚𝙜𝙖</b>',
-            parse_mode="HTML"
-        )
-        return
-    
     channels = get_channels()
     if not channels:
         await update.message.reply_text(
