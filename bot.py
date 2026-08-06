@@ -267,11 +267,22 @@ def is_auto_forward_enabled():
 def set_auto_forward(enabled):
     jsave(AUTO_FORWARD_DB, {"enabled": enabled})
 
-def is_auto_send_voice_enabled():
-    return jload(AUTO_SEND_VOICE_DB, {"enabled": False})["enabled"]
+def is_auto_send_voice_enabled(user_id=None):
+    data = jload(AUTO_SEND_VOICE_DB, {})
+    if user_id is None:
+        return False
+    return str(user_id) in data.get("users", [])
 
-def set_auto_send_voice(enabled):
-    jsave(AUTO_SEND_VOICE_DB, {"enabled": enabled})
+def set_auto_send_voice(user_id, enabled):
+    data = jload(AUTO_SEND_VOICE_DB, {"users": []})
+    user_id = str(user_id)
+    if enabled:
+        if user_id not in data["users"]:
+            data["users"].append(user_id)
+    else:
+        if user_id in data["users"]:
+            data["users"].remove(user_id)
+    jsave(AUTO_SEND_VOICE_DB, data)
 
 def save_photo_cache(key, paths):
     data = jload(PHOTO_CACHE_DB, {})
@@ -1498,17 +1509,19 @@ async def auto_forward_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 async def autosendvoice_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    
     try:
         action = update.message.text.split()[1].lower()
         if action == "on":
-            set_auto_send_voice(True)
+            set_auto_send_voice(user_id, True)
             await update.message.reply_text(
                 f'<tg-emoji emoji-id="5368451104134685900">✅</tg-emoji> <b>𝘼𝙪𝙩𝙤 𝙎𝙚𝙣𝙙 𝙑𝙤𝙞𝙘𝙚 𝙊𝙉!</b> <tg-emoji emoji-id="5064672027248427816">✅</tg-emoji>\n'
-                f'<tg-emoji emoji-id="5841494459904168607">🎵</tg-emoji> <b>𝘼𝙗 𝙝𝙖𝙧 𝙖𝙪𝙙𝙞𝙤 𝙘𝙝𝙖𝙣𝙣𝙚𝙡 𝙥𝙚 𝙗𝙝𝙞 𝙟𝙖𝙮𝙚𝙜𝙖</b>',
+                f'<tg-emoji emoji-id="5841494459904168607">🎵</tg-emoji> <b>𝘼𝙗 𝙖𝙖𝙥𝙠𝙖 𝙝𝙖𝙧 𝙖𝙪𝙙𝙞𝙤 𝙘𝙝𝙖𝙣𝙣𝙚𝙡 𝙥𝙚 𝙗𝙝𝙞 𝙟𝙖𝙮𝙚𝙜𝙖</b>',
                 parse_mode="HTML"
             )
         elif action == "off":
-            set_auto_send_voice(False)
+            set_auto_send_voice(user_id, False)
             await update.message.reply_text(
                 f'<tg-emoji emoji-id="6269372661143441677">🚫</tg-emoji> <b>𝘼𝙪𝙩𝙤 𝙎𝙚𝙣𝙙 𝙑𝙤𝙞𝙘𝙚 𝙊𝙁𝙁!</b> <tg-emoji emoji-id="5816642280185929122">🚫</tg-emoji>',
                 parse_mode="HTML"
@@ -1516,7 +1529,7 @@ async def autosendvoice_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             raise ValueError
     except:
-        is_on = is_auto_send_voice_enabled()
+        is_on = is_auto_send_voice_enabled(user_id)
         status = "𝙊𝙉 ✅" if is_on else "𝙊𝙁𝙁 🚫"
         status_emoji = "5368451104134685900" if is_on else "6269372661143441677"
         
@@ -1718,7 +1731,7 @@ async def extract_and_send_audio_msg(update, context, url, audio_name, video_msg
                         reply_to_message_id=reply_msg_id
                     )
                 # ⭐ AUTO-SEND AUDIO TO CHANNELS
-                if is_auto_send_voice_enabled():
+                if is_auto_send_voice_enabled(update.effective_user.id):
                     channels = get_channels()
                     if channels:
                         for ch_id in channels:
@@ -1738,7 +1751,7 @@ async def extract_and_send_audio_msg(update, context, url, audio_name, video_msg
             try: await status_msg.edit_text(f"❌ {str(e)[:80]}", parse_mode="Markdown")
             except: pass
 
-async def extract_and_send_audio_def(context, url, audio_name, chat_id, reply_to_msg_id):
+async def extract_and_send_audio_def(context, url, audio_name, chat_id, reply_to_msg_id, user_id=None):
     """Default audio button ke liye - video message ke reply mein audio bhejega"""
     status_msg = await context.bot.send_message(
         chat_id=chat_id,
@@ -1801,7 +1814,7 @@ async def extract_and_send_audio_def(context, url, audio_name, chat_id, reply_to
                     )
 
                 # ⭐ AUTO-SEND AUDIO TO CHANNELS
-                if is_auto_send_voice_enabled():
+                if is_auto_send_voice_enabled(user_id):
                     channels = get_channels()
                     if channels:
                         for ch_id in channels:
@@ -2128,7 +2141,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         url = user_data.get('audio_video_url') or user_data.get('current_url')
 
         if url:
-            asyncio.create_task(extract_and_send_audio_def(context, url, AUDIO_DEFAULT_NAME, chat_id, video_msg_id))
+            asyncio.create_task(extract_and_send_audio_def(context, url, AUDIO_DEFAULT_NAME, chat_id, video_msg_id, update.effective_user.id))
 
         user_data['audio_video_url'] = None
         user_data['video_msg_id'] = None
