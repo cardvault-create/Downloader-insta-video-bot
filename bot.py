@@ -1305,11 +1305,8 @@ async def send_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     for ch_id in channels:
         try:
-            await context.bot.copy_message(
-                chat_id=int(ch_id),
-                from_chat_id=update.effective_chat.id,
-                message_id=replied_msg.message_id
-            )
+            # ⭐ FORWARD use karo - copy nahi. Isse premium emoji safe rahenge
+            await replied_msg.forward(chat_id=int(ch_id))
             success_count += 1
             await asyncio.sleep(1)
         except Exception as e:
@@ -1331,7 +1328,7 @@ async def send_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     
     await status_msg.edit_text(result_text, parse_mode="HTML")
-
+    
 async def auto_forward_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID:
         await update.message.reply_text(
