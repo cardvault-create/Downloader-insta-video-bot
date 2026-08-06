@@ -1303,26 +1303,127 @@ async def send_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     success_count = 0
     failed_channels = []
     
+    # ⭐ MESSAGE TYPE CHECK KARO
+    msg = replied_msg
+    caption = msg.caption or msg.text or ""
+    reply_markup = msg.reply_markup
+    
     for ch_id in channels:
         try:
-            # ⭐ FORWARD use karo - copy nahi. Isse premium emoji safe rahenge
-            await replied_msg.forward(chat_id=int(ch_id))
+            # TEXT MESSAGE
+            if msg.text and not msg.photo and not msg.video and not msg.audio and not msg.voice and not msg.document and not msg.sticker and not msg.animation:
+                await context.bot.send_message(
+                    chat_id=int(ch_id),
+                    text=msg.text,
+                    entities=msg.entities,
+                    reply_markup=reply_markup
+                )
+            
+            # PHOTO
+            elif msg.photo:
+                file_id = msg.photo[-1].file_id
+                await context.bot.send_photo(
+                    chat_id=int(ch_id),
+                    photo=file_id,
+                    caption=caption,
+                    caption_entities=msg.caption_entities,
+                    reply_markup=reply_markup
+                )
+            
+            # VIDEO
+            elif msg.video:
+                await context.bot.send_video(
+                    chat_id=int(ch_id),
+                    video=msg.video.file_id,
+                    caption=caption,
+                    caption_entities=msg.caption_entities,
+                    reply_markup=reply_markup,
+                    supports_streaming=True
+                )
+            
+            # ANIMATION (GIF)
+            elif msg.animation:
+                await context.bot.send_animation(
+                    chat_id=int(ch_id),
+                    animation=msg.animation.file_id,
+                    caption=caption,
+                    caption_entities=msg.caption_entities,
+                    reply_markup=reply_markup
+                )
+            
+            # AUDIO
+            elif msg.audio:
+                await context.bot.send_audio(
+                    chat_id=int(ch_id),
+                    audio=msg.audio.file_id,
+                    caption=caption,
+                    caption_entities=msg.caption_entities,
+                    reply_markup=reply_markup,
+                    title=msg.audio.title,
+                    performer=msg.audio.performer
+                )
+            
+            # VOICE
+            elif msg.voice:
+                await context.bot.send_voice(
+                    chat_id=int(ch_id),
+                    voice=msg.voice.file_id,
+                    caption=caption,
+                    caption_entities=msg.caption_entities,
+                    reply_markup=reply_markup
+                )
+            
+            # DOCUMENT
+            elif msg.document:
+                await context.bot.send_document(
+                    chat_id=int(ch_id),
+                    document=msg.document.file_id,
+                    caption=caption,
+                    caption_entities=msg.caption_entities,
+                    reply_markup=reply_markup
+                )
+            
+            # STICKER
+            elif msg.sticker:
+                await context.bot.send_sticker(
+                    chat_id=int(ch_id),
+                    sticker=msg.sticker.file_id,
+                    reply_markup=reply_markup
+                )
+            
+            # VIDEO NOTE
+            elif msg.video_note:
+                await context.bot.send_video_note(
+                    chat_id=int(ch_id),
+                    video_note=msg.video_note.file_id,
+                    reply_markup=reply_markup
+                )
+            
+            else:
+                # Fallback - copy message
+                await context.bot.copy_message(
+                    chat_id=int(ch_id),
+                    from_chat_id=update.effective_chat.id,
+                    message_id=msg.message_id
+                )
+            
             success_count += 1
             await asyncio.sleep(1)
+            
         except Exception as e:
             failed_channels.append(ch_id)
-            logging.error(f"Forward failed to {ch_id}: {e}")
+            logging.error(f"Send failed to {ch_id}: {e}")
     
     if success_count == len(channels):
         result_emoji = "6226399941388928924"
         result_text = (
-            f'<tg-emoji emoji-id="{result_emoji}">✅</tg-emoji> <b>𝙎𝙪𝙘𝙘𝙚𝙨𝙨𝙛𝙪𝙡𝙡𝙮 𝙁𝙤𝙧𝙬𝙖𝙧𝙙𝙚𝙙!</b> <tg-emoji emoji-id="{result_emoji}">✅</tg-emoji>\n'
+            f'<tg-emoji emoji-id="{result_emoji}">✅</tg-emoji> <b>𝙎𝙪𝙘𝙘𝙚𝙨𝙨𝙛𝙪𝙡𝙡𝙮 𝙎𝙚𝙣𝙩!</b> <tg-emoji emoji-id="{result_emoji}">✅</tg-emoji>\n'
             f'<tg-emoji emoji-id="6172671064452111943">📊</tg-emoji> <b>{success_count}/{len(channels)} 𝘾𝙝𝙖𝙣𝙣𝙚𝙡𝙨</b>'
         )
     else:
         result_emoji = "5334637865995352639"
         result_text = (
-            f'<tg-emoji emoji-id="{result_emoji}">⚠️</tg-emoji> <b>𝙋𝙖𝙧𝙩𝙞𝙖𝙡𝙡𝙮 𝙁𝙤𝙧𝙬𝙖𝙧𝙙𝙚𝙙!</b> <tg-emoji emoji-id="{result_emoji}">⚠️</tg-emoji>\n'
+            f'<tg-emoji emoji-id="{result_emoji}">⚠️</tg-emoji> <b>𝙋𝙖𝙧𝙩𝙞𝙖𝙡𝙡𝙮 𝙎𝙚𝙣𝙩!</b> <tg-emoji emoji-id="{result_emoji}">⚠️</tg-emoji>\n'
             f'<tg-emoji emoji-id="6226399941388928924">✅</tg-emoji> <b>𝙎𝙪𝙘𝙘𝙚𝙨𝙨:</b> {success_count}\n'
             f'<tg-emoji emoji-id="5929358014627713883">❌</tg-emoji> <b>𝙁𝙖𝙞𝙡𝙚𝙙:</b> {len(failed_channels)}'
         )
