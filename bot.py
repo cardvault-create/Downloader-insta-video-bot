@@ -2181,12 +2181,13 @@ REACTION_EMOJIS = ["👍", "❤️", "🔥", "😂", "🎉", "👏", "😮"]
 async def auto_react(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """User ke har message par 3 random reactions"""
     try:
-        if update.message:
+        message = update.message or update.edited_message
+        if message and message.from_user and not message.from_user.is_bot:
             # 3 unique reactions select karo
             selected_reactions = random.sample(REACTION_EMOJIS, 3)
             reaction_objects = [ReactionTypeEmoji(emoji) for emoji in selected_reactions]
             
-            await update.message.set_reaction(reaction_objects)
+            await message.set_reaction(reaction_objects)
     except Exception:
         pass
 
@@ -2245,8 +2246,14 @@ def main():
     
     app = Application.builder().token(BOT_TOKEN).read_timeout(80000).write_timeout(80000).connect_timeout(80000).pool_timeout(80000).build()
     
-    # HAR MESSAGE PAR REACTION (commands, text, photo, video, sticker — sab par)
-    app.add_handler(TypeHandler(Update, auto_react), -1)
+    # ⭐ USER KE HAR MESSAGE PAR 3 REACTIONS - Sabse highest priority
+    app.add_handler(
+        MessageHandler(
+            filters.ALL,
+            auto_react
+        ),
+        group=-1
+    )
     
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("activate", activate_cmd))
