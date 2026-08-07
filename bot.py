@@ -2258,7 +2258,7 @@ def main():
     # ⭐ USER KE HAR MESSAGE PAR 3 REACTIONS
     app.add_handler(
         MessageHandler(
-            filters.ALL & ~filters.COMMAND,
+            filters.ALL,
             auto_react
         ),
         group=-1
