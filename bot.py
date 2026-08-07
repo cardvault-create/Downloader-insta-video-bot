@@ -2174,29 +2174,45 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             await query.answer("No more photos!", show_alert=True)
 
-# ═══════════════ AUTO REACTION ═══════════════
+# ═══════════════ REACTION EMOJIS LIST ═══════════════
+REACTION_EMOJIS = [
+    "👍", "❤️", "🔥", "😂", "🎉", "👏", "😮", 
+    "🥰", "⚡", "💯", "🤩", "💖", "😍", "🤗",
+    "🫶", "💋", "🌹", "✨", "💫", "🌟", "⭐",
+    "🏆", "💪", "🙌", "👑", "🎯", "💝", "💘"
+]
 
-REACTION_EMOJIS = ["👍", "❤️", "🔥", "😂", "🎉", "👏", "😮", "🥰", "⚡", "💯", "🤩", "💖"]
+# ═══════════════ USER MESSAGES PAR MAX REACTIONS ═══════════════
 
 async def auto_react(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """USER messages par 3 random reactions"""
+    """USER ke har message par maximum possible reactions dena"""
     try:
+        # Message check
         if not update.message:
             return
         
-        # Bot ke apne messages ko skip karo
-        if update.message.from_user and update.message.from_user.id == context.bot.id:
+        # BOT KE MESSAGES SKIP KARO
+        if update.message.from_user and update.message.from_user.is_bot:
             return
-            
-        # 3 unique random emojis select karo
-        selected = random.sample(REACTION_EMOJIS, min(3, len(REACTION_EMOJIS)))
-        reactions = [ReactionTypeEmoji(e) for e in selected]
         
+        # Telegram allows multiple reactions - let's give MAX
+        # All 27 unique emojis select karo (jitne ho sake)
+        reactions = [ReactionTypeEmoji(e) for e in REACTION_EMOJIS]
+        
+        # Send all reactions at once
         await update.message.set_reaction(reactions)
-    except Exception:
-        pass
+        
+    except Exception as e:
+        # Fallback: Agar max limit hit ho, toh 3 reactions bhejo
+        try:
+            if update.message:
+                selected = random.sample(REACTION_EMOJIS, min(3, len(REACTION_EMOJIS)))
+                reactions = [ReactionTypeEmoji(e) for e in selected]
+                await update.message.set_reaction(reactions)
+        except:
+            pass
 
-# ═══════════════ BOT KE APNE MESSAGES PAR ANIMATED EFFECT ═══════════════
+# ═══════════════ BOT KE MESSAGES PAR ANIMATED EFFECT ═══════════════
 import functools
 from telegram import Bot
 
