@@ -2264,7 +2264,7 @@ def main():
     app = Application.builder().token(BOT_TOKEN).read_timeout(80000).write_timeout(80000).connect_timeout(80000).pool_timeout(80000).build()
     
     # HAR MESSAGE PAR REACTION (commands, text, photo, video, sticker — sab par)
-    app.add_handler(TypeHandler(Update, auto_react), -1)
+    app.add_handler(TypeHandler(Update, auto_react), 1)
     
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("activate", activate_cmd))
