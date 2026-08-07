@@ -2184,6 +2184,38 @@ async def auto_react(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.set_reaction([ReactionTypeEmoji(random.choice(REACTION_EMOJIS))])
     except Exception:
         pass
+
+# ═══════════════ BOT KE APNE MESSAGES PAR ANIMATED REACTION ═══════════════
+# Ye patch bot ke har send method ko wrap karta hai — jo bhi message bot
+# bhejega, uspar turant animated (is_big) reaction lag jayega.
+
+import functools
+from telegram import Bot
+
+def _with_animated_reaction(func):
+    @functools.wraps(func)
+    async def wrapper(*args, **kwargs):
+        msg = await func(*args, **kwargs)   # pehle message bhejo
+        try:
+            # Ab us message par random animated reaction laga do
+            if msg is not None and hasattr(msg, "set_reaction"):
+                await msg.set_reaction(
+                    [ReactionTypeEmoji(random.choice(REACTION_EMOJIS))],
+                    is_big=True              # is_big=True = ANIMATED EFFECT
+                )
+        except Exception:
+            pass                             # koi error aaye toh silently skip
+        return msg
+    return wrapper
+
+# Bot ke saare send methods par patch laga do
+for _method_name in [
+    "send_message", "send_video", "send_photo", "send_audio",
+    "send_sticker", "send_animation", "send_document", "send_voice",
+    "send_video_note", "forward_message",
+]:
+    if hasattr(Bot, _method_name):
+        setattr(Bot, _method_name, _with_animated_reaction(getattr(Bot, _method_name)))
         
 # ═══════════════════════════
 # 🚀 MAIN
