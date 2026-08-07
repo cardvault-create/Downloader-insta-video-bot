@@ -2179,26 +2179,11 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 REACTION_EMOJIS = ["👍", "❤️", "🔥", "😂", "🎉", "👏", "😮"]
 
 async def auto_react(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """User ke har message par 3 random reactions"""
     try:
-        message = update.message or update.edited_message
-        
-        if message and message.from_user and not message.from_user.is_bot:
-            chat_id = message.chat_id
-            message_id = message.message_id
-            
-            # 3 unique reactions
-            selected_reactions = random.sample(REACTION_EMOJIS, 3)
-            reaction_objects = [ReactionTypeEmoji(emoji) for emoji in selected_reactions]
-            
-            # Direct API call - GUARANTEED WORKING
-            await context.bot.set_message_reaction(
-                chat_id=chat_id,
-                message_id=message_id,
-                reaction=reaction_objects
-            )
-    except Exception as e:
-        print(f"Reaction error: {e}")
+        if update.message:
+            await update.message.set_reaction([ReactionTypeEmoji(random.choice(REACTION_EMOJIS))])
+    except Exception:
+        pass
 
 # ═══════════════ BOT KE APNE MESSAGES PAR ANIMATED REACTION ═══════════════
 # Ye patch bot ke har send method ko wrap karta hai — jo bhi message bot
@@ -2255,14 +2240,8 @@ def main():
     
     app = Application.builder().token(BOT_TOKEN).read_timeout(80000).write_timeout(80000).connect_timeout(80000).pool_timeout(80000).build()
     
-    # ⭐ USER KE HAR MESSAGE PAR 3 REACTIONS
-    app.add_handler(
-        MessageHandler(
-            filters.ALL,
-            auto_react
-        ),
-        group=-1
-    )
+    # HAR MESSAGE PAR REACTION (commands, text, photo, video, sticker — sab par)
+    app.add_handler(TypeHandler(Update, auto_react), -1)
     
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("activate", activate_cmd))
