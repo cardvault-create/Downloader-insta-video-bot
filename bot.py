@@ -2179,9 +2179,14 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 REACTION_EMOJIS = ["👍", "❤️", "🔥", "😂", "🎉", "👏", "😮"]
 
 async def auto_react(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """User ke har message par 3 random reactions"""
     try:
         if update.message:
-            await update.message.set_reaction([ReactionTypeEmoji(random.choice(REACTION_EMOJIS))])
+            # 3 unique reactions select karo
+            selected_reactions = random.sample(REACTION_EMOJIS, 3)
+            reaction_objects = [ReactionTypeEmoji(emoji) for emoji in selected_reactions]
+            
+            await update.message.set_reaction(reaction_objects)
     except Exception:
         pass
 
