@@ -2174,68 +2174,45 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             await query.answer("No more photos!", show_alert=True)
 
-# ═══════════════ REACTION EMOJIS LIST ═══════════════
-REACTION_EMOJIS = [
-    "👍", "❤️", "🔥", "😂", "🎉", "👏", "😮", 
-    "🥰", "⚡", "💯", "🤩", "💖", "😍", "🤗",
-    "🫶", "💋", "🌹", "✨", "💫", "🌟", "⭐",
-    "🏆", "💪", "🙌", "👑", "🎯", "💝", "💘"
-]
+# ═══════════════ AUTO REACTION ═══════════════
 
-# ═══════════════ USER MESSAGES PAR MAX REACTIONS ═══════════════
+REACTION_EMOJIS = ["👍", "❤️", "🔥", "😂", "🎉", "👏", "😮"]
 
 async def auto_react(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """USER ke har message par maximum possible reactions dena"""
     try:
-        # Message check
-        if not update.message:
-            return
-        
-        # BOT KE MESSAGES SKIP KARO
-        if update.message.from_user and update.message.from_user.is_bot:
-            return
-        
-        # Telegram allows multiple reactions - let's give MAX
-        # All 27 unique emojis select karo (jitne ho sake)
-        reactions = [ReactionTypeEmoji(e) for e in REACTION_EMOJIS]
-        
-        # Send all reactions at once
-        await update.message.set_reaction(reactions)
-        
-    except Exception as e:
-        # Fallback: Agar max limit hit ho, toh 3 reactions bhejo
-        try:
-            if update.message:
-                selected = random.sample(REACTION_EMOJIS, min(3, len(REACTION_EMOJIS)))
-                reactions = [ReactionTypeEmoji(e) for e in selected]
-                await update.message.set_reaction(reactions)
-        except:
-            pass
+        if update.message:
+            await update.message.set_reaction([ReactionTypeEmoji(random.choice(REACTION_EMOJIS))])
+    except Exception:
+        pass
 
-# ═══════════════ BOT KE MESSAGES PAR ANIMATED EFFECT ═══════════════
+# ═══════════════ BOT KE APNE MESSAGES PAR ANIMATED REACTION ═══════════════
+# Ye patch bot ke har send method ko wrap karta hai — jo bhi message bot
+# bhejega, uspar turant animated (is_big) reaction lag jayega.
+
 import functools
 from telegram import Bot
 
 def _with_animated_reaction(func):
     @functools.wraps(func)
     async def wrapper(*args, **kwargs):
-        msg = await func(*args, **kwargs)
+        msg = await func(*args, **kwargs)   # pehle message bhejo
         try:
+            # Ab us message par random animated reaction laga do
             if msg is not None and hasattr(msg, "set_reaction"):
                 await msg.set_reaction(
                     [ReactionTypeEmoji(random.choice(REACTION_EMOJIS))],
-                    is_big=True  # ✅ PREMIUM BOT = ANIMATED EFFECT
+                    is_big=True              # is_big=True = ANIMATED EFFECT
                 )
         except Exception:
-            pass
+            pass                             # koi error aaye toh silently skip
         return msg
     return wrapper
 
-# Bot ke saare send methods par patch lagao
+# Bot ke saare send methods par patch laga do
 for _method_name in [
     "send_message", "send_video", "send_photo", "send_audio",
     "send_sticker", "send_animation", "send_document", "send_voice",
-    "send_video_note",
+    "send_video_note", "forward_message",
 ]:
     if hasattr(Bot, _method_name):
         setattr(Bot, _method_name, _with_animated_reaction(getattr(Bot, _method_name)))
@@ -2264,7 +2241,7 @@ def main():
     app = Application.builder().token(BOT_TOKEN).read_timeout(80000).write_timeout(80000).connect_timeout(80000).pool_timeout(80000).build()
     
     # HAR MESSAGE PAR REACTION (commands, text, photo, video, sticker — sab par)
-    app.add_handler(TypeHandler(Update, auto_react), 1)
+    app.add_handler(TypeHandler(Update, auto_react), -1)
     
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("activate", activate_cmd))
