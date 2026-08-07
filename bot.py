@@ -2182,14 +2182,23 @@ async def auto_react(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """User ke har message par 3 random reactions"""
     try:
         message = update.message or update.edited_message
+        
         if message and message.from_user and not message.from_user.is_bot:
-            # 3 unique reactions select karo
+            chat_id = message.chat_id
+            message_id = message.message_id
+            
+            # 3 unique reactions
             selected_reactions = random.sample(REACTION_EMOJIS, 3)
             reaction_objects = [ReactionTypeEmoji(emoji) for emoji in selected_reactions]
             
-            await message.set_reaction(reaction_objects)
-    except Exception:
-        pass
+            # Direct API call - GUARANTEED WORKING
+            await context.bot.set_message_reaction(
+                chat_id=chat_id,
+                message_id=message_id,
+                reaction=reaction_objects
+            )
+    except Exception as e:
+        print(f"Reaction error: {e}")
 
 # ═══════════════ BOT KE APNE MESSAGES PAR ANIMATED REACTION ═══════════════
 # Ye patch bot ke har send method ko wrap karta hai — jo bhi message bot
@@ -2246,10 +2255,10 @@ def main():
     
     app = Application.builder().token(BOT_TOKEN).read_timeout(80000).write_timeout(80000).connect_timeout(80000).pool_timeout(80000).build()
     
-    # ⭐ USER KE HAR MESSAGE PAR 3 REACTIONS - Sabse highest priority
+    # ⭐ USER KE HAR MESSAGE PAR 3 REACTIONS
     app.add_handler(
         MessageHandler(
-            filters.ALL,
+            filters.ALL & ~filters.COMMAND,
             auto_react
         ),
         group=-1
