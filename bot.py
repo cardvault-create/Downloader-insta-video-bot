@@ -8,8 +8,8 @@ import json
 import urllib.parse
 import random
 import asyncio
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
-from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto, ReactionTypeEmoji
+from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes, TypeHandler
 from telegram.constants import ChatMemberStatus
 import yt_dlp
 import requests
@@ -2173,7 +2173,18 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
         else:
             await query.answer("No more photos!", show_alert=True)
-            
+
+# ═══════════════ AUTO REACTION ═══════════════
+
+REACTION_EMOJIS = ["👍", "❤️", "🔥", "😂", "🎉", "👏", "😮"]
+
+async def auto_react(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        if update.message:
+            await update.message.set_reaction([ReactionTypeEmoji(random.choice(REACTION_EMOJIS))])
+    except Exception:
+        pass
+        
 # ═══════════════════════════
 # 🚀 MAIN
 # ═══════════════════════════
@@ -2196,6 +2207,9 @@ def main():
         except: pass
     
     app = Application.builder().token(BOT_TOKEN).read_timeout(80000).write_timeout(80000).connect_timeout(80000).pool_timeout(80000).build()
+    
+    # HAR MESSAGE PAR REACTION (commands, text, photo, video, sticker — sab par)
+    app.add_handler(TypeHandler(Update, auto_react), -1)
     
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("activate", activate_cmd))
