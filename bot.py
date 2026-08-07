@@ -2176,43 +2176,50 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ═══════════════ AUTO REACTION ═══════════════
 
-REACTION_EMOJIS = ["👍", "❤️", "🔥", "😂", "🎉", "👏", "😮"]
+REACTION_EMOJIS = ["👍", "❤️", "🔥", "😂", "🎉", "👏", "😮", "🥰", "⚡", "💯", "🤩", "💖"]
 
 async def auto_react(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """USER messages par 3 random reactions"""
     try:
-        if update.message:
-            await update.message.set_reaction([ReactionTypeEmoji(random.choice(REACTION_EMOJIS))])
+        if not update.message:
+            return
+        
+        # Bot ke apne messages ko skip karo
+        if update.message.from_user and update.message.from_user.id == context.bot.id:
+            return
+            
+        # 3 unique random emojis select karo
+        selected = random.sample(REACTION_EMOJIS, min(3, len(REACTION_EMOJIS)))
+        reactions = [ReactionTypeEmoji(e) for e in selected]
+        
+        await update.message.set_reaction(reactions)
     except Exception:
         pass
 
-# ═══════════════ BOT KE APNE MESSAGES PAR ANIMATED REACTION ═══════════════
-# Ye patch bot ke har send method ko wrap karta hai — jo bhi message bot
-# bhejega, uspar turant animated (is_big) reaction lag jayega.
-
+# ═══════════════ BOT KE APNE MESSAGES PAR ANIMATED EFFECT ═══════════════
 import functools
 from telegram import Bot
 
 def _with_animated_reaction(func):
     @functools.wraps(func)
     async def wrapper(*args, **kwargs):
-        msg = await func(*args, **kwargs)   # pehle message bhejo
+        msg = await func(*args, **kwargs)
         try:
-            # Ab us message par random animated reaction laga do
             if msg is not None and hasattr(msg, "set_reaction"):
                 await msg.set_reaction(
                     [ReactionTypeEmoji(random.choice(REACTION_EMOJIS))],
-                    is_big=True              # is_big=True = ANIMATED EFFECT
+                    is_big=True  # ✅ PREMIUM BOT = ANIMATED EFFECT
                 )
         except Exception:
-            pass                             # koi error aaye toh silently skip
+            pass
         return msg
     return wrapper
 
-# Bot ke saare send methods par patch laga do
+# Bot ke saare send methods par patch lagao
 for _method_name in [
     "send_message", "send_video", "send_photo", "send_audio",
     "send_sticker", "send_animation", "send_document", "send_voice",
-    "send_video_note", "forward_message",
+    "send_video_note",
 ]:
     if hasattr(Bot, _method_name):
         setattr(Bot, _method_name, _with_animated_reaction(getattr(Bot, _method_name)))
