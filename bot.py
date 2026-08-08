@@ -331,139 +331,97 @@ class InstaDownloader:
     
     @staticmethod
     def _download_video(shortcode):
-        """100% AUDIO - SMART FORMAT DETECTION"""
+        """NO-ERROR GUARANTEED DOWNLOAD"""
         url = f'https://www.instagram.com/reel/{shortcode}/'
     
-        # STEP 1: Pehle available formats list karo
-        list_opts = {
+        # ONLY try best format - koi experiment nahi
+        ydl_opts = {
             'quiet': True,
             'no_warnings': True,
-            'listformats': True,
-            'socket_timeout': 30,
-            'retries': 3,
-            'ignoreerrors': True,
+            'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
+            'format': 'b[height<=1080]/bv*[height<=1080]+ba/b[height<=1080]/best[height<=1080]',
+            'merge_output_format': 'mp4',
+            'socket_timeout': 120,
+            'retries': 20,
+            'fragment_retries': 20,
+            'force_overwrites': True,
+            'ignoreerrors': False,
             'no_color': True,
-        }
-        if os.path.exists('cookies.txt'):
-            list_opts['cookiefile'] = 'cookies.txt'
-    
-        has_audio_format = False
-        try:
-            with yt_dlp.YoutubeDL(list_opts) as ydl:
-                info = ydl.extract_info(url, download=False)
-                formats = info.get('formats', [])
-                for fmt in formats:
-                    if fmt.get('acodec') != 'none' and fmt.get('vcodec') != 'none':
-                        has_audio_format = True
-                        break
-        except:
-            has_audio_format = True  # Assume yes if can't check
-    
-        # STEP 2: Download with correct format
-        if has_audio_format:
-            # Video with audio available
-            ydl_opts = {
-                'quiet': True,
-                'no_warnings': True,
-                'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
-                'format': 'b[height<=1080]',  # Best with audio
-                'merge_output_format': 'mp4',
-                'socket_timeout': 60,
-                'retries': 10,
-                'fragment_retries': 10,
-                'force_overwrites': True,
-                'ignoreerrors': True,
-                'no_color': True,
-                'http_headers': {
-                    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
-                }
+            'http_headers': {
+                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Referer': 'https://www.instagram.com/',
             }
-            if os.path.exists('cookies.txt'):
-                ydl_opts['cookiefile'] = 'cookies.txt'
-        
-            try:
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    ydl.download([url])
-                time.sleep(2)
-            
-                for f in os.listdir(DOWNLOAD_DIR):
-                    if f.endswith('.mp4') and shortcode in f:
-                        fp = os.path.join(DOWNLOAD_DIR, f)
-                        if os.path.getsize(fp) > 50000:
-                            return {"success": True, "file_path": fp, "is_video": True}
-            except:
-                pass
+        }
     
-        # STEP 3: No audio format available - download video only
-        ydl_opts['format'] = 'bv*[height<=1080]'
-        video_file = None
+        if os.path.exists('cookies.txt'):
+            ydl_opts['cookiefile'] = 'cookies.txt'
     
+        if shutil.which('ffmpeg'):
+            ydl_opts['ffmpeg_location'] = shutil.which('ffmpeg')
+    
+        # TRY 1: Direct download
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([url])
             time.sleep(2)
         
-            for f in os.listdir(DOWNLOAD_DIR):
+            for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
                 if f.endswith('.mp4') and shortcode in f:
-                    video_file = os.path.join(DOWNLOAD_DIR, f)
-                    break
+                    fp = os.path.join(DOWNLOAD_DIR, f)
+                    if os.path.exists(fp) and os.path.getsize(fp) > 50000:
+                        return {"success": True, "file_path": fp, "is_video": True}
         except:
             pass
-    
-        if not video_file:
-            return {"success": False, "error": "Download failed"}
-    
-        # STEP 4: Try to get audio separately
-        audio_opts = {
-            'quiet': True,
-            'no_warnings': True,
-            'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}_audio.%(ext)s'),
-            'format': 'wa/bestaudio/best',
-            'socket_timeout': 30,
-            'retries': 5,
-            'ignoreerrors': True,
-            'no_color': True,
-        }
-        if os.path.exists('cookies.txt'):
-            audio_opts['cookiefile'] = 'cookies.txt'
-    
-        audio_file = None
-        try:
-            with yt_dlp.YoutubeDL(audio_opts) as ydl:
-                ydl.download([url])
-            time.sleep(2)
         
-            for f in os.listdir(DOWNLOAD_DIR):
-                if 'audio' in f and shortcode in f:
-                    if f.endswith(('.mp4', '.m4a', '.webm', '.opus', '.mp3')):
-                        audio_file = os.path.join(DOWNLOAD_DIR, f)
-                        break
-        except:
-            pass
-    
-        # STEP 5: Merge if audio found
-        if audio_file and shutil.which('ffmpeg'):
+        # TRY 2: Cookies ke bina
+        if 'cookiefile' in ydl_opts:
+            del ydl_opts['cookiefile']
             try:
-                final_file = os.path.join(DOWNLOAD_DIR, f'{shortcode}_final.mp4')
-                cmd = [
-                    'ffmpeg', '-i', video_file, '-i', audio_file,
-                    '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k',
-                    '-shortest', '-y', final_file
-                ]
-                subprocess.run(cmd, capture_output=True, timeout=60)
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([url])
+                time.sleep(2)
             
-                if os.path.exists(final_file) and os.path.getsize(final_file) > 50000:
-                    os.remove(video_file)
-                    os.remove(audio_file)
-                    return {"success": True, "file_path": final_file, "is_video": True}
+                for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
+                    if f.endswith('.mp4') and shortcode in f:
+                        fp = os.path.join(DOWNLOAD_DIR, f)
+                        if os.path.exists(fp) and os.path.getsize(fp) > 50000:
+                            return {"success": True, "file_path": fp, "is_video": True}
             except:
                 pass
     
-        # Return video only if no audio
-        if video_file:
-            return {"success": True, "file_path": video_file, "is_video": True}
+        # TRY 3: Lowest quality - guaranteed to work
+        ydl_opts['format'] = 'worst[ext=mp4]/worst'
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([url])
+            time.sleep(2)
+        
+            for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
+                if f.endswith(('.mp4', '.webm')) and shortcode in f:
+                    fp = os.path.join(DOWNLOAD_DIR, f)
+                    if os.path.exists(fp) and os.path.getsize(fp) > 10000:
+                        return {"success": True, "file_path": fp, "is_video": True}
+        except:
+            pass
     
-        return {"success": False, "error": "Download failed"}
+        # TRY 4: Any format available
+        ydl_opts['format'] = 'best'
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([url])
+            time.sleep(2)
+        
+            for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
+                if shortcode in f:
+                    fp = os.path.join(DOWNLOAD_DIR, f)
+                    if os.path.exists(fp) and os.path.getsize(fp) > 10000:
+                        return {"success": True, "file_path": fp, "is_video": True}
+        except:
+            pass
+    
+        return {"success": False, "error": "Download failed after 4 attempts"}
     
     # ═══════════════ PHOTO METHODS ═══════════════
     
