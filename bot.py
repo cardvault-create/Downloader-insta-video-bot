@@ -331,31 +331,73 @@ class InstaDownloader:
     
     @staticmethod
     def _download_video(shortcode):
-        """100% AUDIO - FORCE DOWNLOAD METHOD"""
+        """100% AUDIO - SMART FORMAT DETECTION"""
         url = f'https://www.instagram.com/reel/{shortcode}/'
     
-        # FORCE yt-dlp to download BOTH video and audio separately
-        ydl_opts = {
+        # STEP 1: Pehle available formats list karo
+        list_opts = {
             'quiet': True,
             'no_warnings': True,
-            'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}_video.%(ext)s'),
-            'format': 'bv*[height<=1080]',  # ONLY VIDEO
-            'merge_output_format': 'mp4',
-            'socket_timeout': 60,
-            'retries': 10,
-            'fragment_retries': 10,
-            'force_overwrites': True,
+            'listformats': True,
+            'socket_timeout': 30,
+            'retries': 3,
             'ignoreerrors': True,
             'no_color': True,
-            'http_headers': {
-                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
-            }
         }
+        if os.path.exists('cookies.txt'):
+            list_opts['cookiefile'] = 'cookies.txt'
     
+        has_audio_format = False
+        try:
+            with yt_dlp.YoutubeDL(list_opts) as ydl:
+                info = ydl.extract_info(url, download=False)
+                formats = info.get('formats', [])
+                for fmt in formats:
+                    if fmt.get('acodec') != 'none' and fmt.get('vcodec') != 'none':
+                        has_audio_format = True
+                        break
+        except:
+            has_audio_format = True  # Assume yes if can't check
+    
+        # STEP 2: Download with correct format
+        if has_audio_format:
+            # Video with audio available
+            ydl_opts = {
+                'quiet': True,
+                'no_warnings': True,
+                'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
+                'format': 'b[height<=1080]',  # Best with audio
+                'merge_output_format': 'mp4',
+                'socket_timeout': 60,
+                'retries': 10,
+                'fragment_retries': 10,
+                'force_overwrites': True,
+                'ignoreerrors': True,
+                'no_color': True,
+                'http_headers': {
+                    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
+                }
+            }
+            if os.path.exists('cookies.txt'):
+                ydl_opts['cookiefile'] = 'cookies.txt'
+        
+            try:
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([url])
+                time.sleep(2)
+            
+                for f in os.listdir(DOWNLOAD_DIR):
+                    if f.endswith('.mp4') and shortcode in f:
+                        fp = os.path.join(DOWNLOAD_DIR, f)
+                        if os.path.getsize(fp) > 50000:
+                            return {"success": True, "file_path": fp, "is_video": True}
+            except:
+                pass
+    
+        # STEP 3: No audio format available - download video only
+        ydl_opts['format'] = 'bv*[height<=1080]'
         video_file = None
-        audio_file = None
     
-        # STEP 1: Download video only
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([url])
@@ -368,35 +410,38 @@ class InstaDownloader:
         except:
             pass
     
-        if not video_file or os.path.getsize(video_file) < 50000:
-            return {"success": False, "error": "Video download failed"}
+        if not video_file:
+            return {"success": False, "error": "Download failed"}
     
-        # STEP 2: Download audio only
+        # STEP 4: Try to get audio separately
         audio_opts = {
             'quiet': True,
             'no_warnings': True,
             'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}_audio.%(ext)s'),
-            'format': 'ba/bestaudio',
+            'format': 'wa/bestaudio/best',
             'socket_timeout': 30,
             'retries': 5,
             'ignoreerrors': True,
             'no_color': True,
         }
+        if os.path.exists('cookies.txt'):
+            audio_opts['cookiefile'] = 'cookies.txt'
     
+        audio_file = None
         try:
             with yt_dlp.YoutubeDL(audio_opts) as ydl:
                 ydl.download([url])
             time.sleep(2)
         
             for f in os.listdir(DOWNLOAD_DIR):
-                if shortcode in f and f != os.path.basename(video_file):
-                    if f.endswith(('.mp4', '.m4a', '.webm', '.opus')):
+                if 'audio' in f and shortcode in f:
+                    if f.endswith(('.mp4', '.m4a', '.webm', '.opus', '.mp3')):
                         audio_file = os.path.join(DOWNLOAD_DIR, f)
                         break
         except:
             pass
     
-        # STEP 3: Merge with FFmpeg
+        # STEP 5: Merge if audio found
         if audio_file and shutil.which('ffmpeg'):
             try:
                 final_file = os.path.join(DOWNLOAD_DIR, f'{shortcode}_final.mp4')
@@ -414,7 +459,7 @@ class InstaDownloader:
             except:
                 pass
     
-        # STEP 4: Audio nahi mila to video hi return kar
+        # Return video only if no audio
         if video_file:
             return {"success": True, "file_path": video_file, "is_video": True}
     
