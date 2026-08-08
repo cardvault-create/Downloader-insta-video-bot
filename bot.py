@@ -338,7 +338,7 @@ class InstaDownloader:
             'quiet': True,
             'no_warnings': True,
             'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
-            'format': 'bv*+ba/b',
+            'format': 'bv*+ba/b[height<=1080]/bv[height<=1080]+ba/b[height<=1080]/b[height<=1080]/best',
             'merge_output_format': 'mp4',
             'socket_timeout': 60,
             'extractor_retries': 5,
