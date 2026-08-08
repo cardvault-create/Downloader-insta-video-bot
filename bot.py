@@ -345,11 +345,27 @@ class InstaDownloader:
             return True
 
     @staticmethod
-    def _find_good_video(require_audio=True):
-        """Latest file dhoondo jo size + audio check pass kare."""
-        for f in sorted(os.listdir(DOWNLOAD_DIR),
-                        key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)),
-                        reverse=True):
+    def _clean_task_files(shortcode):
+        """Current task folder se purani files hatao — stale file confusion fix."""
+        try:
+            for f in os.listdir(DOWNLOAD_DIR):
+                if f.startswith(shortcode):
+                    try: os.remove(os.path.join(DOWNLOAD_DIR, f))
+                    except: pass
+        except Exception:
+            pass
+
+    @staticmethod
+    def _find_good_video(require_audio=True, shortcode=None):
+        """Downloaded file dhoondo jo size + audio check pass kare."""
+        try:
+            files = os.listdir(DOWNLOAD_DIR)
+        except Exception:
+            return None
+        files.sort(key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True)
+        for f in files:
+            if shortcode and not f.startswith(shortcode):
+                continue
             if '_audio' in f or '_muxed' in f or f.endswith(('.m4a', '.aac', '.mp3')):
                 continue
             if not f.endswith(('.mp4', '.mkv', '.webm')):
@@ -396,7 +412,7 @@ class InstaDownloader:
 
     @staticmethod
     def _download_video(shortcode):
-        """FAST DOWNLOAD - AUDIO VERIFIED HAR BAAR"""
+        """FAST DOWNLOAD - AUDIO VERIFIED, KAM REQUESTS"""
         url = f'https://www.instagram.com/reel/{shortcode}/'
 
         def base_opts():
@@ -406,10 +422,10 @@ class InstaDownloader:
                 'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
                 'format': 'bv*+ba/b',
                 'merge_output_format': 'mp4',
-                'socket_timeout': 60,
-                'extractor_retries': 5,
-                'retries': 10,
-                'fragment_retries': 10,
+                'socket_timeout': 30,
+                'extractor_retries': 2,
+                'retries': 3,
+                'fragment_retries': 3,
                 'force_overwrites': True,
                 'ignoreerrors': True,
                 'no_color': True,
@@ -426,39 +442,43 @@ class InstaDownloader:
                 opts['ffmpeg_location'] = shutil.which('ffmpeg')
             return opts
 
-        # Strategy chain: audio wali pehli file jo mile wahi lo
-        strategies = [
-            {'format': 'bv*[ext=mp4]+ba[ext=m4a]/bv*+ba/b', 'merge_output_format': 'mp4'},
-            {'format': 'bv*+ba/b', 'merge_output_format': 'mp4'},
-            {'format': 'best[acodec!=none]/best'},
-            {'format': 'best'},
-        ]
-
-        for strat in strategies:
+        def try_download(fmt, merge='mp4'):
+            InstaDownloader._clean_task_files(shortcode)
             opts = base_opts()
-            opts.update(strat)
+            opts['format'] = fmt
+            if merge:
+                opts['merge_output_format'] = merge
             try:
                 with yt_dlp.YoutubeDL(opts) as ydl:
                     ydl.download([url])
             except Exception:
                 pass
-            time.sleep(2)
+            time.sleep(1)
 
-            if 'ba' in strat.get('format', '') or 'acodec!=none' in strat.get('format', ''):
-                fp = InstaDownloader._find_good_video(require_audio=True)
-                if fp:
-                    return {"success": True, "file_path": fp, "is_video": True}
-            else:
-                fp = InstaDownloader._find_good_video(require_audio=False)
-                if fp:
-                    if InstaDownloader._has_audio_stream(fp):
-                        return {"success": True, "file_path": fp, "is_video": True}
-                    muxed = InstaDownloader._manual_mux(shortcode, fp, url, base_opts)
-                    if muxed:
-                        return {"success": True, "file_path": muxed, "is_video": True}
+        # 1) Best try: video + audio merge → audio verified
+        try_download('bv*[ext=mp4]+ba[ext=m4a]/bv*+ba/b')
+        fp = InstaDownloader._find_good_video(require_audio=True, shortcode=shortcode)
+        if fp:
+            return {"success": True, "file_path": fp, "is_video": True}
+
+        # 2) Combined single stream try (agar koi combined format ho)
+        try_download('best[acodec!=none]/best')
+        fp = InstaDownloader._find_good_video(require_audio=True, shortcode=shortcode)
+        if fp:
+            return {"success": True, "file_path": fp, "is_video": True}
+
+        # 3) Video-only mila → alag audio + ffmpeg mux
+        try_download('best')
+        fp = InstaDownloader._find_good_video(require_audio=False, shortcode=shortcode)
+        if fp:
+            if InstaDownloader._has_audio_stream(fp):
+                return {"success": True, "file_path": fp, "is_video": True}
+            muxed = InstaDownloader._manual_mux(shortcode, fp, url, base_opts)
+            if muxed:
+                return {"success": True, "file_path": muxed, "is_video": True}
 
         return {"success": False, "error": "<tg-emoji emoji-id=\"5850414922294365618\">🚫</tg-emoji> 𝐒𝐞𝐫𝐯𝐞𝐫 𝐁𝐮𝐬𝐲, 𝐓𝐫𝐲 𝐀𝐠𝐚𝐢𝐧 <tg-emoji emoji-id=\"5850600963097759409\">🚫</tg-emoji>"}
-    
+        
     # ═══════════════ PHOTO METHODS ═══════════════
     
     @staticmethod
