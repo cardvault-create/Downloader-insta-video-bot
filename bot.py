@@ -330,78 +330,133 @@ class InstaDownloader:
         else: return InstaDownloader._download_photo(shortcode, url)
     
     @staticmethod
-    def _download_video(shortcode):
-        """FAST DOWNLOAD - ALWAYS WITH AUDIO"""
-        url = f'https://www.instagram.com/reel/{shortcode}/'
-    
-        ydl_opts = {
-            'quiet': True,
-            'no_warnings': True,
-            'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
-            'format': 'bv*+ba/b',
-            'merge_output_format': 'mp4',
-            'socket_timeout': 60,
-            'extractor_retries': 5,
-            'retries': 10,
-            'fragment_retries': 10,
-            'force_overwrites': True,
-            'ignoreerrors': True,
-            'no_color': True,
-            'http_headers': {
-                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.9',
-                'Referer': 'https://www.instagram.com/',
-            }
-        }
-    
-        if os.path.exists('cookies.txt'):
-            ydl_opts['cookiefile'] = 'cookies.txt'
-    
-        if shutil.which('ffmpeg'):
-            ydl_opts['ffmpeg_location'] = shutil.which('ffmpeg')
-    
+    def _has_audio_stream(fp):
+        """Check if video file actually has an audio track."""
         try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            if not shutil.which('ffprobe'):
+                return True
+            r = subprocess.run(
+                ['ffprobe', '-v', 'error', '-select_streams', 'a',
+                 '-show_entries', 'stream=codec_type', '-of', 'csv=p=0', fp],
+                capture_output=True, text=True, timeout=30
+            )
+            return bool(r.stdout.strip())
+        except Exception:
+            return True
+
+    @staticmethod
+    def _find_good_video(require_audio=True):
+        """Latest file dhoondo jo size + audio check pass kare."""
+        for f in sorted(os.listdir(DOWNLOAD_DIR),
+                        key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)),
+                        reverse=True):
+            if '_audio' in f or '_muxed' in f or f.endswith(('.m4a', '.aac', '.mp3')):
+                continue
+            if not f.endswith(('.mp4', '.mkv', '.webm')):
+                continue
+            fp = os.path.join(DOWNLOAD_DIR, f)
+            if os.path.exists(fp) and os.path.getsize(fp) > 50000:
+                if not require_audio or InstaDownloader._has_audio_stream(fp):
+                    return fp
+        return None
+
+    @staticmethod
+    def _manual_mux(shortcode, video_fp, url, base_opts):
+        """Video-only file + audio-only stream → ffmpeg se mux."""
+        if not shutil.which('ffmpeg'):
+            return None
+        try:
+            aopts = base_opts()
+            aopts['format'] = 'ba/bestaudio'
+            aopts['outtmpl'] = os.path.join(DOWNLOAD_DIR, f'{shortcode}_audio.%(ext)s')
+            with yt_dlp.YoutubeDL(aopts) as ydl:
                 ydl.download([url])
-        except:
+            time.sleep(1)
+            audio_fp = None
+            for f in os.listdir(DOWNLOAD_DIR):
+                if f.startswith(f'{shortcode}_audio'):
+                    audio_fp = os.path.join(DOWNLOAD_DIR, f)
+                    break
+            if not audio_fp or not os.path.exists(audio_fp) or os.path.getsize(audio_fp) < 1000:
+                return None
+            out = os.path.join(DOWNLOAD_DIR, f'{shortcode}_muxed.mp4')
+            subprocess.run(
+                ['ffmpeg', '-y', '-i', video_fp, '-i', audio_fp,
+                 '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k',
+                 '-shortest', '-movflags', '+faststart', out],
+                capture_output=True, timeout=300
+            )
+            if os.path.exists(out) and os.path.getsize(out) > 50000 and InstaDownloader._has_audio_stream(out):
+                try: os.remove(audio_fp)
+                except: pass
+                return out
+        except Exception:
             pass
-    
-        time.sleep(2)
-    
-        for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
-            if f.endswith(('.mp4', '.mkv', '.webm')):
-                fp = os.path.join(DOWNLOAD_DIR, f)
-                if os.path.exists(fp) and os.path.getsize(fp) > 50000:
-                    return {"success": True, "file_path": fp, "is_video": True}
-    
-        if 'cookiefile' in ydl_opts:
-            del ydl_opts['cookiefile']
+        return None
+
+    @staticmethod
+    def _download_video(shortcode):
+        """FAST DOWNLOAD - AUDIO VERIFIED HAR BAAR"""
+        url = f'https://www.instagram.com/reel/{shortcode}/'
+
+        def base_opts():
+            opts = {
+                'quiet': True,
+                'no_warnings': True,
+                'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
+                'format': 'bv*+ba/b',
+                'merge_output_format': 'mp4',
+                'socket_timeout': 60,
+                'extractor_retries': 5,
+                'retries': 10,
+                'fragment_retries': 10,
+                'force_overwrites': True,
+                'ignoreerrors': True,
+                'no_color': True,
+                'http_headers': {
+                    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                    'Referer': 'https://www.instagram.com/',
+                },
+            }
+            if os.path.exists('cookies.txt'):
+                opts['cookiefile'] = 'cookies.txt'
+            if shutil.which('ffmpeg'):
+                opts['ffmpeg_location'] = shutil.which('ffmpeg')
+            return opts
+
+        # Strategy chain: audio wali pehli file jo mile wahi lo
+        strategies = [
+            {'format': 'bv*[ext=mp4]+ba[ext=m4a]/bv*+ba/b', 'merge_output_format': 'mp4'},
+            {'format': 'bv*+ba/b', 'merge_output_format': 'mp4'},
+            {'format': 'best[acodec!=none]/best'},
+            {'format': 'best'},
+        ]
+
+        for strat in strategies:
+            opts = base_opts()
+            opts.update(strat)
             try:
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                with yt_dlp.YoutubeDL(opts) as ydl:
                     ydl.download([url])
-            except:
+            except Exception:
                 pass
             time.sleep(2)
-            for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
-                if f.endswith(('.mp4', '.mkv', '.webm')):
-                    fp = os.path.join(DOWNLOAD_DIR, f)
-                    if os.path.exists(fp) and os.path.getsize(fp) > 50000:
-                        return {"success": True, "file_path": fp, "is_video": True}
-    
-        ydl_opts['format'] = 'best[ext=mp4]/best'
-        try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([url])
-        except:
-            pass
-        time.sleep(2)
-        for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
-            if f.endswith(('.mp4', '.mkv', '.webm')):
-                fp = os.path.join(DOWNLOAD_DIR, f)
-                if os.path.exists(fp) and os.path.getsize(fp) > 50000:
+
+            if 'ba' in strat.get('format', '') or 'acodec!=none' in strat.get('format', ''):
+                fp = InstaDownloader._find_good_video(require_audio=True)
+                if fp:
                     return {"success": True, "file_path": fp, "is_video": True}
-    
+            else:
+                fp = InstaDownloader._find_good_video(require_audio=False)
+                if fp:
+                    if InstaDownloader._has_audio_stream(fp):
+                        return {"success": True, "file_path": fp, "is_video": True}
+                    muxed = InstaDownloader._manual_mux(shortcode, fp, url, base_opts)
+                    if muxed:
+                        return {"success": True, "file_path": muxed, "is_video": True}
+
         return {"success": False, "error": "<tg-emoji emoji-id=\"5850414922294365618\">🚫</tg-emoji> 𝐒𝐞𝐫𝐯𝐞𝐫 𝐁𝐮𝐬𝐲, 𝐓𝐫𝐲 𝐀𝐠𝐚𝐢𝐧 <tg-emoji emoji-id=\"5850600963097759409\">🚫</tg-emoji>"}
     
     # ═══════════════ PHOTO METHODS ═══════════════
