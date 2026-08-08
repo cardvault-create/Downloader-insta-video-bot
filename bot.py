@@ -408,56 +408,131 @@ class InstaDownloader:
     
     @staticmethod
     def _download_photo(shortcode, url):
-        """PHOTOS - 5 methods"""
-        result = InstaDownloader._method_scrape_multi(shortcode, url)
-        if result.get("success"): return result
-        for method in [InstaDownloader._method_oembed, InstaDownloader._method_ytdlp, InstaDownloader._method_scrape_single, InstaDownloader._method_cdn]:
-            result = method(shortcode)
-            if result.get("success"): return result
+        """PHOTOS - FIXED: Try multiple methods with better carousel support"""
+        
+        # Method 1: Direct Instagram API (GraphQL) - BEST for carousels
+        result = InstaDownloader._method_graphql_api(shortcode)
+        if result.get("success"): 
+            return result
+        
+        # Method 2: Enhanced page scraping with better carousel detection
+        result = InstaDownloader._method_scrape_enhanced(shortcode, url)
+        if result.get("success"): 
+            return result
+            
+        # Method 3: yt-dlp (handles carousels well)
+        result = InstaDownloader._method_ytdlp_carousel(shortcode)
+        if result.get("success"): 
+            return result
+            
+        # Method 4: oEmbed API (usually single photo)
+        result = InstaDownloader._method_oembed(shortcode)
+        if result.get("success"): 
+            return result
+            
+        # Method 5: Direct CDN
+        result = InstaDownloader._method_cdn(shortcode)
+        if result.get("success"): 
+            return result
+            
         return {"success": False, "error": "<tg-emoji emoji-id=\"5850414922294365618\">🚫</tg-emoji> 𝐒𝐞𝐫𝐯𝐞𝐫 𝐢𝐬𝐬𝐮𝐞, 𝐩𝐥𝐞𝐚𝐬𝐞 𝐭𝐫𝐲 𝐚𝐠𝐚𝐢𝐧 <tg-emoji emoji-id=\"5850600963097759409\">🚫</tg-emoji>"}
     
     @staticmethod
-    def _method_scrape_multi(shortcode, url):
-        """Multiple photos from carousel posts"""
+    def _method_graphql_api(shortcode):
+        """Instagram's internal GraphQL API - BEST for carousels"""
         try:
             session = requests.Session()
-            session.headers.update({'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15'})
-            resp = session.get(url, timeout=15)
-            if resp.status_code != 200: return {"success": False}
-            html = resp.text
+            session.headers.update({
+                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
+                'Accept': '*/*',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'X-IG-App-ID': '936619743392459',  # Instagram Web App ID
+                'X-Requested-With': 'XMLHttpRequest',
+            })
+            
+            # First get the page to extract required tokens
+            post_url = f"https://www.instagram.com/p/{shortcode}/"
+            resp = session.get(post_url, timeout=15)
+            
+            # Extract data from multiple possible sources
             image_urls = []
             
-            nd = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', html, re.DOTALL)
-            if nd:
+            # Method A: __NEXT_DATA__ script tag
+            nd_match = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', resp.text, re.DOTALL)
+            if nd_match:
                 try:
-                    data = json.loads(nd.group(1))
-                    data_str = json.dumps(data)
+                    import json as json_module
+                    data = json_module.loads(nd_match.group(1))
+                    data_str = json_module.dumps(data)
                     
-                    carousel_matches = re.findall(r'"edge_sidecar_to_children"[^}]*"edges":\s*\[(.*?)\]', data_str, re.DOTALL)
-                    if carousel_matches:
-                        for carousel in carousel_matches:
-                            display_urls = re.findall(r'"display_url":"([^"]+)"', carousel)
-                            for du in display_urls:
-                                cleaned = du.replace('\\u0026', '&')
-                                if cleaned not in image_urls and '.mp4' not in cleaned:
-                                    image_urls.append(cleaned)
+                    # Try to find carousel items
+                    # Look for edge_sidecar_to_children
+                    sidecar_match = re.search(r'"edge_sidecar_to_children"\s*:\s*\{[^}]*"edges"\s*:\s*(\[.*?\])', data_str, re.DOTALL)
+                    if not sidecar_match:
+                        # Alternative: search deeper
+                        sidecar_match = re.search(r'"edge_sidecar_to_children"[^}]*?\{[^}]*?"edges"\s*:\s*(\[[^\]]*\])', data_str, re.DOTALL)
                     
-                    if not image_urls:
-                        display_urls = re.findall(r'"display_url":"([^"]+)"', data_str)
+                    if sidecar_match:
+                        edges_str = sidecar_match.group(1)
+                        # Extract all display URLs
+                        display_urls = re.findall(r'"display_url"\s*:\s*"([^"]+)"', edges_str)
                         for du in display_urls:
                             cleaned = du.replace('\\u0026', '&')
-                            if cleaned not in image_urls and '.mp4' not in cleaned:
+                            if cleaned not in image_urls and '.mp4' not in cleaned.lower():
                                 image_urls.append(cleaned)
-                except: pass
+                    
+                    # If no carousel found, look for single image
+                    if not image_urls:
+                        display_urls = re.findall(r'"display_url"\s*:\s*"([^"]+)"', data_str)
+                        for du in display_urls:
+                            cleaned = du.replace('\\u0026', '&')
+                            if cleaned not in image_urls and '.mp4' not in cleaned.lower():
+                                image_urls.append(cleaned)
+                except:
+                    pass
+            
+            # Method B: window.__INITIAL_STATE__ or window._sharedData
+            if not image_urls:
+                # Look for shared data
+                shared_match = re.search(r'window\.__INITIAL_STATE__\s*=\s*({.*?});</script>', resp.text, re.DOTALL)
+                if not shared_match:
+                    shared_match = re.search(r'window\._sharedData\s*=\s*({.*?});</script>', resp.text, re.DOTALL)
+                
+                if shared_match:
+                    try:
+                        import json as json_module
+                        data = json_module.loads(shared_match.group(1))
+                        data_str = json_module.dumps(data)
+                        
+                        # Search for carousel edges
+                        display_urls = re.findall(r'"display_url"\s*:\s*"([^"]+)"', data_str)
+                        for du in display_urls:
+                            cleaned = du.replace('\\u0026', '&')
+                            if cleaned not in image_urls and '.mp4' not in cleaned.lower():
+                                image_urls.append(cleaned)
+                    except:
+                        pass
+            
+            # Method C: og:image meta tags (multiple for carousels)
+            if not image_urls:
+                og_images = re.findall(r'<meta\s+property="og:image"\s+content="([^"]+)"', resp.text)
+                for og_img in og_images:
+                    if og_img not in image_urls:
+                        image_urls.append(og_img)
+            
+            # Method D: Direct image URL patterns in HTML
+            if not image_urls:
+                # Instagram CDN URLs
+                cdn_urls = re.findall(r'"display_url"\s*:\s*"([^"]+)"', resp.text)
+                for cdn_url in cdn_urls:
+                    cleaned = cdn_url.replace('\\u0026', '&')
+                    if cleaned not in image_urls and '.mp4' not in cleaned.lower():
+                        image_urls.append(cleaned)
             
             if not image_urls:
-                urls_found = re.findall(r'"display_url":"([^"]+)"', html)
-                image_urls = [u.replace('\\u0026', '&') for u in urls_found if '.mp4' not in u]
+                return {"success": False}
             
-            if not image_urls:
-                og = re.findall(r'<meta\s+property="og:image"\s+content="([^"]+)"', html)
-                image_urls = list(set(og))
-            
+            # Remove duplicates while preserving order
             seen = set()
             unique_urls = []
             for u in image_urls:
@@ -466,21 +541,25 @@ class InstaDownloader:
                     unique_urls.append(u)
             image_urls = unique_urls
             
-            if not image_urls:
-                return {"success": False}
-            
+            # Download all images
             downloaded = []
-            for i, img_url in enumerate(image_urls[:10]):
+            for i, img_url in enumerate(image_urls[:10]):  # Max 10 photos
                 try:
-                    fp = os.path.join(DOWNLOAD_DIR, f"multi_{shortcode}_{i+1}.jpg")
-                    r = session.get(img_url, headers={'User-Agent': 'Mozilla/5.0'}, stream=True, timeout=30)
+                    fp = os.path.join(DOWNLOAD_DIR, f"carousel_{shortcode}_{i+1}.jpg")
+                    img_headers = {
+                        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15',
+                        'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+                        'Referer': 'https://www.instagram.com/',
+                    }
+                    r = session.get(img_url, headers=img_headers, stream=True, timeout=30)
                     if r.status_code == 200:
                         with open(fp, 'wb') as f:
                             for chunk in r.iter_content(8192):
                                 f.write(chunk)
                         if os.path.getsize(fp) > 1000:
                             downloaded.append(fp)
-                except: continue
+                except:
+                    continue
             
             if downloaded:
                 return {
@@ -492,7 +571,164 @@ class InstaDownloader:
                     "total": len(downloaded)
                 }
             return {"success": False}
-        except: return {"success": False}
+            
+        except Exception as e:
+            logging.error(f"GraphQL method error: {e}")
+            return {"success": False}
+    
+    @staticmethod
+    def _method_scrape_enhanced(shortcode, url):
+        """Enhanced scraping with multiple patterns"""
+        try:
+            session = requests.Session()
+            session.headers.update({
+                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Referer': 'https://www.instagram.com/',
+            })
+            
+            resp = session.get(url, timeout=15)
+            if resp.status_code != 200:
+                return {"success": False}
+            
+            html = resp.text
+            image_urls = []
+            
+            # Pattern 1: JSON embedded in script tags
+            json_patterns = [
+                r'<script[^>]*type="application/json"[^>]*>(.*?)</script>',
+                r'<script[^>]*type="text\/javascript"[^>]*>window\.__INITIAL_STATE__\s*=\s*({.*?});</script>',
+                r'<script[^>]*>window\._sharedData\s*=\s*({.*?});</script>',
+            ]
+            
+            for pattern in json_patterns:
+                matches = re.findall(pattern, html, re.DOTALL)
+                for match in matches:
+                    try:
+                        # Extract all display_url from JSON
+                        display_urls = re.findall(r'"display_url"\s*:\s*"([^"]+)"', match)
+                        for du in display_urls:
+                            cleaned = du.replace('\\u0026', '&')
+                            if cleaned not in image_urls and '.mp4' not in cleaned.lower():
+                                image_urls.append(cleaned)
+                    except:
+                        continue
+            
+            # Pattern 2: Direct CDN URLs in HTML
+            if not image_urls:
+                cdn_patterns = [
+                    r'https?://[^"\']+\.(?:cdninstagram\.com|fbcdn\.net)[^"\']+\.(?:jpg|jpeg|png|webp)',
+                    r'"display_url"\s*:\s*"([^"]+)"',
+                ]
+                for pattern in cdn_patterns:
+                    matches = re.findall(pattern, html)
+                    for m in matches:
+                        cleaned = m.replace('\\u0026', '&')
+                        if cleaned not in image_urls and '.mp4' not in cleaned.lower():
+                            image_urls.append(cleaned)
+            
+            # Pattern 3: og:image meta tags
+            if not image_urls:
+                og_images = re.findall(r'<meta\s+property="og:image"\s+content="([^"]+)"', html)
+                for og in og_images:
+                    if og not in image_urls:
+                        image_urls.append(og)
+            
+            if not image_urls:
+                return {"success": False}
+            
+            # Download all images
+            seen = set()
+            unique_urls = []
+            for u in image_urls:
+                if u not in seen:
+                    seen.add(u)
+                    unique_urls.append(u)
+            image_urls = unique_urls
+            
+            downloaded = []
+            for i, img_url in enumerate(image_urls[:10]):
+                try:
+                    fp = os.path.join(DOWNLOAD_DIR, f"scrape_{shortcode}_{i+1}.jpg")
+                    img_headers = {
+                        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15',
+                        'Accept': 'image/*',
+                        'Referer': 'https://www.instagram.com/',
+                    }
+                    r = session.get(img_url, headers=img_headers, stream=True, timeout=30)
+                    if r.status_code == 200:
+                        with open(fp, 'wb') as f:
+                            for chunk in r.iter_content(8192):
+                                f.write(chunk)
+                        if os.path.getsize(fp) > 1000:
+                            downloaded.append(fp)
+                except:
+                    continue
+            
+            if downloaded:
+                return {
+                    "success": True,
+                    "file_path": downloaded[0],
+                    "file_paths": downloaded,
+                    "is_video": False,
+                    "is_multiple": len(downloaded) > 1,
+                    "total": len(downloaded)
+                }
+            return {"success": False}
+            
+        except Exception as e:
+            logging.error(f"Enhanced scrape error: {e}")
+            return {"success": False}
+    
+    @staticmethod
+    def _method_ytdlp_carousel(shortcode):
+        """yt-dlp with carousel support"""
+        try:
+            url = f"https://www.instagram.com/p/{shortcode}/"
+            ydl_opts = {
+                'quiet': True,
+                'no_warnings': True,
+                'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}_%(playlist_index)s.%(ext)s'),
+                'format': 'best',
+                'retries': 5,
+                'extract_flat': False,
+                'ignoreerrors': True,
+            }
+            
+            if os.path.exists('cookies.txt'):
+                ydl_opts['cookiefile'] = 'cookies.txt'
+            
+            downloaded = []
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                try:
+                    ydl.extract_info(url, download=True)
+                except:
+                    pass
+            
+            time.sleep(0.5)
+            
+            # Collect all downloaded files
+            for f in sorted(os.listdir(DOWNLOAD_DIR)):
+                if shortcode in f and not f.endswith(('.mp4', '.mov', '.webm', '.mkv')):
+                    fp = os.path.join(DOWNLOAD_DIR, f)
+                    if os.path.exists(fp) and os.path.getsize(fp) > 1000:
+                        downloaded.append(fp)
+            
+            if downloaded:
+                return {
+                    "success": True,
+                    "file_path": downloaded[0],
+                    "file_paths": downloaded,
+                    "is_video": False,
+                    "is_multiple": len(downloaded) > 1,
+                    "total": len(downloaded)
+                }
+            return {"success": False}
+            
+        except Exception as e:
+            logging.error(f"yt-dlp carousel error: {e}")
+            return {"success": False}
     
     @staticmethod
     def _method_oembed(shortcode):
@@ -500,84 +736,77 @@ class InstaDownloader:
         try:
             post_url = f"https://www.instagram.com/p/{shortcode}/"
             api_url = f"https://api.instagram.com/oembed?url={urllib.parse.quote(post_url)}&maxwidth=1080"
-            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Accept': 'application/json'}
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Accept': 'application/json'
+            }
             resp = requests.get(api_url, headers=headers, timeout=15)
-            if resp.status_code != 200: return {"success": False}
+            if resp.status_code != 200:
+                return {"success": False}
+            
             data = resp.json()
             thumbnail_url = data.get('thumbnail_url', '')
             embed_html = data.get('html', '')
+            
             image_urls = []
             if thumbnail_url:
                 hd_url = re.sub(r'/s\d+x\d+/', '/', thumbnail_url).split('?')[0]
                 image_urls.append(hd_url)
                 image_urls.append(thumbnail_url)
+            
             if embed_html:
                 img_matches = re.findall(r'<img[^>]+src="([^"]+)"', embed_html)
                 for img_url in img_matches:
-                    if img_url not in image_urls: image_urls.append(img_url)
-            if not image_urls: return {"success": False}
+                    if img_url not in image_urls:
+                        image_urls.append(img_url)
+            
+            if not image_urls:
+                return {"success": False}
+            
             downloaded = []
             for img_url in image_urls:
                 try:
-                    if img_url.startswith('//'): img_url = 'https:' + img_url
-                    if '.mp4' in img_url or '.mov' in img_url: continue
+                    if img_url.startswith('//'):
+                        img_url = 'https:' + img_url
+                    if '.mp4' in img_url or '.mov' in img_url:
+                        continue
+                    
                     ext = 'jpg'
-                    if '.png' in img_url: ext = 'png'
-                    elif '.webp' in img_url: ext = 'webp'
+                    if '.png' in img_url:
+                        ext = 'png'
+                    elif '.webp' in img_url:
+                        ext = 'webp'
+                    
                     fp = os.path.join(DOWNLOAD_DIR, f"{shortcode}.{ext}")
-                    img_headers = {'User-Agent': 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36', 'Accept': 'image/*', 'Referer': 'https://www.instagram.com/'}
+                    img_headers = {
+                        'User-Agent': 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36',
+                        'Accept': 'image/*',
+                        'Referer': 'https://www.instagram.com/'
+                    }
                     r = requests.get(img_url, headers=img_headers, stream=True, timeout=30)
                     if r.status_code == 200:
                         with open(fp, 'wb') as f:
-                            for chunk in r.iter_content(8192): f.write(chunk)
-                        if os.path.getsize(fp) > 1000: downloaded.append(fp)
+                            for chunk in r.iter_content(8192):
+                                f.write(chunk)
+                        if os.path.getsize(fp) > 1000:
+                            downloaded.append(fp)
                         break
-                except: continue
-            if downloaded: return {"success": True, "file_path": downloaded[0], "is_video": False}
+                except:
+                    continue
+            
+            if downloaded:
+                return {
+                    "success": True,
+                    "file_path": downloaded[0],
+                    "file_paths": downloaded,
+                    "is_video": False,
+                    "is_multiple": len(downloaded) > 1,
+                    "total": len(downloaded)
+                }
             return {"success": False}
-        except: return {"success": False}
-    
-    @staticmethod
-    def _method_ytdlp(shortcode):
-        """yt-dlp for photos"""
-        try:
-            url = f"https://www.instagram.com/p/{shortcode}/"
-            ydl_opts = {'quiet': True, 'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'), 'format': 'best', 'retries': 3}
-            if os.path.exists('cookies.txt'): ydl_opts['cookiefile'] = 'cookies.txt'
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.extract_info(url, download=True)
-                time.sleep(0.3)
-                for f in os.listdir(DOWNLOAD_DIR):
-                    if shortcode in f and not f.endswith(('.mp4','.mov','.webm')):
-                        fp = os.path.join(DOWNLOAD_DIR, f)
-                        if os.path.getsize(fp) > 1000: return {"success": True, "file_path": fp, "is_video": False}
-        except: pass
-        return {"success": False}
-    
-    @staticmethod
-    def _method_scrape_single(shortcode):
-        """Direct page scrape for single photo"""
-        try:
-            session = requests.Session()
-            session.headers.update({'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15'})
-            resp = session.get(f"https://www.instagram.com/p/{shortcode}/", timeout=10)
-            if resp.status_code != 200: return {"success": False}
-            image_urls = re.findall(r'"display_url":"([^"]+)"', resp.text)
-            if not image_urls:
-                og = re.findall(r'<meta\s+property="og:image"\s+content="([^"]+)"', resp.text)
-                image_urls = list(set(og))
-            for img_url in image_urls[:3]:
-                try:
-                    if '.mp4' in img_url: continue
-                    fp = os.path.join(DOWNLOAD_DIR, f"{shortcode}.jpg")
-                    r = session.get(img_url, headers={'User-Agent': 'Mozilla/5.0'}, stream=True, timeout=20)
-                    if r.status_code == 200:
-                        with open(fp, 'wb') as f:
-                            for chunk in r.iter_content(8192): f.write(chunk)
-                        if os.path.getsize(fp) > 1000: return {"success": True, "file_path": fp, "is_video": False}
-                except: continue
+        except Exception as e:
+            logging.error(f"Oembed error: {e}")
             return {"success": False}
-        except: return {"success": False}
     
     @staticmethod
     def _method_cdn(shortcode):
@@ -589,15 +818,30 @@ class InstaDownloader:
             ]
             for cdn_url in cdn_urls:
                 try:
-                    headers = {'User-Agent': 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36', 'Accept': 'image/*', 'Referer': 'https://www.instagram.com/'}
+                    headers = {
+                        'User-Agent': 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36',
+                        'Accept': 'image/*',
+                        'Referer': 'https://www.instagram.com/'
+                    }
                     r = requests.get(cdn_url, headers=headers, stream=True, timeout=30)
                     if r.status_code == 200 and 'image' in r.headers.get('content-type', ''):
                         fp = os.path.join(DOWNLOAD_DIR, f"{shortcode}.jpg")
                         with open(fp, 'wb') as f:
-                            for chunk in r.iter_content(8192): f.write(chunk)
-                        if os.path.getsize(fp) > 1000: return {"success": True, "file_path": fp, "is_video": False}
-                except: continue
-        except: pass
+                            for chunk in r.iter_content(8192):
+                                f.write(chunk)
+                        if os.path.getsize(fp) > 1000:
+                            return {
+                                "success": True,
+                                "file_path": fp,
+                                "file_paths": [fp],
+                                "is_video": False,
+                                "is_multiple": False,
+                                "total": 1
+                            }
+                except:
+                    continue
+        except:
+            pass
         return {"success": False}
     
     @staticmethod
@@ -605,22 +849,26 @@ class InstaDownloader:
         try:
             if custom_name and custom_name.lower() != "skip":
                 safe = re.sub(r'[^\w\s-]', '', custom_name).strip()[:50] or "Audio"
-                # Audio file VIDEO file ke SAME folder mein banao
                 ap = os.path.join(os.path.dirname(video_path), f"{safe}.mp3")
             else:
                 ap = os.path.join(os.path.dirname(video_path), f"{os.path.splitext(os.path.basename(video_path))[0]}.mp3")
-            if not shutil.which('ffmpeg'): return {"success": False, "error": "FFmpeg not found"}
+            if not shutil.which('ffmpeg'):
+                return {"success": False, "error": "FFmpeg not found"}
             subprocess.run(['ffmpeg', '-i', video_path, '-vn', '-acodec', 'libmp3lame', '-ab', '192k', '-y', ap], capture_output=True, timeout=300)
-            if os.path.exists(ap) and os.path.getsize(ap) > 1000: return {"success": True, "file_path": ap}
+            if os.path.exists(ap) and os.path.getsize(ap) > 1000:
+                return {"success": True, "file_path": ap}
             return {"success": False, "error": "Audio extraction failed"}
-        except Exception as e: return {"success": False, "error": str(e)[:50]}
+        except Exception as e:
+            return {"success": False, "error": str(e)[:50]}
     
     @staticmethod
     def cleanup(fp):
         try:
-            if fp and os.path.exists(fp): os.remove(fp)
-        except: pass
-
+            if fp and os.path.exists(fp):
+                os.remove(fp)
+        except:
+            pass
+            
 # ═══════════════════════════
 # 📝 TEXT TEMPLATES
 # ═══════════════════════════
