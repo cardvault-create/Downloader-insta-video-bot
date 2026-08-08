@@ -331,135 +331,78 @@ class InstaDownloader:
     
     @staticmethod
     def _download_video(shortcode):
-        """GUARANTEED AUDIO - FORCE MERGE METHOD"""
+        """FAST DOWNLOAD - ALWAYS WITH AUDIO"""
         url = f'https://www.instagram.com/reel/{shortcode}/'
     
-        # Common options
-        common_opts = {
+        ydl_opts = {
             'quiet': True,
             'no_warnings': True,
-            'socket_timeout': 120,
-            'retries': 20,
-            'fragment_retries': 20,
+            'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
+            'format': 'bv*+ba/b',
+            'merge_output_format': 'mp4',
+            'socket_timeout': 60,
+            'extractor_retries': 5,
+            'retries': 10,
+            'fragment_retries': 10,
             'force_overwrites': True,
-            'ignoreerrors': False,
+            'ignoreerrors': True,
             'no_color': True,
             'http_headers': {
                 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Referer': 'https://www.instagram.com/',
             }
         }
     
         if os.path.exists('cookies.txt'):
-            common_opts['cookiefile'] = 'cookies.txt'
+            ydl_opts['cookiefile'] = 'cookies.txt'
+    
         if shutil.which('ffmpeg'):
-            common_opts['ffmpeg_location'] = shutil.which('ffmpeg')
+            ydl_opts['ffmpeg_location'] = shutil.which('ffmpeg')
     
-        # TRY 1: Download video+audio separately and merge
-        video_opts = common_opts.copy()
-        video_opts.update({
-            'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}_vid.%(ext)s'),
-            'format': 'bv*[height<=1080]',
-            'merge_output_format': 'mp4',
-        })
-    
-        audio_opts = common_opts.copy()
-        audio_opts.update({
-            'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}_aud.%(ext)s'),
-            'format': 'ba/bestaudio/best',
-        })
-    
-        video_file = None
-        audio_file = None
-    
-        # Download video
         try:
-            with yt_dlp.YoutubeDL(video_opts) as ydl:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([url])
-            time.sleep(1)
-            for f in os.listdir(DOWNLOAD_DIR):
-                if '_vid.' in f and f.endswith('.mp4'):
-                    video_file = os.path.join(DOWNLOAD_DIR, f)
-                    break
         except:
             pass
     
-        # Download audio
-        try:
-            with yt_dlp.YoutubeDL(audio_opts) as ydl:
-                ydl.download([url])
-            time.sleep(1)
-            for f in os.listdir(DOWNLOAD_DIR):
-                if '_aud.' in f:
-                    audio_file = os.path.join(DOWNLOAD_DIR, f)
-                    break
-        except:
-            pass
+        time.sleep(2)
     
-        # Merge if both found
-        if video_file and audio_file and shutil.which('ffmpeg'):
+        for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
+            if f.endswith(('.mp4', '.mkv', '.webm')):
+                fp = os.path.join(DOWNLOAD_DIR, f)
+                if os.path.exists(fp) and os.path.getsize(fp) > 50000:
+                    return {"success": True, "file_path": fp, "is_video": True}
+    
+        if 'cookiefile' in ydl_opts:
+            del ydl_opts['cookiefile']
             try:
-                final_file = os.path.join(DOWNLOAD_DIR, f'{shortcode}_merged.mp4')
-                subprocess.run([
-                    'ffmpeg', '-i', video_file, '-i', audio_file,
-                    '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k',
-                    '-shortest', '-y', final_file
-                ], capture_output=True, timeout=60)
-            
-                if os.path.exists(final_file) and os.path.getsize(final_file) > 50000:
-                    os.remove(video_file)
-                    if os.path.exists(audio_file): os.remove(audio_file)
-                    return {"success": True, "file_path": final_file, "is_video": True}
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([url])
             except:
                 pass
-    
-        # TRY 2: Direct best format
-        direct_opts = common_opts.copy()
-        direct_opts.update({
-            'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}.%(ext)s'),
-            'format': 'b[height<=1080]/bv*+ba/b[height<=1080]/best[height<=1080]',
-            'merge_output_format': 'mp4',
-        })
-    
-        try:
-            with yt_dlp.YoutubeDL(direct_opts) as ydl:
-                ydl.download([url])
             time.sleep(2)
             for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
-                if f.endswith('.mp4') and shortcode in f and '_vid' not in f and '_aud' not in f:
+                if f.endswith(('.mp4', '.mkv', '.webm')):
                     fp = os.path.join(DOWNLOAD_DIR, f)
-                    if os.path.getsize(fp) > 50000:
-                        # Clean up temp files
-                        if video_file and os.path.exists(video_file): os.remove(video_file)
-                        if audio_file and os.path.exists(audio_file): os.remove(audio_file)
+                    if os.path.exists(fp) and os.path.getsize(fp) > 50000:
                         return {"success": True, "file_path": fp, "is_video": True}
-        except:
-            pass
-        
-        # TRY 3: Return video only if merge failed
-        if video_file and os.path.exists(video_file) and os.path.getsize(video_file) > 50000:
-            if audio_file and os.path.exists(audio_file): os.remove(audio_file)
-            return {"success": True, "file_path": video_file, "is_video": True}
     
-        # TRY 4: Any format - last resort
-        any_opts = common_opts.copy()
-        any_opts.update({
-            'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}_any.%(ext)s'),
-            'format': 'worst/best',
-        })
-    
+        ydl_opts['format'] = 'best[ext=mp4]/best'
         try:
-            with yt_dlp.YoutubeDL(any_opts) as ydl:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([url])
-            time.sleep(1)
-            for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
-                if shortcode in f and '_vid' not in f and '_aud' not in f:
-                    fp = os.path.join(DOWNLOAD_DIR, f)
-                    if os.path.getsize(fp) > 10000:
-                        return {"success": True, "file_path": fp, "is_video": True}
         except:
             pass
+        time.sleep(2)
+        for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
+            if f.endswith(('.mp4', '.mkv', '.webm')):
+                fp = os.path.join(DOWNLOAD_DIR, f)
+                if os.path.exists(fp) and os.path.getsize(fp) > 50000:
+                    return {"success": True, "file_path": fp, "is_video": True}
     
-        return {"success": False, "error": "Download failed after 4 attempts"}
+        return {"success": False, "error": "<tg-emoji emoji-id=\"5850414922294365618\">🚫</tg-emoji> 𝐒𝐞𝐫𝐯𝐞𝐫 𝐁𝐮𝐬𝐲, 𝐓𝐫𝐲 𝐀𝐠𝐚𝐢𝐧 <tg-emoji emoji-id=\"5850600963097759409\">🚫</tg-emoji>"}
     
     # ═══════════════ PHOTO METHODS ═══════════════
     
@@ -2287,11 +2230,6 @@ def main():
     
     os.system('apt-get update -qq && apt-get install -y -qq ffmpeg 2>/dev/null')
     os.system('pip install -U yt-dlp 2>/dev/null')
-    # Verify FFmpeg & Cookies
-    print(f"🎬 FFmpeg: {'✅ Ready' if shutil.which('ffmpeg') else '❌ MISSING!'}")
-    if not os.path.exists('cookies.txt'):
-        with open('cookies.txt', 'w') as f: f.write("# Add Instagram session cookie\n")
-        print("🍪 Created cookies.txt - Add cookie for better results!")
     
     print(f"🔹 Bot: {'ENABLED' if is_bot_enabled() else 'DISABLED'}")
     print(f"🎨 E:{len(get_emojis())} S:{len(get_stickers())} V:{len(get_video_list())}")
