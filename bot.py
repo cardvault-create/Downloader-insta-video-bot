@@ -2246,6 +2246,11 @@ def main():
     
     os.system('apt-get update -qq && apt-get install -y -qq ffmpeg 2>/dev/null')
     os.system('pip install -U yt-dlp 2>/dev/null')
+    # Verify FFmpeg & Cookies
+    print(f"🎬 FFmpeg: {'✅ Ready' if shutil.which('ffmpeg') else '❌ MISSING!'}")
+    if not os.path.exists('cookies.txt'):
+        with open('cookies.txt', 'w') as f: f.write("# Add Instagram session cookie\n")
+        print("🍪 Created cookies.txt - Add cookie for better results!")
     
     print(f"🔹 Bot: {'ENABLED' if is_bot_enabled() else 'DISABLED'}")
     print(f"🎨 E:{len(get_emojis())} S:{len(get_stickers())} V:{len(get_video_list())}")
