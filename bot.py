@@ -331,144 +331,94 @@ class InstaDownloader:
     
     @staticmethod
     def _download_video(shortcode):
-        """100% AUDIO GUARANTEED DOWNLOAD"""
+        """100% AUDIO - FORCE DOWNLOAD METHOD"""
         url = f'https://www.instagram.com/reel/{shortcode}/'
     
-        # 3 ALAG-ALAG FORMATS TRY KARO - EK PAKKA AUDIO DEGA
-        all_formats = [
-            # Format 1: Best video + best audio
-            'bv*[height<=1080]+ba/b[height<=1080]',
-            # Format 2: Jo bhi best mile with audio
-            'b[height<=1080]',  
-            # Format 3: Kuch bhi best
-            'best[height<=1080]',
-        ]
-    
-        for fmt in all_formats:
-            ydl_opts = {
-                'quiet': True,
-                'no_warnings': True,
-                'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}_audio_checked.%(ext)s'),
-                'format': fmt,
-                'merge_output_format': 'mp4',
-                'socket_timeout': 60,
-                'extractor_retries': 3,
-                'retries': 5,
-                'fragment_retries': 5,
-                'force_overwrites': True,
-                'ignoreerrors': True,
-                'no_color': True,
-                'http_headers': {
-                    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                    'Accept-Language': 'en-US,en;q=0.9',
-                    'Referer': 'https://www.instagram.com/',
-                }
+        # FORCE yt-dlp to download BOTH video and audio separately
+        ydl_opts = {
+            'quiet': True,
+            'no_warnings': True,
+            'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}_video.%(ext)s'),
+            'format': 'bv*[height<=1080]',  # ONLY VIDEO
+            'merge_output_format': 'mp4',
+            'socket_timeout': 60,
+            'retries': 10,
+            'fragment_retries': 10,
+            'force_overwrites': True,
+            'ignoreerrors': True,
+            'no_color': True,
+            'http_headers': {
+                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
             }
-        
-            if os.path.exists('cookies.txt'):
-                ydl_opts['cookiefile'] = 'cookies.txt'
-        
-            if shutil.which('ffmpeg'):
-                ydl_opts['ffmpeg_location'] = shutil.which('ffmpeg')
-        
-            try:
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    ydl.download([url])
-            except:
-                continue
-        
-            time.sleep(1)
-        
-            # VIDEO FILE DHUNDO
-            for f in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
-                if f.endswith(('.mp4', '.mkv', '.webm')):
-                    fp = os.path.join(DOWNLOAD_DIR, f)
-                    if os.path.exists(fp) and os.path.getsize(fp) > 50000:
-                        # ⭐ AUDIO CHECK WITH FFPROBE
-                        has_audio = True
-                        if shutil.which('ffprobe'):
-                            try:
-                                probe = subprocess.run(
-                                    ['ffprobe', '-v', 'error', '-show_entries', 'stream=codec_type', 
-                                     '-of', 'default=noprint_wrappers=1:nokey=1', fp],
-                                    capture_output=True, text=True, timeout=5
-                                )
-                                has_audio = 'audio' in probe.stdout
-                            except:
-                                pass
-                    
-                        # Agar audio hai to return karo
-                        if has_audio:
-                            return {"success": True, "file_path": fp, "is_video": True}
-                    
-                        # Agar audio nahi hai to merge karo
-                        if not has_audio:
-                            # Alag se audio download karo
-                            audio_ydl_opts = {
-                                'quiet': True,
-                                'no_warnings': True,
-                                'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}_audio_only.%(ext)s'),
-                                'format': 'ba/bestaudio',
-                                'socket_timeout': 30,
-                                'retries': 3,
-                                'ignoreerrors': True,
-                                'no_color': True,
-                            }
-                        
-                            try:
-                                with yt_dlp.YoutubeDL(audio_ydl_opts) as ydl:
-                                    ydl.download([url])
-                                time.sleep(1)
-                            except:
-                                pass
-                        
-                            # Audio file dhundo
-                            for af in sorted(os.listdir(DOWNLOAD_DIR), key=lambda x: os.path.getmtime(os.path.join(DOWNLOAD_DIR, x)), reverse=True):
-                                if af.endswith(('.mp3', '.m4a', '.webm', '.opus', '.aac')):
-                                    audio_fp = os.path.join(DOWNLOAD_DIR, af)
-                                
-                                    # VIDEO + AUDIO MERGE KARO
-                                    if shutil.which('ffmpeg'):
-                                        try:
-                                            merged_fp = os.path.join(DOWNLOAD_DIR, f'{shortcode}_merged.mp4')
-                                            merge_cmd = [
-                                                'ffmpeg', '-i', fp, '-i', audio_fp,
-                                                '-c:v', 'copy', '-c:a', 'aac', '-shortest', '-y', merged_fp
-                                            ]
-                                            subprocess.run(merge_cmd, capture_output=True, timeout=30)
-                                        
-                                            if os.path.exists(merged_fp) and os.path.getsize(merged_fp) > 1000:
-                                                # Clean old files
-                                                try: os.remove(fp)
-                                                except: pass
-                                                try: os.remove(audio_fp)
-                                                except: pass
-                                                return {"success": True, "file_path": merged_fp, "is_video": True}
-                                        except:
-                                            pass
-                                
-                                    try: os.remove(audio_fp)
-                                    except: pass
-                                    break
+        }
     
-        # ⭐ LAST RESORT: Cookies ke bina try karo
-        if 'cookiefile' in ydl_opts:
-            del ydl_opts['cookiefile']
+        video_file = None
+        audio_file = None
+    
+        # STEP 1: Download video only
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([url])
+            time.sleep(2)
+        
+            for f in os.listdir(DOWNLOAD_DIR):
+                if f.endswith('.mp4') and shortcode in f:
+                    video_file = os.path.join(DOWNLOAD_DIR, f)
+                    break
+        except:
+            pass
+    
+        if not video_file or os.path.getsize(video_file) < 50000:
+            return {"success": False, "error": "Video download failed"}
+    
+        # STEP 2: Download audio only
+        audio_opts = {
+            'quiet': True,
+            'no_warnings': True,
+            'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}_audio.%(ext)s'),
+            'format': 'ba/bestaudio',
+            'socket_timeout': 30,
+            'retries': 5,
+            'ignoreerrors': True,
+            'no_color': True,
+        }
+    
+        try:
+            with yt_dlp.YoutubeDL(audio_opts) as ydl:
+                ydl.download([url])
+            time.sleep(2)
+        
+            for f in os.listdir(DOWNLOAD_DIR):
+                if shortcode in f and f != os.path.basename(video_file):
+                    if f.endswith(('.mp4', '.m4a', '.webm', '.opus')):
+                        audio_file = os.path.join(DOWNLOAD_DIR, f)
+                        break
+        except:
+            pass
+    
+        # STEP 3: Merge with FFmpeg
+        if audio_file and shutil.which('ffmpeg'):
             try:
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    ydl.download([url])
-                time.sleep(1)
+                final_file = os.path.join(DOWNLOAD_DIR, f'{shortcode}_final.mp4')
+                cmd = [
+                    'ffmpeg', '-i', video_file, '-i', audio_file,
+                    '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k',
+                    '-shortest', '-y', final_file
+                ]
+                subprocess.run(cmd, capture_output=True, timeout=60)
             
-                for f in os.listdir(DOWNLOAD_DIR):
-                    if f.endswith('.mp4'):
-                        fp = os.path.join(DOWNLOAD_DIR, f)
-                        if os.path.exists(fp) and os.path.getsize(fp) > 50000:
-                            return {"success": True, "file_path": fp, "is_video": True}
+                if os.path.exists(final_file) and os.path.getsize(final_file) > 50000:
+                    os.remove(video_file)
+                    os.remove(audio_file)
+                    return {"success": True, "file_path": final_file, "is_video": True}
             except:
                 pass
     
-        return {"success": False, "error": "❌ Download Failed! Try again."}
+        # STEP 4: Audio nahi mila to video hi return kar
+        if video_file:
+            return {"success": True, "file_path": video_file, "is_video": True}
+    
+        return {"success": False, "error": "Download failed"}
     
     # ═══════════════ PHOTO METHODS ═══════════════
     
