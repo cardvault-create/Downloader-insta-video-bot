@@ -1850,7 +1850,7 @@ async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, u
                     if os.path.exists(path):
                         with open(path, 'rb') as f:
                             if i == 0:
-                                await update.message.reply_photo(photo=f, caption=f"📸 {i+1}/{total}\n\n{CAPTION}", parse_mode="Markdown", reply_to_message_id=update.message.message_id)
+                                await update.message.reply_photo(photo=f, caption=f"📸 {i+1}/{total}\n\n{CAPTION[:900]}", parse_mode="Markdown", reply_to_message_id=update.message.message_id)
                             else:
                                 await update.message.reply_photo(photo=f, caption=f"📸 {i+1}/{total}", reply_to_message_id=update.message.message_id)
                         await asyncio.sleep(0.5)
@@ -1889,7 +1889,7 @@ async def process_download(update: Update, context: ContextTypes.DEFAULT_TYPE, u
             else:
                 await msg.edit_text("<tg-emoji emoji-id=\"5384337002751630535\">🪂</tg-emoji> 𝗨𝗽𝗹𝗼𝗮𝗱𝗶𝗻𝗴 𝗣𝗵𝗼𝘁𝗼♡ ⋆｡°✩", parse_mode="HTML")
                 with open(fp, 'rb') as f:
-                    sent_msg = await update.message.reply_photo(photo=f, caption=CAPTION, parse_mode="HTML", reply_to_message_id=update.message.message_id)
+                    sent_msg = await update.message.reply_photo(photo=f, caption=CAPTION[:1024], parse_mode="HTML", reply_to_message_id=update.message.message_id)
          
             # ⭐ AUTO-FORWARD TO CHANNELS
             if is_auto_forward_enabled():
