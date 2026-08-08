@@ -442,7 +442,7 @@ class InstaDownloader:
     
         # TRY 4: Any format - last resort
         any_opts = common_opts.copy()
-            any_opts.update({
+        any_opts.update({
             'outtmpl': os.path.join(DOWNLOAD_DIR, f'{shortcode}_any.%(ext)s'),
             'format': 'worst/best',
         })
