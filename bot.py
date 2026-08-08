@@ -8,6 +8,7 @@ import json
 import urllib.parse
 import random
 import asyncio
+import github_sync
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto, ReactionTypeEmoji
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes, TypeHandler
 from telegram.constants import ChatMemberStatus
