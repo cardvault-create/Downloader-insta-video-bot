@@ -2,3 +2,5 @@ yt-dlp
 python-telegram-bot
 requests
 PySocks
+gspread
+oauth2client
