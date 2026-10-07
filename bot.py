@@ -2057,7 +2057,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    print("🔴🔴🔴 BUTTON HANDLER CALLED")
     query = update.callback_query
+    print("🔴 Callback data:", query.data if query else "NO QUERY")
     try:
         await query.answer()
     except:
