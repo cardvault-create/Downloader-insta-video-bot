@@ -2055,125 +2055,154 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     asyncio.create_task(process_download(update, context, url))
     return
 
+
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.answer()
-    user_data = context.user_data
+    try:
+        await query.answer()
+    except:
+        pass
 
-    if query.data == "owner_add_emoji":
-        user_data['awaiting_emoji_id'] = True
-        await query.message.reply_text(
-            f'<tg-emoji emoji-id="6170160969600212116">📝</tg-emoji> <b>𝙎𝙚𝙣𝙙 𝙋𝙧𝙚𝙢𝙞𝙪𝙢 𝙀𝙢𝙤𝙟𝙞 𝙄𝙙 </b> <tg-emoji emoji-id="6172671064452111943">📝</tg-emoji>',
-            parse_mode="HTML"
-        )
+    if not query:
         return
 
-    if query.data == "owner_add_this":
-        emoji_id = user_data.get('pending_emoji_id')
+    user_data = context.user_data
 
-        if emoji_id:
-            success, total = add_emoji_db(emoji_id)
+    try:
+        if query.data == "owner_add_emoji":
+            user_data['awaiting_emoji_id'] = True
+            await query.message.reply_text(
+                f'<tg-emoji emoji-id="6170160969600212116">📝</tg-emoji> <b>𝙎𝙚𝙣𝙙 𝙋𝙧𝙚𝙢𝙞𝙪𝙢 𝙀𝙢𝙤𝙟𝙞 𝙄𝙙 </b> <tg-emoji emoji-id="6172671064452111943">📝</tg-emoji>',
+                parse_mode="HTML"
+            )
+            return
+
+        if query.data == "owner_add_this":
+            emoji_id = user_data.get('pending_emoji_id')
+
+            if emoji_id:
+                success, total = add_emoji_db(emoji_id)
+                try:
+                    await query.message.delete()
+                except:
+                    pass
+                if success:
+                    await context.bot.send_message(
+                        chat_id=update.effective_chat.id,
+                        text=f'<tg-emoji emoji-id="6226399941388928924">✅</tg-emoji> 𝗘𝗠𝗢𝗝𝗜 𝗔𝗗𝗗𝗘𝗗 ༼{total}༽ <tg-emoji emoji-id="6127410617482484040">✅</tg-emoji>',
+                        parse_mode="HTML"
+                    )
+                    await asyncio.sleep(0.3)
+                    await context.bot.send_message(
+                        chat_id=update.effective_chat.id,
+                        text=f'<tg-emoji emoji-id="{emoji_id}">🌟</tg-emoji>',
+                        parse_mode="HTML"
+                    )
+                else:
+                    await context.bot.send_message(
+                        chat_id=update.effective_chat.id,
+                        text=f'<tg-emoji emoji-id="5929358014627713883">❌</tg-emoji> <b>𝗔𝗹𝗿𝗲𝗮𝗱𝘆 𝗘𝘅𝗶𝘀𝘁𝘀</b>',
+                        parse_mode="HTML"
+                    )
+            else:
+                await query.answer("No ID found!", show_alert=True)
+            user_data['pending_emoji_id'] = None
+            user_data['awaiting_emoji_id'] = True
+            return
+
+        if query.data.startswith("aud_"):
+            shortcode = query.data[4:]
+            video_url = f"https://www.instagram.com/reel/{shortcode}/"
+            user_data['audio_video_url'] = video_url
+            user_data['awaiting_audio'] = True
+            user_data['video_msg_id'] = query.message.message_id
+
+            keyboard = InlineKeyboardMarkup([[
+                InlineKeyboardButton(
+                    AUDIO_DEFAULT_NAME,
+                    callback_data="def_audio",
+                    style=get_random_style(),
+                    icon_custom_emoji_id=get_random_audio_default_emoji()
+                )
+            ]])
+            prompt_msg = await query.message.reply_text(
+                AUDIO_NAME_PROMPT,
+                reply_markup=keyboard,
+                parse_mode="HTML"
+            )
+            user_data['audio_prompt_msg'] = prompt_msg
+            try:
+                await query.edit_message_reply_markup(reply_markup=None)
+            except:
+                pass
+            try:
+                await query.answer("Send audio name or click Default!")
+            except:
+                pass
+            return
+
+        elif query.data == "def_audio":
+            chat_id = query.message.chat_id
+            video_msg_id = user_data.get('video_msg_id', query.message.message_id)
+
             try:
                 await query.message.delete()
             except:
                 pass
-            if success:
-                await context.bot.send_message(
-                    chat_id=update.effective_chat.id,
-                    text=f'<tg-emoji emoji-id="6226399941388928924">✅</tg-emoji> 𝗘𝗠𝗢𝗝𝗜 𝗔𝗗𝗗𝗘𝗗 ༼{total}༽ <tg-emoji emoji-id="6127410617482484040">✅</tg-emoji>',
-                    parse_mode="HTML"
-                )
-                await asyncio.sleep(0.3)
-                await context.bot.send_message(
-                    chat_id=update.effective_chat.id,
-                    text=f'<tg-emoji emoji-id="{emoji_id}">🌟</tg-emoji>',
-                    parse_mode="HTML"
-                )
-            else:
-                await context.bot.send_message(
-                    chat_id=update.effective_chat.id,
-                    text=f'<tg-emoji emoji-id="5929358014627713883">❌</tg-emoji> <b>𝗔𝗹𝗿𝗲𝗮𝗱𝘆 𝗘𝘅𝗶𝘀𝘁𝘀</b>',
-                    parse_mode="HTML"
-                )
-        else:
-            await query.answer("No ID found!", show_alert=True)
-        user_data['pending_emoji_id'] = None
-        user_data['awaiting_emoji_id'] = True
-        return
-    
-    if query.data.startswith("aud_"):
-        shortcode = query.data[4:]
-        video_url = f"https://www.instagram.com/reel/{shortcode}/"
-        user_data['audio_video_url'] = video_url
-        user_data['awaiting_audio'] = True
-        # ORIGINAL VIDEO MESSAGE ID SAVE KARO - query.message is the video message
-        user_data['video_msg_id'] = query.message.message_id
-    
-        keyboard = InlineKeyboardMarkup([[
-            InlineKeyboardButton(
-                AUDIO_DEFAULT_NAME,
-                callback_data="def_audio",
-                style=get_random_style(),
-                icon_custom_emoji_id=get_random_audio_default_emoji()
-            )
-        ]])
-        prompt_msg = await query.message.reply_text(
-            AUDIO_NAME_PROMPT,
-            reply_markup=keyboard,
-            parse_mode="HTML"
-        )
-        user_data['audio_prompt_msg'] = prompt_msg
-        await query.edit_message_reply_markup(reply_markup=None)
-        await query.answer("Send audio name or click Default!")
-        return
-    elif query.data == "def_audio":
-        chat_id = query.message.chat_id
-        # Saved video message ID use karo
-        video_msg_id = user_data.get('video_msg_id', query.message.message_id)
 
+            user_data['awaiting_audio'] = False
+            user_data['audio_prompt_msg'] = None
+            url = user_data.get('audio_video_url') or user_data.get('current_url')
+
+            if url:
+                asyncio.create_task(extract_and_send_audio_def(
+                    context, url, AUDIO_DEFAULT_NAME, chat_id, video_msg_id, update.effective_user.id
+                ))
+
+            user_data['audio_video_url'] = None
+            user_data['video_msg_id'] = None
+            return
+
+        elif query.data.startswith("nxp_"):
+            parts = query.data[4:].rsplit("_", 1)
+            cache_key = parts[0]
+            current_idx = int(parts[1])
+            next_idx = current_idx + 1
+            photo_paths = get_photo_cache(cache_key)
+            if photo_paths and next_idx < len(photo_paths) and os.path.exists(photo_paths[next_idx]):
+                try:
+                    await query.edit_message_reply_markup(reply_markup=None)
+                except:
+                    pass
+                keyboard = None
+                if next_idx + 1 < len(photo_paths):
+                    keyboard = InlineKeyboardMarkup([[
+                        InlineKeyboardButton(
+                            f"➪ 𝗡𝗲𝘅𝘁 𝗣𝗵𝗼𝘁𝗼 ➤ ({next_idx + 2}/{len(photo_paths)})",
+                            callback_data=f"nxp_{cache_key}_{next_idx}",
+                            style=get_random_style(),
+                            icon_custom_emoji_id=get_random_emoji_id()
+                        )
+                    ]])
+                with open(photo_paths[next_idx], 'rb') as f:
+                    await query.message.reply_photo(
+                        photo=f,
+                        caption=f"📸 𝗣𝗵𝗼𝘁𝗼 {next_idx + 1}/{len(photo_paths)}\n\n{CAPTION}",
+                        parse_mode="Markdown",
+                        reply_markup=keyboard
+                    )
+            else:
+                try:
+                    await query.answer("No more photos!", show_alert=True)
+                except:
+                    pass
+
+    except Exception as e:
+        logging.error(f"BUTTON ERROR: {e}")
         try:
-            await query.message.delete()
+            await query.message.reply_text(f"❌ Error: {str(e)[:100]}")
         except:
             pass
-
-        user_data['awaiting_audio'] = False
-        user_data['audio_prompt_msg'] = None
-        url = user_data.get('audio_video_url') or user_data.get('current_url')
-
-        if url:
-            asyncio.create_task(extract_and_send_audio_def(context, url, AUDIO_DEFAULT_NAME, chat_id, video_msg_id, update.effective_user.id))
-
-        user_data['audio_video_url'] = None
-        user_data['video_msg_id'] = None
-        return
-    elif query.data.startswith("nxp_"):
-        parts = query.data[4:].rsplit("_", 1)
-        cache_key = parts[0]
-        current_idx = int(parts[1])
-        next_idx = current_idx + 1
-        photo_paths = get_photo_cache(cache_key)
-        if photo_paths and next_idx < len(photo_paths) and os.path.exists(photo_paths[next_idx]):
-            await query.edit_message_reply_markup(reply_markup=None)
-            keyboard = None
-            if next_idx + 1 < len(photo_paths):
-                keyboard = InlineKeyboardMarkup([[
-                    InlineKeyboardButton(
-                        f"➪ 𝗡𝗲𝘅𝘁 𝗣𝗵𝗼𝘁𝗼 ➤ ({next_idx + 2}/{len(photo_paths)})",
-                        callback_data=f"nxp_{cache_key}_{next_idx}",
-                        style=get_random_style(),
-                        icon_custom_emoji_id=get_random_emoji_id()
-                    )
-                ]])
-            with open(photo_paths[next_idx], 'rb') as f:
-                await query.message.reply_photo(
-                    photo=f,
-                    caption=f"📸 𝗣𝗵𝗼𝘁𝗼 {next_idx + 1}/{len(photo_paths)}\n\n{CAPTION}",
-                    parse_mode="Markdown",
-                    reply_markup=keyboard
-                )
-        else:
-            await query.answer("No more photos!", show_alert=True)
-
 # ═══════════════ AUTO REACTION ═══════════════
 
 REACTION_EMOJIS = ["👍", "❤️", "🔥", "😂", "🎉", "👏", "😮"]
@@ -2241,7 +2270,6 @@ def main():
     app = Application.builder().token(BOT_TOKEN).read_timeout(80000).write_timeout(80000).connect_timeout(80000).pool_timeout(80000).build()
     
     # HAR MESSAGE PAR REACTION (commands, text, photo, video, sticker — sab par)
-    app.add_handler(TypeHandler(Update, auto_react), -1)
     
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("activate", activate_cmd))
