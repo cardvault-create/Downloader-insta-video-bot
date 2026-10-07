@@ -2300,7 +2300,10 @@ def main():
     app.add_handler(CallbackQueryHandler(button_handler))
     
     print("✅ Bot Started! FAST & RELIABLE! 🚀")
-    app.run_polling(drop_pending_updates=True)
+    app.run_polling(
+        drop_pending_updates=True,
+        allowed_updates=Update.ALL_TYPES
+    )
 
 if __name__ == "__main__":
     main()
