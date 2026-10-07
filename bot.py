@@ -2211,10 +2211,7 @@ REACTION_EMOJIS = ["👍", "❤️", "🔥", "😂", "🎉", "👏", "😮"]
 
 async def auto_react(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-        # Sirf USER ke messages pe reaction — callback_query pe NAHI
-        if update.callback_query:
-            return
-        if update.message and update.effective_user and not update.effective_user.is_bot:
+        if update.message:
             await update.message.set_reaction([ReactionTypeEmoji(random.choice(REACTION_EMOJIS))])
     except Exception:
         pass
@@ -2229,24 +2226,21 @@ from telegram import Bot
 import functools
 from telegram import Bot
 
-# ⚠️ Sirf USER messages pe reaction, bot ke apne messages pe nahi
 def _with_animated_reaction(func):
     @functools.wraps(func)
     async def wrapper(*args, **kwargs):
         msg = await func(*args, **kwargs)
-        # ⛔ Bot ke apne messages pe reaction MAT lagao (isliye comment)
-        # Ye block khaali chhoda hai taaki button/prompt turant aaye
+        try:
+            if msg is not None and hasattr(msg, "set_reaction"):
+                await msg.set_reaction(
+                    [ReactionTypeEmoji(random.choice(REACTION_EMOJIS))],
+                    is_big=True
+                )
+        except Exception:
+            pass
         return msg
     return wrapper
-
-for _method_name in [
-    "send_message", "send_video", "send_photo", "send_audio",
-    "send_sticker", "send_animation", "send_document", "send_voice",
-    "send_video_note", "forward_message",
-]:
-    if hasattr(Bot, _method_name):
-        setattr(Bot, _method_name, _with_animated_reaction(getattr(Bot, _method_name)))
-        
+    
 # ═══════════════════════════
 # 🚀 MAIN
 # ═══════════════════════════
@@ -2271,7 +2265,7 @@ def main():
     app = Application.builder().token(BOT_TOKEN).read_timeout(80000).write_timeout(80000).connect_timeout(80000).pool_timeout(80000).build()
     
     # HAR MESSAGE PAR REACTION (commands, text, photo, video, sticker — sab par)
-    app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND & ~filters.StatusUpdate.ALL, auto_react), 99)
+    app.add_handler(TypeHandler(Update, auto_react), -1)
     
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("activate", activate_cmd))
