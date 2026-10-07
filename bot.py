@@ -2209,7 +2209,9 @@ REACTION_EMOJIS = ["👍", "❤️", "🔥", "😂", "🎉", "👏", "😮"]
 
 async def auto_react(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-        # Sirf user ke messages pe reaction (callback query pe nahi)
+        # Sirf USER ke messages pe reaction — callback_query pe NAHI
+        if update.callback_query:
+            return
         if update.message and update.effective_user and not update.effective_user.is_bot:
             await update.message.set_reaction([ReactionTypeEmoji(random.choice(REACTION_EMOJIS))])
     except Exception:
@@ -2267,7 +2269,7 @@ def main():
     app = Application.builder().token(BOT_TOKEN).read_timeout(80000).write_timeout(80000).connect_timeout(80000).pool_timeout(80000).build()
     
     # HAR MESSAGE PAR REACTION (commands, text, photo, video, sticker — sab par)
-    app.add_handler(TypeHandler(Update, auto_react), -1)
+    app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND & ~filters.StatusUpdate.ALL, auto_react), 99)
     
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("activate", activate_cmd))
